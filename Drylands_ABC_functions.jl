@@ -2,9 +2,6 @@ using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXS
     BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames,
     LatinHypercubeSampling, JLD
 
-
-#region : Step 1 = Functions
-
 function Get_classical_param()
 
     r = 0.05

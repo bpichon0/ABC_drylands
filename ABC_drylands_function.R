@@ -4,7 +4,7 @@ library(tidyverse);library(reshape2);library(latex2exp)
 library(animation);library(magick)
 library(deSolve);library(rootSolve)
 library(FME);library(ggpubr);library(spatialwarnings)
-
+library(reshape2)
 
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
@@ -300,6 +300,164 @@ Get_summary_stat=function(landscape){
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Get_params=function(delta,b,c,m,d,r,f,z){
+  
+  return(list(
+    
+    delta  =  delta ,
+    b      =  b     ,
+    c      =  c     ,
+    m      =  m     ,
+    d      =  d     ,
+    r      =  r     ,
+    f      =  f     ,
+    z      =  z
+  ))
+}
+
+Get_classical_param=function(delta= 0.1,b=0.6,c= 0.3,m=.1,d= 0.2,r=0.0001,f=0.9,z=4){
+  return(Get_params(     delta= delta,b=b,c= c,m=m,d= d,r=r,f=f,z=z))
+}
+
+Get_initial_lattice=function(frac=c(.8,.1,.1),size=25){
+  return(matrix(sample(1:3,replace = T,size=size*size,prob = frac),ncol=size,nrow=size))
+}
+
+
+fourneighbors = function(landscape, state = 1, bounds = 1) {
+  
+  neighborhood = matrix(
+    c(0, 1, 0,
+      1, 0, 1,
+      0, 1, 0),
+    nrow = 3)
+  nb_neighbors = simecol::neighbors(
+    x = landscape,
+    state = state,
+    wdist = neighborhood,
+    bounds = bounds)
+  
+}
+
+
+#for (k in 1:length(params))assign(names(params)[k],params[[k]])
+
+CA_Kefi = function(init, params) {
+  
+  # Variables : 1 = vegetation, 2 = fertile, 3 = degraded   
+  landscape = init
+  rho_v = sum(landscape == 1) / length(landscape)
+  
+  # Neighbors :
+  neigh_v = fourneighbors(landscape, state = 1, bounds = 1)
+  
+  
+  with(params, {
+    
+    colonization = (delta * rho_v + (1 - delta) * neigh_v / z) *(b - c * rho_v )*dt
+    
+    # calculate regeneration, degradation & mortality rate
+    death = m *dt
+    regeneration = (r + f * neigh_v / z)*dt
+    degradation = d*dt 
+    
+    # Apply rules
+    rnum = runif(length(landscape)) # one random number between 0 and 1 for each cell
+    landscape_update = landscape
+    
+    ## New vegetation
+    landscape_update[which(landscape == 2 & rnum <= colonization)] = 1
+    
+    ## New fertile
+    landscape_update[which(landscape == 1 & rnum <= death)] = 2
+    landscape_update[which(landscape == 3 & rnum <= regeneration)] = 2
+    
+    ## New degraded 
+    landscape_update[which(landscape == 2 & rnum > colonization & rnum <= colonization + degradation)] = 3
+    
+    
+    #length(which(landscape == 1 & rnum <= death))
+    #length(which(landscape == 2 & rnum > colonization & rnum <= colonization + degradation))
+    #length(which(landscape == 3 & rnum <= regeneration))
+    #length(which(landscape == 2 & rnum <= colonization))
+    
+    
+    return(   list(Rho_v = sum(landscape_update == 1) / length(landscape_update),
+                   Rho_f = sum(landscape_update == 2) / length(landscape_update),
+                   Rho_D = 1-sum(landscape_update == 1) / length(landscape_update)-sum(landscape_update == 2) / length(landscape_update),
+                   Landscape=landscape_update))
+  })
+  
+}
+
+
+Run_CA_kefi=function(time=seq(1,1000,1),params,ini,plot=F){
+  
+  
+  d=tibble(Time=1,Rho_V=sum(ini == 1) / length(ini),Rho_F=sum(ini == 2) / length(ini),Rho_D=sum(ini == 3) / length(ini))
+  state=list(Landscape=ini,Rho_v=d$Rho_V,Rho_f=d$Rho_F,Rho_D=d$Rho_D)
+  
+  for (k in 2:length(time)){
+    
+    params$dt=time[k]-time[k-1]
+    
+    state=CA_Kefi(state$Landscape,params = params)
+    if (plot==T & k%%200==0){
+      png(paste0("../Figures/State_",k,".png"))
+      Plot_landscape(state$Landscape)
+      dev.off()
+    }
+    
+    d=rbind(d,tibble(Time=k,Rho_V=state$Rho_v,Rho_F=state$Rho_f,Rho_D=state$Rho_D))
+  }
+  
+  return(list(d=d,State=state$Landscape))
+  
+}
+
+Plot_dynamics=function(d,different_sim=F,simple=F){
+  
+  if (different_sim==T & simple==F){  
+    d_melt=melt(d,id.vars=c("Time","Type"))
+    p=ggplot(d_melt%>%mutate(.,variable=recode_factor(variable,"Rho_V"="Vegetation","Rho_F"="Fertile","Rho_D"="Degraded")))+
+      geom_line(aes(x=Time,y=value,color=variable,linetype=Type),lwd=1)+scale_color_manual(values=c("#9DD696","#D2C48F","#777777"))+
+      labs(x="Time steps",y="Fraction",color="")+the_theme
+    return(p)
+    
+  } 
+  
+  if (different_sim==F & simple==F){  
+    
+    d_melt=melt(d,id.vars=c("Time"))
+    p=ggplot(d_melt%>%mutate(.,variable=recode_factor(variable,"Rho_V"="Vegetation","Rho_F"="Fertile","Rho_D"="Degraded")))+
+      geom_line(aes(x=Time,y=value,color=variable))+scale_color_manual(values=c("#9DD696","#D2C48F","#777777"))+
+      labs(x="Time steps",y="Fraction",color="")+the_theme
+    return(p)
+    
+  }
+  
+  if (simple == T){
+    plot(d$Time,d$Rho_V,xlab="Time steps","l",ylab="Fraction",ylim=c(0,1),col="#9DD696")
+    lines(d$Time,d$Rho_F,ylim=c(0,1),col="#D2C48F")
+    lines(d$Time,d$Rho_D,ylim=c(0,1),col="#777777")
+  }
+  
+}
 
 
 
