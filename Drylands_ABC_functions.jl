@@ -45,12 +45,17 @@ function Plot_dynamics(d)
     plot!(d[:, 1], d[:, 4], seriescolor=:grey, label="degraded")
     ylims!((0.0, 1))
 
-
 end
+
 
 function Plot_landscape(landscape)
 
     landscape[findall((landscape .== -1))] .= 0
+    colGRAD = cgrad([colorant"#696969", colorant"#ACD87B"])
+    heatmap(landscape, yflip=true, fill=true, c=colGRAD)
+end
+
+function Plot_landscape_Eby(landscape)
     colGRAD = cgrad([colorant"#696969", colorant"#ACD87B"])
     heatmap(landscape, yflip=true, fill=true, c=colGRAD)
 end
@@ -223,4 +228,241 @@ function Get_summary_stat(matrix_landscape)
         mean_spatial_skew, mean_spatial_var, mean_spatial_corr,
         mean_spatial_spectral, mean_PLR, mean_alpha]))
 
+end
+
+
+
+function Get_classical_param_Eby(; p=0.8, q=0.8)
+    return vec([
+    p q])
+end
+
+function Get_initial_lattice_Eby(; frac=[0.9, 0.1], size_mat=50)
+
+    ini_vec = sample([1, 0], Weights(frac), size_mat * size_mat)
+
+    return reshape(ini_vec, size_mat, size_mat) #reshape by columns
+end
+
+
+
+function select_neighbor(row, col, N)
+    #Accounts for torus landscape (periodic boundaries)
+
+    i, j = copy(row), copy(col)
+
+    if i == 1
+        top = N
+    else
+        top = i - 1
+    end
+
+
+    if i == N
+        bottom = 1
+    else
+        bottom = i + 1
+    end
+
+    if j == N
+        right = 1
+    else
+        right = j + 1
+    end
+
+    if j == 1
+        left = N
+    else
+        left = j - 1
+    end
+
+    test = rand()
+
+    col_neigh = j
+    row_neigh = i
+
+    if test <= 0.25
+        row_neigh = top
+    elseif test <= 0.5
+        row_neigh = bottom
+    elseif test <= 0.75
+        col_neigh = left
+    else
+        col_neigh = right
+    end
+
+    return row_neigh, col_neigh
+
+end
+
+
+
+function select_neighbor_pair(row, col, row_n, col_n, N)
+
+    i, j = copy(row), copy(col)
+    i_n, j_n = copy(row_n), copy(col_n)
+
+    #Boundaries condition for focal site (i,j) 
+
+    if i == 1
+        top = N
+    else
+        top = i - 1
+    end
+
+    if i == N
+        bottom = 1
+    else
+        bottom = i + 1
+    end
+
+    if j == N
+        right = 1
+    else
+        right = j + 1
+    end
+
+    if j == 1
+        left = N
+    else
+        left = j - 1
+    end
+
+    #Boundaries condition for its neighbor (i_n,j_n)
+    if i_n == 1
+        topn = N
+    else
+        topn = i_n - 1
+    end
+
+    if i_n == N
+        bottomn = 1
+    else
+        bottomn = i_n + 1
+    end
+
+    if j_n == N
+        rightn = 1
+    else
+        rightn = j_n + 1
+    end
+
+    if j_n == 1
+        leftn = N
+    else
+        leftn = j_n - 1
+    end
+
+
+    #Now we select one neighbor of the pair
+    #First we get the all the possible coordinates of each neighbor
+
+    coordinate_n = zeros(8, 2)
+    coordinate_n[1, :] = [i right]
+    coordinate_n[2, :] = [i left]
+    coordinate_n[3, :] = [top j]
+    coordinate_n[4, :] = [bottom j]
+    coordinate_n[5, :] = [i_n rightn]
+    coordinate_n[6, :] = [i_n leftn]
+    coordinate_n[7, :] = [topn j_n]
+    coordinate_n[8, :] = [bottomn j_n]
+
+    #and filter the ones corresponding to focal site and its selected neighbor
+    coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
+                                            coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
+
+
+    test = rand()
+
+    if (test <= (0.1666))
+        pair_n = coordinate_n[1, :]
+    elseif (test <= (2 * 0.1666))
+        pair_n = coordinate_n[2, :]
+    elseif (test <= (3 * 0.1666))
+        pair_n = coordinate_n[3, :]
+    elseif (test <= (4 * 0.1666))
+        pair_n = coordinate_n[4, :]
+    elseif (test <= (5 * 0.1666))
+        pair_n = coordinate_n[5, :]
+    else
+        pair_n = coordinate_n[6, :]
+    end
+
+    return pair_n
+
+end
+
+
+
+
+
+
+
+function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snapshot=25, burning_phase=400, n_time_bw_snap=50)
+
+    if keep_landscape
+        all_landscape_snap = zeros(size(landscape)[1], size(landscape)[1], n_snapshot)
+        nsave = 1
+    end
+
+    p_param = param[1]
+    q_param = param[2]
+
+    #If we keep all snapshots we determine the minimum time for having n_snapshot after a burning_phase and with n_time_bw_snap time step between each
+
+    if keep_landscape
+        time_t = burning_phase + n_time_bw_snap * n_snapshot
+    end
+    d2 = zeros(time_t, 2) #Allocating
+    d2[1, :] = vec([sum(landscape) / size(landscape)[1]^2, 1 - sum(landscape) / size(landscape)[1]^2])
+
+    @inbounds for t in 1:time_t
+
+        #for each time step, we perform N**2 (N the dimension of the landscape) iterations to ensure that all sites get change on average 1 time per time step  
+        @inbounds for focal_i in eachindex(1:size(landscape)[1]), focal_j in eachindex(1:size(landscape)[1])
+
+            if landscape[focal_i, focal_j] == 1 #if vegetation otherwise do nothing
+
+                neigh = select_neighbor(focal_i, focal_j, size(landscape)[1])
+
+                if landscape[neigh[1], neigh[2]] == 0 #if neighbor is unoccupied
+                    if rand() <= p_param #then there is reproduction in a neighbor
+                        landscape[neigh[1], neigh[2]] = 1
+                    else #else focal individual dies
+                        landscape[focal_i, focal_j] = 0
+                    end
+
+                else #neighbor is occupied
+                    if rand() <= q_param #facilitation from the neighbor
+                        neigh_pair = select_neighbor_pair(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1]) #neighbor of the pair
+                        landscape[Int64(neigh_pair[1]), Int64(neigh_pair[2])] = 1 #that is changed to an occupied cell
+                    else
+                        landscape[focal_i, focal_j] = 0
+                    end
+                end
+            end #end loop for a focal cell
+
+        end #loop on interactions
+
+        d2[t, 1] = sum(landscape) / length(landscape)
+
+
+        if keep_landscape && t > burning_phase && t % ((time_t - burning_phase) / n_snapshot) == 0 #for each time for which there is a snapshot, we save the landscape
+            all_landscape_snap[:, :, nsave] = landscape
+            nsave += 1
+        end
+
+
+
+    end
+
+    d2[:, 2] = 1 .- d2[:, 1]
+
+    if !keep_landscape
+        all_landscape_snap = landscape
+    end
+
+
+
+    return d2, all_landscape_snap
 end

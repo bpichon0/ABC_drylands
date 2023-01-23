@@ -1,10 +1,11 @@
-rm(list=ls())
 library(simecol)
 library(tidyverse);library(reshape2);library(latex2exp)
 library(animation);library(magick)
-library(deSolve);library(rootSolve)
+library(deSolve);library(rootSolve);library(ggdendro)
 library(FME);library(ggpubr);library(spatialwarnings)
-library(reshape2)
+library(reshape2);library(abc);library(igraph);library(cluster)
+library(FactoMineR) ;library(factoextra);library(pls)
+
 
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
@@ -182,122 +183,9 @@ fitlm =  function(data , indices, modelout = FALSE) {
 
 
 
-fitPL = function(psd, p_spanning) {
-  
-  "
-  psd = patch size distribution 
-  p_spanning = lower limitnàfnthe up-bent power law
-  
-  "
-  
-  # code of fitted classes
-  
-  
-  out = list()
-  out$best = NA
-  out$AIC = vector("numeric", length = 3)
-  out$dAIC = vector("numeric", length = 3)
-  
-  # criteria for vegetated state & desert state
-  
-  ##### linear power law model for parameter estimation
-  PLlm = lm(I(log(p)) ~  1 - I(log(size)) , data = psd) 
-  
-  ###########
-  
-  try( {out$TPLdown = nls(I(log(p)) ~ alpha * log(size) + Sx * (1 - size) , 
-                          data = psd,
-                          start = list(alpha =  PLlm$coefficients, Sx = 1/1000),
-                          #algorithm = "port",
-                          trace = FALSE
-  )}, silent = TRUE
-  )    
-  
-  if(!is.null(out$TPLdown) & !coefficients(out$TPLdown)["Sx"] <= 0) {
-    out$AIC[1] = AIC(out$TPLdown) 
-  } else {
-    out$TPLdown = list(NA)
-    out$AIC[1] = NA
-  }
-  
-  #####
-  
-  try({out$PL = nls(I(log(p)) ~ alpha * log(size), 
-                    data = psd,
-                    start = list( alpha =  PLlm$coefficients ),
-                    trace = FALSE,
-                    nls.control(maxiter = 50)
-  )}, silent = TRUE
-  )
-  
-  if(!is.null(out$PL)) {
-    out$AIC[2] = AIC(out$PL)
-  } else {
-    out$PL  = list(NA)
-    out$AIC[2] = NA
-  }
-  
-  ###########
-  
-  
-  try({out$TPLup = nls(I(log(p)) ~  log(b) + log(1+(size^(alpha))/b ) , 
-                       data = psd,
-                       start = list( alpha =  PLlm$coefficients, b = p_spanning ) , 
-                       nls.control(maxiter = 50)
-  )}, silent = TRUE
-  )
-  
-  
-  if(!is.null(out$TPLup)) {
-    out$AIC[3] = AIC(out$TPLup) 
-  } else { 
-    #result$fit$summary$TPLup  = list(NA)
-    out$TPLup  = list(NA)
-    out$AIC[3] = NA
-  }
-  
-  ###########
-  
-  out$dAIC =   out$AIC -min(out$AIC, na.rm = TRUE)
-  
-  out$best = which.min(out$AIC)+1
-  
-  return(out)
-} 
 
 
 
-
-Get_summary_stat=function(landscape){
-  
-  landscape[landscape<0]=0
-  landscape=landscape>0
-  # vegetation cover
-  Cover=sum(landscape==T)/(dim(landscape)[1]*dim(landscape)[2])
-  
-  # number of neighbors
-  mean_nb_neigh = mean(simecol::neighbors(x = landscape, state = 1, wdist = matrix(c(0, 1, 0, 1, 0, 1, 0, 1, 0), nrow = 3), bounds = 1)[which(landscape==1)])
-  
-  mapping(dim(landscape)[1],dim(landscape)[2])
-  # 
-  
-  psd=Get_frequency_number_patches(landscape)$Patches_frequency
-  colnames(psd)=c("n","p","size","Sp")
-  
-  p_spawning=tail(psd$p,1)
-  
-  a=fitPL(psd = psd,p_spanning = p_spawning)
-  class = c("DEG", "DOWN","PL", "UP", "COV")[a$best]
-  if (class %in% c("DEG","COV")){alpha=NA}
-  if (class %in% c("UP")){alpha=coefficients(a$TPLup)["alpha"]}
-  if (class %in% c("DOWN")){alpha=coefficients(a$TPLdown)["alpha"]}
-  if (class %in% c("PL")){alpha=coefficients(a$PL)["alpha"]}
-  
-  # generic_sews(landscape)
-
-  return(tibble(Cover=Cover,Neigh=mean_nb_neigh,Slope_psd=alpha))
-  
-}
 
 
 
@@ -458,9 +346,41 @@ Plot_dynamics=function(d,different_sim=F,simple=F){
   }
   
 }
+# 
+# 
+# param = Get_classical_param(b = 1,m = .2)
+# 
+# ini_land=Get_initial_lattice(size=50)
+# 
+# Plot_dynamics(Run_CA_kefi(params = param,ini = ini_land))+ylim(0,1)
+# 
+# 
+# 
+# 
+# 
+# 
 
 
 
 
 
+Get_param_Eby=function(p=0,q=0){
+  return(list(p=p,q=q))
+}
 
+Eby_model = function(init, params) {
+  
+  # Variables : 1 = vegetation, 0 non occupied 
+  landscape = init
+  rho_v = sum(landscape == 1) / length(landscape)
+  
+  # Neighbors :
+  neigh_v = fourneighbors(landscape, state = 1, bounds = 1)
+  
+  p_param=param[1]
+  q_param=param[2]
+  
+  focal_cell=sample(1:length(init),size = 1)
+  
+  
+}

@@ -133,3 +133,213 @@ pmap(Run_sim_model_EWS, 1:500)
 
 
 #endregion
+
+
+
+#region, Step 3: Influence of the number of picture to average   
+
+
+using Distributed
+
+
+
+addprocs(2, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+    using LatinHypercubeSampling, JLD
+end
+
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+@everywhere function Run_sim_model_EWS(N_sim, number_picture)
+
+    pseudo_param = CSV.read("../Data/Pseudo_parameters.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+
+    param = Get_classical_param()
+    fraction_cover = [0.8, 0.1, 0.1]
+    size_landscape = 50
+    ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+    n_metric = 9
+
+    summary_stat_table = zeros(200, size(pseudo_param)[2] + n_metric)
+    summary_stat_table[:, 1:7] .= pseudo_param
+
+    for i in 1:size(pseudo_param)[1]
+        param[1:7] .= Vector{Float64}(pseudo_param[i, :])
+        d, land = IBM_drylands(time=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=number_picture)
+        summary_stat_table[i, 8:size(summary_stat_table)[2]] = Get_summary_stat(land)
+
+    end
+
+    CSV.write("../Data/Step2_cross_validation/" * repr(number_picture) * "_pic" * "/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+end
+
+
+pmap(Run_sim_model_EWS, 1:250, [3, 5, 15, 25, 35])
+
+
+
+
+#endregion
+
+
+
+#region, Step 4: Influence of the number of parameters to infer   
+
+
+using Distributed
+
+
+
+addprocs(2, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+    using LatinHypercubeSampling, JLD
+end
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+@everywhere function Run_sim_model_EWS(N_sim)
+
+    pseudo_param = CSV.read("../Data/Pseudo_param_all_combinations.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+
+    param = Get_classical_param()
+    fraction_cover = [0.8, 0.1, 0.1]
+    size_landscape = 50
+    ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+    n_metric = 9
+
+    summary_stat_table = zeros(200, size(pseudo_param)[2] + n_metric)
+    summary_stat_table[:, 1:7] .= pseudo_param
+
+    for i in 1:size(pseudo_param)[1]
+        param[1:7] .= Vector{Float64}(pseudo_param[i, :])
+        d, land = IBM_drylands(time=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
+        summary_stat_table[i, 8:size(summary_stat_table)[2]] = Get_summary_stat(land)
+
+    end
+
+    CSV.write("../Data/Step2_cross_validation/Combination_parameters/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+end
+
+
+pmap(Run_sim_model_EWS, 1:2800)
+
+
+
+
+#endregion
+
+
+
+#region, Step XXXX: Correlation EWS along gradient mortality recruitment   
+
+N_sim = 30
+b_seq = collect(range(0.1, 1, length=N_sim))
+m_seq = collect(range(0.005, 0.4, length=N_sim))
+
+
+param = Get_classical_param()
+fraction_cover = [0.8, 0.1, 0.1]
+size_landscape = 50
+ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+n_metric = 9
+
+summary_stat_table = zeros(N_sim^2, 7 + n_metric)
+
+index = 1
+for b_param in b_seq
+    for m_param in m_seq
+
+        param[5] = b_param
+        param[4] = m_param
+        summary_stat_table[index, 1:7] .= param[1:7]
+        d, land = IBM_drylands(time=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
+        summary_stat_table[index, 8:size(summary_stat_table)[2]] = Get_summary_stat(land)
+        index += 1
+    end
+end
+
+CSV.write("../Data/Correlation_EWS_data.csv", Tables.table(summary_stat_table), writeheader=false)
+
+
+
+
+
+
+
+
+
+
+#endregion
+
+
+
+#region, Eby model simulation over the 2D space
+
+
+addprocs(2, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+    using LatinHypercubeSampling, JLD
+end
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+@everywhere function Run_sim_model_EWS(N_sim)
+
+    pseudo_param = CSV.read("./Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+
+    param = Get_classical_param()
+    fraction_cover = [0.8, 0.1, 0.1]
+    size_landscape = 50
+    ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+    n_metric = 9
+
+    summary_stat_table = zeros(200, size(pseudo_param)[2] + n_metric)
+    summary_stat_table[:, 1:2] .= pseudo_param
+
+    @inbounds for i in 1:size(pseudo_param)[1]
+        param[1:2] .= Vector{Float64}(pseudo_param[i, :])
+        d, land = IBM_Eby_model(time_t=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
+        summary_stat_table[i, 3:size(summary_stat_table)[2]] = Get_summary_stat(land)
+
+    end
+
+    CSV.write("./Data/Eby_model/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+end
+
+
+pmap(Run_sim_model_EWS, 1:(100000/200))
+
+
+
+
+
+
+
+#endregion
+
+
+pseudo_param = CSV.read("./Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+
+param = Get_classical_param_Eby(p=0.8, q=0.3)
+ini_land = Get_initial_lattice_Eby(frac=[0.9, 0.1], size_mat=100)
+@time d, land = IBM_Eby_model(time_t=1000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
+plot(d[:, 1])
+ylims!((0, 1))
+
+Get_summary_stat(land)
+
+@time @inbounds for p_ in collect(range(0, 1, 3)), q_ in collect(range(0, 1, 3))
+    param = Get_classical_param_Eby(p=p_, q=q_)
+    d, land = IBM_Eby_model(time_t=1000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
+    Get_summary_stat(land)
+end
