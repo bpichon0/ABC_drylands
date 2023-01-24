@@ -16,6 +16,22 @@ the_theme=theme_classic()+theme(legend.position = "bottom",
 
 
 
+logit=function(x){return(log(x/(1-x)))}
+
+invlogit=function(x){return(exp(x)/(1+exp(x)))}
+
+get_upper_tri=function(mat){
+  mat[lower.tri(mat)]= NA
+  diag(mat)=NA
+  return(mat)
+}
+
+
+distance=function(sim_data, obs_data) { 
+  sum(apply(sim_data - obs_data, 2, function(x) {x^2})) 
+}
+
+
 normalize=function(x){
   ((x-min(x))/(max(x)-min(x)) - 0.5 ) *2
 }
