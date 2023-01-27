@@ -3,13 +3,13 @@ source("./ABC_drylands_function.R")
 
 #***********************************************************
 
-# Step 1 : Generating parameters for sensitivity analysis ----
+# ---------------------- Step 1 : Generating parameters for sensitivity analysis ----------
 
 #***********************************************************
 
 dir.create("../Data/Step1_sensitivity",showWarnings = F)
 
-## One dimensional analysis ----
+## >> 1) One dimensional analysis ----
 
 
 range_params=data.frame(min = c(0, 0.02, 0, 0.005,0,0,0),
@@ -142,7 +142,7 @@ ggsave("../Figures/Sensitivity/Trends_1D_param.pdf",ggarrange(ggarrange(p1,p2,nc
 
 
 
-## Two dimensional analysis for parameters pairs ----
+## >> 2) Two dimensional analysis for parameters pairs ----
 
 range_params=data.frame(min = c(0, 0.02, 0, 0.005,0,0,0),
                         max = c(1, 1, 1, 1,1,1,1))
@@ -328,11 +328,11 @@ ggsave("../Figures/Sensitivity/Example_interaction_f_c.pdf",p,width = 10,height 
 
 #***********************************************************
 
-# Step 2 : Cross verification -----
+# ---------------------- Step 2 : Cross verification ---------------------------
 
 #***********************************************************
 
-## 1) Generating pseudo-parameters using latin hypercube sampling ----
+## >> 1) Generating pseudo-parameters using latin hypercube sampling ----
 
 set.seed(123)
 #defining the priors
@@ -350,7 +350,7 @@ pseudo_param=pseudo_param[,c(7,1:6)]
 write.table(pseudo_param,'../Data/Pseudo_parameters.csv',sep=";",row.names = F)
 
 
-## 2) Analysis ----
+## >> 2) Analysis ----
 
 #Merging the julia outputs
 
@@ -618,7 +618,7 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
 
 
 
-## 3) PCA and variables ----
+## >> 3) PCA and variables ----
 
 
 d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
@@ -661,7 +661,7 @@ ggsave("../Figures/Space_param_EWS/ACP_delta.pdf",
 
 #***********************************************************
 
-# Step 3: Influence of the number of photos to average ----
+# ---------------------- Step 3: Influence of the number of photos to average ----
 
 #***********************************************************
 
@@ -850,12 +850,12 @@ ggsave("../Figures/Number_pictures/Influence_#_pictures.pdf",p,width = 6,height 
 
 #***********************************************************
 
-# Step 4: Fixing some parameters, varying others ----
+# ---------------------- Step 4: Fixing some parameters, varying others ----
 
 #***********************************************************
 
 
-## Pseudo-parameters ----
+## >> 1) Pseudo-parameters ----
 # 14 combinations: we fix b or d, or r or c and their combination.
 
 set.seed(123)
@@ -895,7 +895,7 @@ for (i in 1:nrow(experience_parameters)){
 write.table(d_prior_all,paste0("../Data/Pseudo_param_all_combinations.csv"),sep=";",row.names = F)
 
 
-## Analysis ----
+## >> 2) Analysis ----
 
 
 for (virtual_exp in 1:14){ #for each combination of parameters that were knocked-out, we do the analysis
@@ -1054,7 +1054,7 @@ for (virtual_exp in 1:14){ #for each combination of parameters that were knocked
 
 #***********************************************************
 
-# Step 5: Testing two step procedure proposed by Siren et al., 2019 ----
+# ---------------------- Step 5: Testing two step procedure proposed by Siren et al., 2019 ----
 
 #***********************************************************
 
@@ -1259,7 +1259,7 @@ for (two_step in c(T,F)){
 
 #***********************************************************
 
-# Step 6: Adding post-processing with linear regression ----
+# ---------------------- Step 6: Adding post-processing with linear regression ----
 
 #***********************************************************
 
@@ -1452,7 +1452,7 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
 
 #***********************************************************
 
-# Step 7: Sensitivity analysis on the landscape size (50, 75, 100, 125) ----
+# ---------------------- Step 7: Sensitivity analysis on the landscape size (50, 75, 100, 125) ----
 
 #***********************************************************
 #XXX do figures & sims
@@ -1461,11 +1461,11 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
 
 #***********************************************************
 
-# Step 8: Testing with the Eby model  ----
+# ---------------------- Step 8: Testing with the Eby model  ----
 
 #***********************************************************
 
-## 1) Pseudo-parameters ----
+## >> 1) Pseudo-parameters ----
 
 
 set.seed(123)
@@ -1485,7 +1485,7 @@ write.table(pseudo_param,'../Data/Pseudo_parameters_Eby.csv',sep=";",row.names =
 
 
 
-## 2) Analysis ----
+## >> 2) Analysis ----
 
 list_simu=list.files('../Data/Step5_Eby_model',pattern = ".csv")
 
@@ -1838,7 +1838,7 @@ p=ggplot(d)+
 ggsave('../Figures/Eby_model/Quality_inference_NRMSE_virtual_data.pdf',p,width = 8,height = 5)
 
 
-## 3) PCA and variables ----
+## >> 3) PCA and variables ----
 
 # PCA parameter and summary statistics in Eby model
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
@@ -1928,11 +1928,11 @@ ggsave("../Figures/Eby_model/ACP_and_model_description/Coverage_Eby_Kefi_models.
 
 #***********************************************************
 
-# Step 9: Improving inference ----
+# ---------------------- Step 9: Improving inference ----
 
 #***********************************************************
 
-## 1) Number of simulations kept in phase 1, optimization for boxcox parameter and post-processing methods ----
+## >> 1) Number of simulations kept in phase 1, optimization for box-cox parameter and post-processing methods ----
 #we play on both the lambda of the boxcox method and the size of the sample for
 #stage 1 of the two step preprocessing procedure
 
@@ -1976,12 +1976,16 @@ for (optim_lambda in c(T,F)){
                 
                 b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
                 lambda_x=b$x[which.max(b$y)]
-                matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+                if (lambda_x !=0){ #to avoid errors
+                  matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+                }
                 
               }else {
                 b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
                 lambda_x=b$x[which.max(b$y)]
-                matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+                if (lambda_x !=0){ #to avoid errors
+                  matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+                }
               }
 
             } else {
@@ -2019,10 +2023,36 @@ for (optim_lambda in c(T,F)){
             mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
             
             #again, first box cox
-            for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
-              mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
-            }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
             
+            
+            if (optim_lambda==T){
+              for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
+                
+                b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+                lambda_x=b$x[which.max(b$y)]
+                
+                if (lambda_x !=0){ #to avoid errors
+                  mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+                }
+                
+                
+              }else {
+                b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+                lambda_x=b$x[which.max(b$y)]
+                if (lambda_x !=0){ #to avoid errors
+                  mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+                }
+                
+              }
+              
+            } else {
+              for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
+                mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
+              }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
+            }
+            
+            
+
             #and normalization
             for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
             
@@ -2204,9 +2234,9 @@ p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
   facet_grid(N1+Parameter~optim_lambda,labeller = label_both)+
   the_theme+
   ylim(0,.5)+
-  theme(strip.text.x = element_text(size=12),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
+  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 2)))+
-  scale_color_viridis_d()
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
 
 ggsave(paste0("../Figures/Optimizing_inferrence/Pre_post/Optimization_inference_all.pdf"),p,width = 7,height = 9)
 
@@ -2224,14 +2254,14 @@ p=d%>%
   the_theme+
   guides(color = guide_legend(override.aes = list(size = 2)),fill="none")+
   theme(legend.box = "vertical")+
-  scale_color_viridis_d()
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
 
 
-ggsave("../Figures/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 9,height = 4)
+ggsave("../Figures/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 7,height = 4)
 
 
 
-## 2) Structure of the neural-network: number neurons and of neural networks ----
+## >> 2) Structure of the neural-network: number neurons and of neural networks ----
 
 
 
@@ -2245,7 +2275,7 @@ matrix_sumstat=d_all[,3:(ncol(d_all))]
 N_for_cross_validation = 100
 nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
 
-for (size_hidden in seq(5,25,by=5)){
+for (size_hidden in seq(5,25,by=5)[3:5]){
   
   for (rep_network in c(10,20,30)){
 
@@ -2268,12 +2298,16 @@ for (size_hidden in seq(5,25,by=5)){
         
         b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
         lambda_x=b$x[which.max(b$y)]
-        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+        }
         
       }else {
         b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
         lambda_x=b$x[which.max(b$y)]
-        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+        }
       }
       
       
@@ -2306,9 +2340,25 @@ for (size_hidden in seq(5,25,by=5)){
       mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
       
       #again, first box cox
+      
       for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
-        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
-      }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
+        
+        b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+        lambda_x=b$x[which.max(b$y)]
+        
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+        }
+        
+        
+      }else {
+        b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+        }
+        
+      }
       
       #and normalization
       for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
@@ -2347,6 +2397,11 @@ for (size_hidden in seq(5,25,by=5)){
       
       #We plot the differences in posterior distribution/true parameter
 
+      if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+        cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                               | is.nan(cross_valid$adj.values[,2])),]
+        
+      }      
       par(mfrow=c(1,2))
       for (i in colnames(matrix_param)){
         plot(density(cross_valid$adj.values[,i]),main=i,xlab="Value")
@@ -2445,7 +2500,7 @@ for (size_hidden in seq(5,25,by=5)){
 }
 
 
-all_sim=expand.grid(N_hidden=seq(5,25,by=5),rep_network=seq(10,30,by=10))
+all_sim=expand.grid(rep_network=seq(10,30,by=10),N_hidden=seq(5,25,by=5))
 
 d=tibble()
 
@@ -2460,41 +2515,290 @@ mean_rmse=d%>%
   melt(., id.vars=c("N_hidden","N_rep_net"))%>%
   group_by(.,variable,N_rep_net,N_hidden)%>%
   summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  rename(., "Parameter"="variable")
+  rename(., "Parameter"="variable")%>%
+  mutate(., N_hidden=as.character(N_hidden))
+
 
 p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
-           rename(., "Parameter"="variable"))+
-  geom_jitter(aes(x=N_hidden,y=value,color=N_hidden),
+           rename(., "Parameter"="variable")%>%
+           mutate(., N_hidden=as.character(N_hidden)))+
+  geom_jitter(aes(x=factor(N_hidden,level=c("5","10",'15',"20",'25')),y=value,color=as.factor(N_hidden)),
               position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
   geom_point(data=mean_rmse,aes(x=N_hidden,y=mean_rmse),
              color="white",fill="black",shape=24,size=2.5)+
   labs(x="Number hidden neurons",y="NRMSE",color="")+
-  facet_grid(Parameter~N_hidden,labeller = label_both)+
+  facet_grid(Parameter~N_rep_net,labeller = label_both)+
   the_theme+
   ylim(0,.5)+
-  theme(strip.text.x = element_text(size=12),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 2)))+
-  scale_color_viridis_d()
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"),breaks=c('5', '10', '15',"20","25"))
 
-ggsave(paste0("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_all.pdf"),p,width = 7,height = 9)
+
+ggsave(paste0("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_all.pdf"),p,width = 7,height = 4)
 
 
 p=d%>%
   melt(., id.vars=c("N_hidden","N_rep_net"))%>%
   group_by(.,variable,N_hidden,N_rep_net)%>%
   summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+  mutate(., N_rep_net=as.character(N_rep_net))%>%
   ggplot(.)+
   geom_line(aes(x=N_hidden,y=mean_rmse,color=N_rep_net,group=N_rep_net),lwd=.8)+
   geom_point(aes(x=N_hidden,y=mean_rmse,fill=N_rep_net),color="black",shape=21,size=1)+
-  facet_wrap(.~variable,labeller = label_bquote(cols="Parameter = "==.(as.character(variable))))+
-  labs(x="Number hidden neurons",color="",y="Mean NRMSE")+
+  facet_wrap(.~variable,labeller = label_bquote(cols="Parameter = "==.(as.character(variable))),scales = "free")+
+  labs(x="Number hidden neurons",color="# neural networks  ",y="Mean NRMSE")+
   scale_x_continuous(breaks = seq(5,25,by=5))+
   the_theme+
   guides(color = guide_legend(override.aes = list(size = 2)),fill="none")+
-  scale_color_viridis_d()
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5"))+
+  scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5"))
 
 
-ggsave("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_mean.pdf",p,width = 9,height = 4)
+ggsave("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_mean.pdf",p,width = 6,height = 3)
+
+
+## >> 3) Number of principal components ----
+
+
+
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
+matrix_param=d_all[,1:2]
+matrix_sumstat=d_all[,3:(ncol(d_all))]
+
+N_for_cross_validation = 100
+nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
+
+for (n1_PLS in 1:9){
+  
+  for (n2_PLS in 1:9){
+    
+    mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
+    
+    pdf(paste0("../Figures/Optimizing_inferrence/Pls_comp/Cross_validation_n1_PLS_",n1_PLS,
+               "_n2_PLS_",n2_PLS,".pdf"),width = 8,height = 4)
+    
+    d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+    
+    for (n in 1:N_for_cross_validation){
+      
+      matrix_param=d_all[,1:2]
+      matrix_sumstat=d_all[,3:(ncol(d_all))]
+      save_sumstat=matrix_sumstat
+      
+      n_cross=nrow_for_sample[n]
+      
+      for (x in 1:ncol(matrix_sumstat)) if (x %in% c(4,6)){
+        
+        b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+        }
+        
+      }else {
+        b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+        }
+      }
+      
+      
+      #Second we scale
+      for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+      
+      #and finally, we perform the first PLS
+      
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+      
+      
+      n_comp_pls=n1_PLS
+      
+      
+      if (n_comp_pls > 1){
+        mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+      } else if (n_comp_pls==1){ #otherwise we take the whole components
+        mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+      
+      
+      cross_valid=abc(target = mat_sumstat_pls[n_cross,],
+                      param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+      
+      #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+      
+      mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
+      mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
+      
+      #again, first box cox
+      
+      for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
+        
+        b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+        lambda_x=b$x[which.max(b$y)]
+        
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+        }
+        
+        
+      }else {
+        b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+        }
+        
+      }
+      
+      #and normalization
+      for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+      
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+      
+      
+      n_comp_pls=n2_PLS
+      
+      
+      if (n_comp_pls > 1){
+        mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+      } else if (n_comp_pls==1){ #otherwise we take the whole components
+        mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+      
+      cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
+                      tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                      numnet = 10,sizenet = 10) 
+      
+      cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
+      
+      matrix_sumstat=save_sumstat
+      
+      if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+      
+      cross_valid$adj.values=cross_valid$adj.values
+      #Matrix of correlation between parameters & sumstats
+      mat_cor_param[,,n]=cor(cross_valid$adj.values)
+      
+      
+      #We plot the differences in posterior distribution/true parameter
+      
+      if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+        cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                               | is.nan(cross_valid$adj.values[,2])),]
+      }      
+     
+      #we save the mean posterior distribution for each and the true observed parameters
+      d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
+      d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
+      
+      #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
+      
+      
+      #We compute the mean squared error (RMSE) 
+      RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
+        sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
+      }
+      )
+      
+      #normalize it by the RMSE under the prior distribution
+      RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
+        sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
+      }
+      )
+      NRMSE = RMSE/RMSE_prior
+      
+      d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
+      
+      
+      #We repeat the same for the summary statistics observed
+      RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+        sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
+      }
+      )
+      
+      RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+        sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
+      }
+      )
+      NRMSE = RMSE/RMSE_prior
+      
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+      
+    } #end loop Nvirtual data
+    
+    colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
+    
+    write.table(d_NRMSE_param,paste0("../Data/Step6_Optimizing_inferrence/Pls_comp/RMSE_n1_PLS_",n1_PLS,
+                                     "_n2_PLS_",n2_PLS,".csv"),sep=";")
+    
+
+    
+  }
+}
+
+
+#loading the case where we optimize the number of pls comp
+d_optim=read.table("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_10_Nnet_10.csv",sep=";")
+
+all_sim=expand.grid(n1_PLS=1:9,n2_PLS=1:9)
+
+d=tibble()
+for (i in 1:nrow(all_sim)){
+  d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Pls_comp/RMSE_n1_PLS_",
+                              all_sim$n1_PLS[i],"_n2_PLS_",all_sim$n2_PLS[i],".csv"),sep=";")%>%
+            mutate(., p=(p-d_optim$p),q=(q-d_optim$q))%>%
+            add_column(., n1_PLS=all_sim$n1_PLS[i],n2_PLS=all_sim$n2_PLS[i]))
+}
+
+
+
+mean_rmse=d%>%
+  melt(., id.vars=c("n1_PLS","n2_PLS"))%>%
+  group_by(.,variable,n1_PLS,n2_PLS)%>%
+  summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+  rename(., "Parameter"="variable")
+  
+
+p=ggplot(mean_rmse)+
+  geom_tile(aes(x=n1_PLS,y=n2_PLS,fill=mean_rmse))+
+  labs(x="n1 comp PLS",y="n2 comp PLS",color="",fill="Difference with optimized case  ")+
+  facet_grid(.~Parameter,labeller = label_both)+
+  the_theme+
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 2)))+
+  scale_fill_gradientn(colours = colorRampPalette(c("blue","red"))(100))
+
+
+ggsave(paste0("../Figures/Optimizing_inferrence/Pls_comp/PLS_comp_all.pdf"),p,width = 7,height = 4)
+
+
+
+
+
+
+# ---------------------- Step 10: Empirical data ----
+
+## >> 1) Coverage property of the model compared to the data ----
+
+## Distance to tipping point with mean posterior and lower upper boudaries of the 95% interval ?
+# to parralelize. 
+
+
+
 
 
 
