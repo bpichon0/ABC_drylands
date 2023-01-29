@@ -295,7 +295,7 @@ end
 
 @everywhere function Run_sim_model_EWS(N_sim)
 
-    pseudo_param = CSV.read("./Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+    pseudo_param = CSV.read("../Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
 
     param = Get_classical_param()
     fraction_cover = [0.8, 0.1, 0.1]
@@ -313,7 +313,7 @@ end
 
     end
 
-    CSV.write("./Data/Eby_model/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+    CSV.write("../Data/Eby_model/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
 end
 
 
@@ -327,19 +327,42 @@ pmap(Run_sim_model_EWS, 1:(100000/200))
 
 #endregion
 
+# example of Eby model landscapes
+fraction_cover = [0.8, 0.2]
+size_landscape = 100
+ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
 
-pseudo_param = CSV.read("./Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
+name_plot = "../Figures/Eby_model_landscapes.pdf"
+@rput name_plot
 
-param = Get_classical_param_Eby(p=0.8, q=0.3)
-ini_land = Get_initial_lattice_Eby(frac=[0.9, 0.1], size_mat=100)
-@time d, land = IBM_Eby_model(time_t=1000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
-plot(d[:, 1])
-ylims!((0, 1))
+R"pdf(paste0(name_plot),width=6,height=6)"
 
-Get_summary_stat(land)
-
-@time @inbounds for p_ in collect(range(0, 1, 3)), q_ in collect(range(0, 1, 3))
-    param = Get_classical_param_Eby(p=p_, q=q_)
-    d, land = IBM_Eby_model(time_t=1000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
-    Get_summary_stat(land)
+for i in 1:50
+    param = rand(2)
+    d, land = IBM_Eby_model(time_t=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=false, n_snapshot=25)
+    @rput land
+    R"image(as.matrix(land)>0)"
 end
+R"dev.off()"
+
+
+
+#region Analysis of the empirical sites: getting the summarystats
+
+list_land = readdir("../Data/Data_Biocom/landscapes/")
+
+summary_stat = zeros(length(list_land), 9)
+
+
+index = 1
+for file_land in list_land
+    print(index)
+    summary_stat[index, :] = Get_summary_stat(Matrix{Int64}(CSV.read("../Data/Data_Biocom/landscapes/" * file_land, DataFrame, header=0)))
+    index += 1
+end
+
+CSV.write("../Data/Data_Biocom/Summary_stats_data.csv", Tables.table(summary_stat), writeheader=false)
+
+
+
+#endregion

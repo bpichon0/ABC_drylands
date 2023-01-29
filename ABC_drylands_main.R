@@ -410,7 +410,7 @@ p=ggplot(get_upper_tri(mat_cor_sumstat)%>%
   theme(legend.position = "bottom",axis.text.x = element_text(angle = 60,vjust=.7))+
   scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
 
-ggsave(paste0("../Figures/Cross_validation/Correlation_sumstats.pdf"),width = 5,height = 5)
+ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/Correlation_sumstats.pdf"),width = 5,height = 5)
 
 
 #Dimentionality of EWS
@@ -443,7 +443,7 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
   
   mat_cor_param=array(0,c(6,6,N_for_cross_validation)) #correlation matrix for parameters
   
-  pdf(paste0("../Figures/Cross_validation/Cross_validation_n",N_for_cross_validation,"_",method_abc,".pdf"),width = 8,height = 4)
+  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/Cross_validation_n",N_for_cross_validation,"_",method_abc,".pdf"),width = 8,height = 4)
   d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
   
   for (n in 1:N_for_cross_validation){
@@ -549,13 +549,13 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
     theme(legend.position = "bottom")+
     scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
   
-  ggsave(paste0("../Figures/Cross_validation/Correlation_parameters_",method_abc,".pdf"),width = 6,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/Correlation_parameters_",method_abc,".pdf"),width = 6,height = 5)
   
   
   #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
   ##d-melting the tibble
   
-  pdf(paste0("../Figures/Cross_validation/x_y_obs_true_param_",method_abc,".pdf"),width = 8,height = 5)
+  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/x_y_obs_true_param_",method_abc,".pdf"),width = 8,height = 5)
   par(mfrow=c(2,3))
   for (i in colnames(matrix_param)){
     d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
@@ -570,7 +570,7 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
   
   
   
-  pdf(paste0("../Figures/Cross_validation/x_y_obs_true_summarystat_",method_abc,".pdf"),width = 10,height = 7)
+  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/x_y_obs_true_summarystat_",method_abc,".pdf"),width = 10,height = 7)
   
   par(mfrow=c(3,3))
   for (i in colnames(matrix_sumstat)){
@@ -597,7 +597,7 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
     theme_classic()+
     theme(legend.position = "none")
   
-  ggsave(paste0("../Figures/Cross_validation/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
   
   
   p=ggplot(d_NRMSE_sumstat%>%
@@ -612,7 +612,7 @@ for (method_abc in c("rejection","neuralnet","loclinear")){
     theme_classic()+
     theme(legend.position = "none")
   
-  ggsave(paste0("../Figures/Cross_validation/NRMSE_summarystat_",method_abc,".pdf"),p,width = 8,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/NRMSE_summarystat_",method_abc,".pdf"),p,width = 8,height = 5)
   
 }# loop over the two method for ABC
 
@@ -640,8 +640,8 @@ for (param in 1:7){
                                                         c("#960261","#C5218B","#E266B6",
                                                           "#9F94EF","#2F48DA","#2F48DA"))(100),
              )+
-             labs(x=paste0("PC 1 (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                  y=paste0("PC 2 (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=colnames(d_all)[param])+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=colnames(d_all)[param])+
              ggtitle(paste0(colnames(d_all)[param]))+
              theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
            
@@ -759,7 +759,7 @@ for (nb_pic in nb_picture){
     #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
     ##d-melting the tibble
     
-    pdf(paste0("../Figures/Number_pictures/x_y_obs_true_param_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 8,height = 5)
+    pdf(paste0("../Figures/Kefi_inferrence/Number_pictures/x_y_obs_true_param_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 8,height = 5)
     par(mfrow=c(2,3))
     for (i in colnames(matrix_param)){
       d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
@@ -774,7 +774,7 @@ for (nb_pic in nb_picture){
     
     
     
-    pdf(paste0("../Figures/Number_pictures/x_y_obs_true_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 10,height = 7)
+    pdf(paste0("../Figures/Kefi_inferrence/Number_pictures/x_y_obs_true_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 10,height = 7)
     
     par(mfrow=c(3,3))
     for (i in colnames(matrix_sumstat)){
@@ -801,7 +801,7 @@ for (nb_pic in nb_picture){
       theme_classic()+
       theme(legend.position = "none")
     
-    ggsave(paste0("../Figures/Number_pictures/NRMSE_param_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
+    ggsave(paste0("../Figures/Kefi_inferrence/Number_pictures/NRMSE_param_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
     
     
     #keeping the distance of NRMSE to 1 for each 
@@ -820,7 +820,7 @@ for (nb_pic in nb_picture){
       theme_classic()+
       theme(legend.position = "none")
     
-    ggsave(paste0("../Figures/Number_pictures/NRMSE_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
+    ggsave(paste0("../Figures/Kefi_inferrence/Number_pictures/NRMSE_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
     
   }# loop over the two method for ABC
   
@@ -839,7 +839,7 @@ p=ggplot(d_distance%>%melt(., id.vars=c("nb_picture")))+
   labs(x="# of pictures",y="Mean NRMSE (150 virtual data \n and keeping the best 100 datasets)",color="")+
   scale_x_continuous(breaks = d_distance$nb_picture)
   
-ggsave("../Figures/Number_pictures/Influence_#_pictures.pdf",p,width = 6,height = 4)
+ggsave("../Figures/Kefi_inferrence/Number_pictures/Influence_#_pictures.pdf",p,width = 6,height = 4)
 
 
 
@@ -1002,11 +1002,11 @@ for (virtual_exp in 1:14){ #for each combination of parameters that were knocked
       theme(legend.position = "none")+
       ggtitle(paste0(c("r","d", "f", "m","b","c","delta")[knocked_param],collapse = ", "))
     
-    ggsave(paste0("../Figures/Combination_param/NRMSE_param_",virtual_exp,"_",method_abc,".pdf"),p,width = 8,height = 5)
+    ggsave(paste0("../Figures/Kefi_inferrence/Combination_param/NRMSE_param_",virtual_exp,"_",method_abc,".pdf"),p,width = 8,height = 5)
     
     
     
-    pdf(paste0("../Figures/Combination_param/x_y_obs_true_param_",virtual_exp,"_",method_abc,".pdf"),width = 8,height = 5)
+    pdf(paste0("../Figures/Kefi_inferrence/Combination_param/x_y_obs_true_param_",virtual_exp,"_",method_abc,".pdf"),width = 8,height = 5)
     par(mfrow=c(2,4))
     for (i in colnames(matrix_param)){
       d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
@@ -1034,7 +1034,7 @@ for (virtual_exp in 1:14){ #for each combination of parameters that were knocked
       theme(legend.position = "bottom")+
       scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
     
-    ggsave(paste0("../Figures/Combination_param/Correlation_parameters_",virtual_exp,"_",method_abc,".pdf"),width = 6,height = 5)
+    ggsave(paste0("../Figures/Kefi_inferrence/Combination_param/Correlation_parameters_",virtual_exp,"_",method_abc,".pdf"),width = 6,height = 5)
     
     
   }
@@ -1228,7 +1228,7 @@ for (two_step in c(T,F)){
     theme(legend.position = "bottom")+
     scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
   
-  ggsave(paste0("../Figures/Siren_two_steps/Correlation_parameters_",ifelse(two_step,"twostep","classic"),".pdf"),width = 6,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Siren_two_steps/Correlation_parameters_",ifelse(two_step,"twostep","classic"),".pdf"),width = 6,height = 5)
   
   
   #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
@@ -1248,7 +1248,7 @@ for (two_step in c(T,F)){
     theme_classic()+
     theme(legend.position = "none")
   
-  ggsave(paste0("../Figures/Siren_two_steps/NRMSE_param_",ifelse(two_step,"twostep","classic"),".pdf"),p,width = 8,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Siren_two_steps/NRMSE_param_",ifelse(two_step,"twostep","classic"),".pdf"),p,width = 8,height = 5)
   
   
 }# loop over the two method for ABC
@@ -1420,7 +1420,7 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     theme(legend.position = "bottom")+
     scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
   
-  ggsave(paste0("../Figures/Adding_postprocessing/Correlation_parameters_",method_abc,"post_processing.pdf"),width = 6,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Adding_postprocessing/Correlation_parameters_",method_abc,"post_processing.pdf"),width = 6,height = 5)
   
   
   #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
@@ -1440,7 +1440,7 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     theme_classic()+
     theme(legend.position = "none")
   
-  ggsave(paste0("../Figures/Adding_postprocessing/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
+  ggsave(paste0("../Figures/Kefi_inferrence/Adding_postprocessing/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
   
 }
 
@@ -1523,7 +1523,7 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     
     mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
     
-    pdf(paste0("../Figures/Eby_model/Cross_validation_n",N_for_cross_validation,"_",
+    pdf(paste0("../Figures/Eby_model/First_ABC/Cross_validation_n",N_for_cross_validation,"_",
                ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 8,height = 4)
     
     d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
@@ -1722,13 +1722,13 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
       theme(legend.position = "bottom")+
       scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
     
-    ggsave(paste0("../Figures/Eby_model/Correlation_parameters_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 6,height = 5)
+    ggsave(paste0("../Figures/Eby_model/First_ABC/Correlation_parameters_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 6,height = 5)
     
     
     #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
     ##d-melting the tibble
     
-    pdf(paste0("../Figures/Eby_model/x_y_obs_true_param_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 6,height = 4)
+    pdf(paste0("../Figures/Eby_model/First_ABC/x_y_obs_true_param_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 6,height = 4)
     par(mfrow=c(1,2))
     for (i in colnames(matrix_param)){
       d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
@@ -1743,20 +1743,6 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     
     
     
-    # pdf(paste0("../Figures/Eby_model/x_y_obs_true_summarystat_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),width = 10,height = 7)
-    # 
-    # par(mfrow=c(3,3))
-    # for (i in colnames(matrix_sumstat)){
-    #   d=d_cross_sumstat[,c(which(colnames(d_cross_sumstat)==i),ncol(d_cross_sumstat))]%>%
-    #     mutate(., idx=rep(1:(nrow(d_cross_sumstat)/2),each=2))%>%
-    #     dcast(., idx ~ Type,value.var=i)%>%
-    #     mutate(., Parameter=i)
-    #   
-    #   plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-    #   abline(coef = c(0,1),col="red")
-    # }
-    # dev.off()
-    
     p=ggplot(d_NRMSE_param%>%
                melt(.))+
       geom_jitter(aes(x=variable,y=value,color=variable),
@@ -1770,23 +1756,8 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
       theme_classic()+
       theme(legend.position = "none")
     
-    ggsave(paste0("../Figures/Eby_model/NRMSE_param_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),p,width = 6,height = 3)
+    ggsave(paste0("../Figures/Eby_model/First_ABC/NRMSE_param_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),p,width = 6,height = 3)
     
-    # 
-    # p=ggplot(d_NRMSE_sumstat%>%
-    #            melt(.))+
-    #   geom_jitter(aes(x=variable,y=value,color=variable),
-    #               position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-    #   geom_point(data=as_tibble(t(colMeans(d_NRMSE_sumstat)))%>%
-    #                melt(.),
-    #              aes(x=variable,y=value),color="black",size=3,shape=18)+
-    #   labs(x="Parameter",y="NRMSE",color="")+
-    #   geom_hline(yintercept = 1)+
-    #   theme_classic()+
-    #   theme(legend.position = "none")
-    # 
-    # ggsave(paste0("../Figures/Eby_model/NRMSE_summarystat_",ifelse(two_step,"twostep","classic"),"_",method_abc,".pdf"),p,width = 8,height = 5)
-    # 
   }
 }
 
@@ -1814,7 +1785,7 @@ p=ggplot(d%>%melt(., id.vars=c("Method")))+
   the_theme+
   theme(strip.text.x = element_text(size=12),axis.text.x = element_text(angle=60,hjust=1),legend.position = "none")
 
-ggsave('../Figures/Eby_model/NRMSE_post_and_pre_processing.pdf',p,width = 8,height = 5)
+ggsave('../Figures/Eby_model/First_ABC/NRMSE_post_and_pre_processing.pdf',p,width = 8,height = 5)
 
 
 #what values of parameters are better inferred 
@@ -1835,7 +1806,7 @@ p=ggplot(d)+
   the_theme+
   theme(strip.text.x = element_text(size=12),axis.text.x = element_text(angle=60,hjust=1))
 
-ggsave('../Figures/Eby_model/Quality_inference_NRMSE_virtual_data.pdf',p,width = 8,height = 5)
+ggsave('../Figures/Eby_model/First_ABC/Quality_inference_NRMSE_virtual_data.pdf',p,width = 8,height = 5)
 
 
 ## >> 3) PCA and variables ----
@@ -1859,8 +1830,8 @@ for (param in 1:2){
                                                         c("#960261","#C5218B","#E266B6",
                                                           "#9F94EF","#2F48DA","#2F48DA"))(100),
              )+
-             labs(x=paste0("PC 1 (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                  y=paste0("PC 2 (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=colnames(d_all)[param])+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=colnames(d_all)[param])+
              ggtitle(paste0(colnames(d_all)[param]))+
              theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
            
@@ -1901,8 +1872,8 @@ for (i in 1:3){
                          axes=c(axes_for_plot$x[i],axes_for_plot$y[i]), col.ind = d_tot$model,col.var="black",alpha=.5,
                          label = "var", repel = T,pointsize =1)+
            scale_color_manual(values=c("#A078DA","#68B77A"))+
-           labs(x=paste0("PC 1 (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC 2 (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="")+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="")+
            ggtitle("")+guides(shape="none")+
            theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
          
@@ -1956,7 +1927,7 @@ for (optim_lambda in c(T,F)){
         
         mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
         
-        pdf(paste0("../Figures/Optimizing_inferrence/Pre_post/Cross_validation_n",N_for_cross_validation,"_",ifelse(two_step,"twostep","classic"),
+        pdf(paste0("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Cross_validation_n",N_for_cross_validation,"_",ifelse(two_step,"twostep","classic"),
                    "_",method_abc,"_optim_lambda_",ifelse(optim_lambda,"yes","no"),"_N1_",size_step1,".pdf"),width = 8,height = 4)
         
         d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
@@ -2196,7 +2167,7 @@ for (optim_lambda in c(T,F)){
           theme_classic()+
           theme(legend.position = "none")
         
-        ggsave(paste0("../Figures/Optimizing_inferrence/Pre_post/NRMSE_param_",ifelse(two_step,"twostep","classic"),
+        ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Pre_post/NRMSE_param_",ifelse(two_step,"twostep","classic"),
                       "_",method_abc,"_optim_lambda_",ifelse(optim_lambda,"yes","no"),"_N1_",size_step1,".pdf"),p,width = 6,height = 3)
         
       }
@@ -2238,7 +2209,7 @@ p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
   guides(color = guide_legend(override.aes = list(size = 2)))+
   scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
 
-ggsave(paste0("../Figures/Optimizing_inferrence/Pre_post/Optimization_inference_all.pdf"),p,width = 7,height = 9)
+ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Optimization_inference_all.pdf"),p,width = 7,height = 9)
 
 
 p=d%>%
@@ -2257,7 +2228,7 @@ p=d%>%
   scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
 
 
-ggsave("../Figures/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 7,height = 4)
+ggsave("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 7,height = 4)
 
 
 
@@ -2281,7 +2252,7 @@ for (size_hidden in seq(5,25,by=5)[3:5]){
 
     mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
     
-    pdf(paste0("../Figures/Optimizing_inferrence/Neural_net/Cross_validation_n",N_for_cross_validation,
+    pdf(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Cross_validation_n",N_for_cross_validation,
                "_hidden_",size_hidden,"_Nnet_",rep_network,".pdf"),width = 8,height = 4)
     
     d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
@@ -2492,7 +2463,7 @@ for (size_hidden in seq(5,25,by=5)[3:5]){
       theme_classic()+
       theme(legend.position = "none")
     
-    ggsave(paste0("../Figures/Optimizing_inferrence/Neural_net/NRMSE_param_hidden_",
+    ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/NRMSE_param_hidden_",
                   size_hidden,"_Nnet_",rep_network,".pdf"),p,width = 6,height = 3)
     
     
@@ -2535,7 +2506,7 @@ p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
   scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"),breaks=c('5', '10', '15',"20","25"))
 
 
-ggsave(paste0("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_all.pdf"),p,width = 7,height = 4)
+ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_all.pdf"),p,width = 7,height = 4)
 
 
 p=d%>%
@@ -2555,7 +2526,7 @@ p=d%>%
   scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5"))
 
 
-ggsave("../Figures/Optimizing_inferrence/Neural_net/Optimization_NN_mean.pdf",p,width = 6,height = 3)
+ggsave("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_mean.pdf",p,width = 6,height = 3)
 
 
 ## >> 3) Number of principal components ----
@@ -2578,7 +2549,7 @@ for (n1_PLS in 1:9){
     
     mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
     
-    pdf(paste0("../Figures/Optimizing_inferrence/Pls_comp/Cross_validation_n1_PLS_",n1_PLS,
+    pdf(paste0("../Figures/Eby_model/Optimizing_inferrence/Pls_comp/Cross_validation_n1_PLS_",n1_PLS,
                "_n2_PLS_",n2_PLS,".pdf"),width = 8,height = 4)
     
     d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
@@ -2783,7 +2754,279 @@ p=ggplot(mean_rmse)+
   scale_fill_gradientn(colours = colorRampPalette(c("blue","red"))(100))
 
 
-ggsave(paste0("../Figures/Optimizing_inferrence/Pls_comp/PLS_comp_all.pdf"),p,width = 7,height = 4)
+ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Pls_comp/PLS_comp_all.pdf"),p,width = 7,height = 4)
+
+
+## >> 4) Sensibility to PLR and expo removal ----
+
+
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
+matrix_param=d_all[,1:2]
+matrix_sumstat=d_all[,3:(ncol(d_all))]
+
+N_for_cross_validation = 100
+nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
+
+
+  
+for (type_removal in c("no_removal","PLR","Expo_PL","PLR_explo_PL","Spectral_ratio","Spec_PLR_expo","clustering","nb_neigh","neigh_clust")){
+  
+  if (type_removal=="no_removal"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])
+  } else if (type_removal=="PLR"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-8]    
+  } else if (type_removal=="Expo_PL"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-9]    
+  } else if (type_removal=="Spectral_ratio"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-7]    
+  } else if (type_removal=="PLR_explo_PL"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-c(8:9)]    
+  }else if (type_removal=="clustering"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-c(3)]    
+  }else if (type_removal=="nb_neigh"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-c(2)]    
+  }else if (type_removal=="neigh_clust"){
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-c(2:3)]    
+  } else {
+    sumstat_name=colnames(d_all[,3:(ncol(d_all))])[-c(7:9)]  
+  }
+    
+  mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
+  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+  
+  for (n in 1:N_for_cross_validation){
+    
+    matrix_param=d_all[,1:2]
+    matrix_sumstat=d_all[,which(colnames(d_all) %in% sumstat_name)]
+    save_sumstat=matrix_sumstat
+    n_cross=nrow_for_sample[n]
+    
+    for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+    }else {
+      b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #Second we scale
+    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+    
+    #and finally, we perform the first PLS
+    if (type_removal=="no_removal"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="PLR"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="Expo_PL"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="Spectral_ratio"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+PL_expo+PLR,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="clustering"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="nb_neigh"){
+      pls_1=plsr(p + q~rho_p+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="neigh_clust"){
+      pls_1=plsr(p + q~rho_p+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else if (type_removal=="Spec_PLR_expo"){
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    } else {
+      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio,
+                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    }
+
+    n_comp_pls=selectNcomp(pls_1,method = "onesigma")
+    
+    if (n_comp_pls > 1){
+      mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+    } else if (n_comp_pls==1){ #otherwise we take the whole components
+      mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+    
+    cross_valid=abc(target = mat_sumstat_pls[n_cross,],
+                    param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
+                    tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% sumstat_name)] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,which(colnames(d_all) %in% sumstat_name)])
+    
+    #again, first box cox
+    for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+
+    }else {
+      b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    if (type_removal=="no_removal"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="PLR"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="Expo_PL"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="Spectral_ratio"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="Spec_PLR_expo"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="clustering"){
+      pls_2=plsr(p + q~rho_p+nb_neigh+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="nb_neigh"){
+      pls_2=plsr(p + q~rho_p+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else if (type_removal=="neigh_clust"){
+      pls_2=plsr(p + q~rho_p+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    } else {
+      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio,
+                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
+    }
+    
+    n_comp_pls=selectNcomp(pls_1,method = "onesigma")
+
+    if (n_comp_pls > 1){
+      mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+    } else if (n_comp_pls==1){ #otherwise we take the whole components
+      mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+    
+    cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
+                    param = cross_valid$unadj.values,
+                    sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
+                    tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                    logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                    numnet = 10,sizenet = 10) 
+    
+    cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% sumstat_name)] #we keep information with the true values
+    
+    matrix_sumstat=save_sumstat
+    
+    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+    
+    #Matrix of correlation between parameters & sumstats
+    mat_cor_param[,,n]=cor(cross_valid$adj.values)
+    
+    if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+      cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                             | is.nan(cross_valid$adj.values[,2])),]
+    }      
+    
+    #we save the mean posterior distribution for each and the true observed parameters
+    d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
+    d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
+    
+    #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
+    
+    
+    #We compute the mean squared error (RMSE) 
+    RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
+      sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values))})
+    
+    #normalize it by the RMSE under the prior distribution
+    RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
+      sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )})
+    
+    NRMSE = RMSE/RMSE_prior
+    d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
+    
+    #We repeat the same for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+      sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )})
+    
+    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+      sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )})
+    NRMSE = RMSE/RMSE_prior
+    
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+    
+  } #end loop Nvirtual data
+  
+  colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
+  
+  write.table(d_NRMSE_param,paste0("../Data/Step6_Optimizing_inferrence/Sensi_removal/RMSE_",type_removal,".csv"),sep=";")
+
+}
+
+
+
+
+d=tibble()
+for (i in list.files("../Data/Step6_Optimizing_inferrence/Sensi_removal/")){
+  d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Sensi_removal/",i),sep=";")%>%
+            add_column(.,Type=gsub(gsub(pattern = ".csv",replacement = "",x=i),pattern = 'RMSE_',replacement = '')))
+}
+
+
+
+mean_rmse=d%>%
+  melt(., id.vars=c("Type"))%>%
+  group_by(.,variable,Type)%>%
+  summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+  rename(., "Parameter"="variable")
+
+
+p=ggplot(d%>%melt(., id.vars=c("Type"))%>%
+           rename(., "Parameter"="variable"))+
+  geom_jitter(aes(x=Type,y=value,color=as.factor(Type)),
+              position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=Type,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="",y="NRMSE",color="")+
+  facet_grid(.~Parameter,labeller = label_both)+
+  the_theme+
+  ylim(0,.5)+
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom",axis.text.x = element_text(angle=60,hjust=1))+
+  guides(color = guide_legend(override.aes = list(size = 2)))
+
+ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Sensi_removal/Sensi_removal.pdf"),p,width = 7,height = 4)
+
+
 
 
 
@@ -2792,22 +3035,524 @@ ggsave(paste0("../Figures/Optimizing_inferrence/Pls_comp/PLS_comp_all.pdf"),p,wi
 
 # ---------------------- Step 10: Empirical data ----
 
-## >> 1) Coverage property of the model compared to the data ----
+## >> 0) Summary statistics of the data & PCA model/data ----
 
-## Distance to tipping point with mean posterior and lower upper boudaries of the 95% interval ?
-# to parralelize. 
+for (id in 1:5){
+  pdf(paste0("../Figures/Empirical_data/Landscapes/all_landscapes_",id,".pdf"),width = 6,height = 6)
+  for (land in (((id-1)*69)+1):(id *69 )){
+    Plot_empirical(land)
+  }
+  dev.off()
+}
 
 
 
 
+d_biocom=as_tibble(readxl::read_xlsx("../Data/Data_Biocom/biocom-infos.xlsx"))
+d_sumstat=read.table("../Data/Data_Biocom/Summary_stats_data.csv",sep=",")
+colnames(d_sumstat)=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                      "Spectral_ratio","PLR","PL_expo")
+
+d_biocom=d_biocom%>%
+  
+  dplyr::select(., file,id, plotn, MF, Aridity,Sand,lat,long,imgcover,nbpixels)%>%
+  
+  dplyr::rename(., File_ID=file, ID=id, Plot_n=plotn, Lattitude=lat,Longitude=long,Cover=imgcover,Nbpixels=nbpixels)%>%
+  
+  bind_cols(., d_sumstat) %>%
+  
+  as.data.frame(.)
+
+write.table(d_biocom,"../Data/Data_Biocom/biocom_data.csv",sep=";")
 
 
+#Distribution of summary statistics
+
+pdf("../Figures/Empirical_data/Comparizon_models_data/Distrib_sum_stat_data.pdf",width = 7,height = 6)
+par(mfrow=c(3,3))
+for (sumstat in 1:9){
+  hist(d_biocom[,10+sumstat],xlab=colnames(d_biocom)[10+sumstat],main="",col=alpha("blue",.3))
+}
+dev.off()
+
+#and comparizon with Eby model
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+p=ggplot(rbind(d_biocom[,11:ncol(d_biocom)]%>%add_column(.,Type="Data"),d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Model"))%>%
+           melt(., id.vars=c("Type")))+
+    geom_density(aes(x=value,fill=Type),alpha=.7)+
+    the_theme+
+    facet_wrap(.~variable,scales = "free")+
+    scale_fill_manual(values=c("#C0CEAA","#5D589C"))
+
+ggsave("../Figures/Empirical_data/Comparizon_models_data/Density_Eby_and_data.pdf",p,width = 7,height = 6)
+
+
+# PCA for comparing data and model
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p > 0.1  && rho_p < 0.8)
+d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
+            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="zEmpirical sites"), #to plot the empirical sites above simulations
+            d_Kefi[sample(1:nrow(d_Kefi),15000,F),8:ncol(d_Kefi)]%>%add_column(., Type="Kefi model"))%>%
+  arrange(., Type)
+
+#First raw PCA
+
+sumstat_name=colnames(d_Eby)[3:ncol(d_Eby)]
+res.pca=PCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)], scale.unit = T, ncp = 3,  graph=F)
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_tot%>%
+           mutate(., Type=recode_factor(Type,"zEmpirical sites"="Empirical sites"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+           scale_size_manual(values=c(.5,1,.5))+
+           scale_color_manual(values=c("#FD4848",alpha("#C0CEAA",.5),alpha("#A078DA",.5)))+
+           scale_fill_manual(values=c("#FD4848",alpha("#C0CEAA",.5),alpha("#A078DA",.5)))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
+}
+
+p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                          p2+theme(legend.position = "none"),
+                          p3+theme(legend.position = "none"),
+                          ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+                nrow=2,heights = c(1,.1))
+ggsave("../Figures/Empirical_data/Comparizon_models_data/PCA_coverage_models_data.pdf", width=9,height = 4)
+
+
+#Second, PCA on Eby model or Kefi model only with data
+for (model in c("Kefi","Eby")){
+  
+  sumstat_name=colnames(d_Eby)[3:ncol(d_Eby)]
+  dat=as.data.frame(d_tot[-which(d_tot$Type==paste0(model," model")),])
+  
+  res.pca=PCA(as.data.frame(dat[,which(colnames(dat) %in% sumstat_name)]),
+              scale.unit = T, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           dat%>%
+             mutate(., Type=recode_factor(Type,"zEmpirical sites"="Empirical sites"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type),size=.5,alpha=.5)+
+             
+             scale_color_manual(values=c("#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#A078DA",.5))))+
+             scale_fill_manual(values=c("#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#A078DA",.5))))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  
+  ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/PCA_",ifelse(model=="Kefi","Eby","Kefi"),"_empirical_data.pdf"),p, width=9,height = 4)
+  
+}
+
+
+
+
+#Knock-out of some summary statistics and projection on PCA simulations + data
+pdf("../Figures/Empirical_data/Comparizon_models_data/Knock_out_PCA_Eby_data.pdf", width=9,height = 4)
+
+for (scena_sumstat_removal in c("None","PLR","Expo_PL","PLR_explo_PL","Spectral_ratio","Spec_PLR_expo","clustering","nb_neigh","neigh_clust")){
+  
+  if (scena_sumstat_removal=="None"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))] 
+  } else if (scena_sumstat_removal=="PLR"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-8]] 
+  } else if (scena_sumstat_removal=="Expo_PL"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-9]]    
+  } else if (scena_sumstat_removal=="PLR_explo_PL"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-c(8:9)]]    
+  } else if (scena_sumstat_removal=="Spectral_ratio"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-7]]    
+  } else if (scena_sumstat_removal=="clustering"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-3]]    
+  } else if (scena_sumstat_removal=="Spec_PLR_expo"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-c(7:9)]]    
+  } else if (scena_sumstat_removal=="nb_neigh"){
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-2]]    
+  } else {
+    sumstat_name=colnames(d_Eby)[c(3:ncol(d_Eby))[-c(2:3)]]    
+  }
+  
+  dat=as.data.frame(d_tot[-which(d_tot$Type=="Kefi model"),])
+  
+
+  res.pca=PCA(as.data.frame(dat[,which(colnames(dat) %in% sumstat_name)]),
+              scale.unit = T, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           dat%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type),size=.5)+
+             
+             scale_color_manual(values=c(alpha("#C0CEAA",.5),"#FD4848"))+
+             scale_fill_manual(values=c(alpha("#C0CEAA",.5),"#FD4848"))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none",plot.title=element_blank()),
+                        p2+theme(legend.position = "none",plot.title=element_blank()),
+                        p3+theme(legend.position = "none",plot.title=element_blank()),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  
+  print(annotate_figure(p, top = text_grob(paste0("Knock-out = ",scena_sumstat_removal), 
+                                              face = "bold", size = 14))
+  )
+
+}
+dev.off()
+
+
+
+## >> 1) ABC on empirical sites ----
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
+d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+
+pdf(paste0('../Figures/Empirical_data/ABC/ABC_posterior_sites.pdf'),width = 7,height = 7)
+
+for (site_ID in 1:nrow(d_biocom)){
+  
+  #observed summary statistics in the site
+  observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                                                                    "Spectral_ratio","PLR","PL_expo"))]
+  
+  if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
+  
+  matrix_param=d_all[,1:2]
+  matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
+  save_sumstat=matrix_sumstat
+  matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+  
+  for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+    
+    b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+    }
+  }else {
+    b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+    }
+  }
+  
+  #Second we scale
+  for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+  
+  #and finally, we perform the first PLS (excluding empirical sdata)
+  
+  if (d_biocom$PL_expo[site_ID] ==0){
+    pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
+               data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
+  } else {
+    pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+               data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
+  }
+  
+  n_comp_pls=selectNcomp(pls_1,method = "onesigma")
+  
+  if (n_comp_pls > 1){
+    mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
+  } else if (n_comp_pls==1){ #otherwise we take the whole components
+    mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+  } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
+  
+  #predicting the values of observed summary statistics under the pls model
+  observed_sumstat_pls1=predict(pls_1, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
+  
+  
+  
+  cross_valid=abc(target = observed_sumstat_pls1,
+                  param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                  tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+  
+  #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+  mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+  mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
+  
+  
+  #again, first box cox
+  for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+    
+    b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+    }
+    
+  }else {
+    b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+    }
+  }
+  
+  #and normalization
+  for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+  
+
+  if (d_biocom$PL_expo[site_ID] ==0){
+    pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
+               data=as.data.frame(cbind(rbind(cross_valid$unadj.values),
+                                        mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")  
+    
+  } else {
+    pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+               data=as.data.frame(cbind(rbind(cross_valid$unadj.values),
+                                        mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")  
+  }
+  
+  n_comp_pls=selectNcomp(pls_2,method = "onesigma")
+  
+  #predicting the values of observed summary statistics under the pls model
+  observed_sumstat_pls2=predict(pls_2, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
+  
+  
+  if (n_comp_pls > 1){
+    mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
+  } else if (n_comp_pls==1){ #otherwise we take the whole components
+    mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+  } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
+ 
+
+  cross_valid=abc(target = observed_sumstat_pls2,
+                  param = cross_valid$unadj.values,
+                  sumstat = mat_sumstat_pls2, #removing the target data
+                  tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                  logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                  numnet = 10,sizenet = 10) 
+  
+  cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+  
+  par(mfrow=c(3,3))
+  for (i in 1:n_comp_pls){
+    hist(cross_valid$ss[,i],main=colnames(cross_valid$ss)[i],xlab = "")
+    abline(v=observed_sumstat[i],col="red",lwd=3)
+  }
+  
+  
+  matrix_sumstat=save_sumstat
+  
+  if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+  
+
+  if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+    cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                           | is.nan(cross_valid$adj.values[,2])),]
+  }      
+  
+  par(mfrow=c(1,2))
+  hist(cross_valid$adj.values[,1],main="",xlab='p')
+  hist(cross_valid$adj.values[,2],main="",xlab='q')
+  
+  if (d_biocom$PL_expo[site_ID] ==0){
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                            add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                            add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
+  } else {
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                            add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                            add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
+    
+  }
+  
+  
+
+  #We compute the RMSE for the summary statistics observed
+  RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+    sqrt(sum((cross_valid$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid$ss) )})
+  
+  RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+    sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
+  NRMSE = RMSE/RMSE_prior
+  names(NRMSE)= colnames(matrix_sumstat)
+
+  if (d_biocom$PL_expo[site_ID] ==0){
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                            add_column(., PL_expo = NA,Site=site_ID))
+  } else {
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                            add_column(.,Site=site_ID))
+  }
+  
+  
+  d_biocom[site_ID,20]=mean(cross_valid$adj.values[,1]) #mean posteriors
+  d_biocom[site_ID,21]=mean(cross_valid$adj.values[,2]) #mean posteriors
+  
+
+}
+dev.off()
+
+d_biocom=d_biocom%>%
+  rename(., p=V20,q=V21)
+
+write.table(d_biocom,"../Data/Step7_Empirical_data/Posteriors_sites.csv",sep=";")
+write.table(d_NRMSE_sumstat,"../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
+write.table(d_cross_sumstat,"../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")
+
+
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
+d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")
+
+p=d_NRMSE_sumstat%>%
+  melt(., id.vars=c("Site"))%>%
+  ggplot(.,aes(x=variable,y=value))+
+  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=variable),alpha=.4)+
+  stat_summary(fun.y = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="",fill="")+
+  geom_hline(yintercept = 1)+
+  guides(color = guide_legend(override.aes = list(size = 3))) 
+
+ggsave("../Figures/Empirical_data/ABC/NRMSE_sumstat_data.pdf",p,width = 9,height = 6)
+
+pdf("../Figures/Empirical_data/ABC/x_y_obs_sum_sumstat_data.pdf",width = 7,height = 7)
+d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
+d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(as.numeric(d_sim[,i]),
+       as.numeric(d_obs[,i]),col=alpha("blue",.3),pch=21,xlab="Sim",ylab="Obs",
+       main=colnames(d_cross_sumstat)[i])
+  abline(a=0,b=1)
+}
+dev.off()
+
+
+
+## >> 2) Linking quality estimation with distance from PCA centroid of simulations ----
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+
+d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
+            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
+
+res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
+
+#centroids in PCA of simulations
+centroid_sim=colMeans(res.pca$ind$coord[1:nrow(d_Eby),])
+
+#getting euclidean distance from centroid for each empirical site
+
+dist_empirical = sapply((nrow(d_Eby)+1):(nrow(d_tot)),function(x){
+  return( sqrt(sum((res.pca$ind$coord[x,] - centroid_sim)^2)) )
+})
+
+
+#Then we plot NRMSE = f(distance to centroid) 
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
+
+p=ggplot(d_NRMSE_sumstat%>%
+         melt(., id.vars=c("Site"))%>%
+         add_column(., Euclid_dist=rep(dist_empirical,9)))+
+  geom_point(aes(x=Euclid_dist,y=value,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance to centroid in PCA",y="NRMSE")
+
+ggsave("../Figures/Empirical_data/ABC/Dist_PCA_NMRSE_fit.pdf",p,width = 7,height = 6)
+
+#and we do the same with the distance to the x=y line 
+d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")%>%
+  melt(., id.vars=c("Type","Site"))
+
+error_abc=sapply(1:(nrow(d_cross_sumstat)/2),function(x){
+  return(
+    abs(d_cross_sumstat$value[2*(x-1)+1]-d_cross_sumstat$value[2*x] ) #absolute distance between true and fitted 
+  )
+})
+
+p=d_cross_sumstat%>%
+  filter(., Type=="Obs")%>%
+  dplyr::select(., -Type)%>%
+  add_column(., Error_abc=error_abc,Euclid_dist=rep(dist_empirical,9))%>%
+  ggplot(.)+
+  geom_point(aes(x=Euclid_dist,y=Error_abc,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance to centroid in PCA",y="Absolute difference between fitted and observed ")
+
+ggsave("../Figures/Empirical_data/ABC/Dist_PCA_ABC_sumstat_fitted.pdf",p,width = 7,height = 6)
+
+
+
+
+# Similarly for the link between aridity and inferred p values
+d_biocom=read.table("../Data/Step7_Empirical_data/Posteriors_sites.csv",sep=";")
+
+p=ggplot(d_biocom%>%
+         add_column(., Euclid_dist=dist_empirical)%>%
+         melt(., measure.vars=c("p","q"))%>%
+         melt(., measure.vars=c("Aridity","MF","Sand"),variable.name="Driver",value.name = "Driver_value"))+
+  geom_point(aes(x=Driver_value,y=value,color=log(Euclid_dist)))+
+  facet_grid(variable~Driver,scales = "free")+
+  labs(x="Value of the driver",y="Inferred parameter value",color="Distance to PCA centroid (log)")+
+  scale_color_viridis_c()+
+  the_theme
+ggsave("../Figures/Empirical_data/ABC/Driver_inferred_parameters.pdf",p,width = 7,height = 6)
+
+
+#example of sites for which Eby model cannot do much
+pdf("../Figures/Empirical_data/landscapes/Example_for_PDE.pdf",width = 12,height = 4)
+par(mfrow=c(1,3))
+Plot_empirical(283)
+Plot_empirical(296)
+Plot_empirical(345)
+dev.off()
 
 
 
 # Other: Correlation and EWS ----
 
-#***********************************************************
 
 
 ## Correlation between EWS in a factorial analysis (b, m) ----

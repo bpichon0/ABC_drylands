@@ -362,41 +362,16 @@ Plot_dynamics=function(d,different_sim=F,simple=F){
   }
   
 }
-# 
-# 
-# param = Get_classical_param(b = 1,m = .2)
-# 
-# ini_land=Get_initial_lattice(size=50)
-# 
-# Plot_dynamics(Run_CA_kefi(params = param,ini = ini_land))+ylim(0,1)
-# 
-# 
-# 
-# 
-# 
-# 
+
+
+Plot_empirical=function(id){
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  image(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))),col=c("white","black"),axes=F)
+} 
 
 
 
 
 
-Get_param_Eby=function(p=0,q=0){
-  return(list(p=p,q=q))
-}
 
-Eby_model = function(init, params) {
-  
-  # Variables : 1 = vegetation, 0 non occupied 
-  landscape = init
-  rho_v = sum(landscape == 1) / length(landscape)
-  
-  # Neighbors :
-  neigh_v = fourneighbors(landscape, state = 1, bounds = 1)
-  
-  p_param=param[1]
-  q_param=param[2]
-  
-  focal_cell=sample(1:length(init),size = 1)
-  
-  
-}
+

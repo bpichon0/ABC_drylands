@@ -156,22 +156,84 @@ function Get_summary_stat(matrix_landscape)
 
     matrix_landscape[findall(matrix_landscape .< 0)] .= 0
 
-    # vegetation cover
-    mean_cover = mean([length(findall(matrix_landscape[:, :, k] .== 1)) / (size(matrix_landscape)[1] * size(matrix_landscape)[2]) for k in 1:size(matrix_landscape)[3]])
+    if length(size(matrix_landscape)) == 3 # multiple landscapes
 
-    # number of neighbors
-    clustering = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    nb_neigh = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    spatial_skew = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    spatial_var = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    spatial_corr = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    spatial_spectral = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    PLR_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
-    alpha_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        # vegetation cover
+        mean_cover = mean([length(findall(matrix_landscape[:, :, k] .== 1)) / (size(matrix_landscape)[1] * size(matrix_landscape)[2]) for k in 1:size(matrix_landscape)[3]])
 
-    for k in 1:size(matrix_landscape)[3]
+        # number of neighbors
+        clustering = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        nb_neigh = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        spatial_skew = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        spatial_var = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        spatial_corr = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        spatial_spectral = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        PLR_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        alpha_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
 
-        landscape = matrix_landscape[:, :, k]
+        for k in 1:size(matrix_landscape)[3]
+
+            landscape = matrix_landscape[:, :, k]
+            landscape[findall(landscape .<= 0)] .= 0 #make it binary for spatial warnings package
+            landscape[findall(landscape .> 0)] .= 1
+            @rput landscape
+
+            #vegetation clustering
+            R"neighbors_mat = simecol::neighbors(x =landscape,state = 1, wdist =  matrix( c(0, 1, 0,1, 0, 1, 0, 1, 0), nrow = 3),bounds = 1)"
+            @rget neighbors_mat
+            nb_neigh[k] = mean(neighbors_mat[findall(landscape .== 1)]) #mean number of plant neighbors
+            clustering[k] = nb_neigh[k] / (length(findall(landscape .== 1)) / (size(landscape)[1] * size(landscape)[2]))
+
+            #Spatial EWS using spatialwarnings package
+            R"landscape=landscape > 0" #make it binary to fit the package input
+            R"spatial_ews = generic_sews(landscape,4,moranI_coarse_grain = T)$value"
+            @rget spatial_ews
+
+            if sum(landscape) / (size(landscape)[1] * size(landscape)[2]) > 0.01
+                spatial_var[k] = spatial_ews[1]
+                spatial_skew[k] = spatial_ews[2]
+                spatial_corr[k] = spatial_ews[3]
+            else
+                spatial_var[k] = 0
+                spatial_skew[k] = 0
+                spatial_corr[k] = 0
+            end
+
+            R"spectral_ratio = as.data.frame(spectral_sews(landscape,quiet=T))$value"
+            @rget spectral_ratio
+            spatial_spectral[k] = spectral_ratio
+
+            R"psd=spatialwarnings::patchdistr_sews(landscape)"
+            R"max_patchsize=max(psd$psd_obs)"
+            R"PLR=spatialwarnings::raw_plrange(landscape)"
+            R"if (nrow(psd$psd_type)==1){ 
+                alpha_exp=NA        
+            } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]}" #i.e., when there is no good fit, return NA
+            @rget PLR
+            @rget alpha_exp
+
+            PLR_vec[k] = PLR
+            alpha_vec[k] = alpha_exp
+
+        end
+
+        mean_nb_neigh = mean(nb_neigh)
+        mean_clustering = mean(clustering)
+        mean_spatial_skew = mean(spatial_skew)
+        mean_spatial_var = mean(spatial_var)
+        mean_spatial_corr = mean(spatial_corr)
+        mean_spatial_spectral = mean(spatial_spectral)
+        mean_PLR = mean(collect(skipmissing(PLR_vec)))
+        mean_alpha = mean(collect(skipmissing(alpha_vec)))
+
+
+
+    else  # only 1 landscape
+
+        mean_cover = sum(matrix_landscape) / (size(matrix_landscape)[1]^2)
+
+        # number of neighbors
+        landscape = copy(matrix_landscape)
         landscape[findall(landscape .<= 0)] .= 0 #make it binary for spatial warnings package
         landscape[findall(landscape .> 0)] .= 1
         @rput landscape
@@ -179,8 +241,8 @@ function Get_summary_stat(matrix_landscape)
         #vegetation clustering
         R"neighbors_mat = simecol::neighbors(x =landscape,state = 1, wdist =  matrix( c(0, 1, 0,1, 0, 1, 0, 1, 0), nrow = 3),bounds = 1)"
         @rget neighbors_mat
-        nb_neigh[k] = mean(neighbors_mat[findall(landscape .== 1)]) #mean number of plant neighbors
-        clustering[k] = nb_neigh[k] / (length(findall(landscape .== 1)) / (size(landscape)[1] * size(landscape)[2]))
+        mean_nb_neigh = mean(neighbors_mat[findall(landscape .== 1)]) #mean number of plant neighbors
+        mean_clustering = mean_nb_neigh / (length(findall(landscape .== 1)) / (size(landscape)[1] * size(landscape)[2]))
 
         #Spatial EWS using spatialwarnings package
         R"landscape=landscape > 0" #make it binary to fit the package input
@@ -188,18 +250,18 @@ function Get_summary_stat(matrix_landscape)
         @rget spatial_ews
 
         if sum(landscape) / (size(landscape)[1] * size(landscape)[2]) > 0.01
-            spatial_var[k] = spatial_ews[1]
-            spatial_skew[k] = spatial_ews[2]
-            spatial_corr[k] = spatial_ews[3]
+            mean_spatial_var = spatial_ews[1]
+            mean_spatial_skew = spatial_ews[2]
+            mean_spatial_corr = spatial_ews[3]
         else
-            spatial_var[k] = 0
-            spatial_skew[k] = 0
-            spatial_corr[k] = 0
+            mean_spatial_var = 0
+            mean_spatial_skew = 0
+            mean_spatial_corr = 0
         end
 
         R"spectral_ratio = as.data.frame(spectral_sews(landscape,quiet=T))$value"
         @rget spectral_ratio
-        spatial_spectral[k] = spectral_ratio
+        mean_spatial_spectral = spectral_ratio
 
         R"psd=spatialwarnings::patchdistr_sews(landscape)"
         R"max_patchsize=max(psd$psd_obs)"
@@ -210,19 +272,12 @@ function Get_summary_stat(matrix_landscape)
         @rget PLR
         @rget alpha_exp
 
-        PLR_vec[k] = PLR
-        alpha_vec[k] = alpha_exp
+        mean_PLR = ifelse(PLR === missing, 0, PLR)
+        mean_alpha = ifelse(alpha_exp === missing, 0, alpha_exp)
 
     end
 
-    mean_nb_neigh = mean(nb_neigh)
-    mean_clustering = mean(clustering)
-    mean_spatial_skew = mean(spatial_skew)
-    mean_spatial_var = mean(spatial_var)
-    mean_spatial_corr = mean(spatial_corr)
-    mean_spatial_spectral = mean(spatial_spectral)
-    mean_PLR = mean(collect(skipmissing(PLR_vec)))
-    mean_alpha = mean(collect(skipmissing(alpha_vec)))
+
 
     return (vec([mean_cover, mean_nb_neigh, mean_clustering,
         mean_spatial_skew, mean_spatial_var, mean_spatial_corr,
