@@ -370,7 +370,15 @@ Plot_empirical=function(id){
 } 
 
 
-
+Plot_hist_simu_obs=function(simu, obs){
+  par(mfrow=c(3,3))
+  par(mar=rep(4,4))
+  for (i in 1:ncol(simu)){
+    hist(simu[,i],main=colnames(simu)[i])
+    abline(v=obs[i],col="red",lwd=3)
+  }
+  par(mfrow=c(1,1))
+}
 
 
 
