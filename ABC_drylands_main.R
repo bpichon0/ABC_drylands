@@ -1104,10 +1104,10 @@ for (two_step in c(T,F)){
       
       
       if (n_comp_pls > 1){
-        mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+        mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
       } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+        mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
       
       
       cross_valid=abc(target = mat_sumstat_pls[n_cross,],
@@ -1136,10 +1136,10 @@ for (two_step in c(T,F)){
       
 
       if (n_comp_pls > 1){
-        mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+        mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
       } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+        mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
       
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                       param = cross_valid$unadj.values,
@@ -1310,10 +1310,10 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     
     
     if (n_comp_pls > 1){
-      mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+      mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
     } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+      mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
     
     
     cross_valid=abc(target = mat_sumstat_pls[n_cross,],
@@ -1342,10 +1342,10 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
     
     
     if (n_comp_pls > 1){
-      mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+      mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
     } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+      mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
     
     cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                     param = cross_valid$unadj.values,
@@ -1557,10 +1557,10 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
         
         
         if (n_comp_pls > 1){
-          mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+          mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
         } else if (n_comp_pls==1){ #otherwise we take the whole components
-          mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-        } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+          mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+        } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
         
         
         cross_valid=abc(target = mat_sumstat_pls[n_cross,],
@@ -1589,10 +1589,10 @@ for (method_abc in c("rejection","loclinear","neuralnet")){
         
         
         if (n_comp_pls > 1){
-          mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+          mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
         } else if (n_comp_pls==1){ #otherwise we take the whole components
-          mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-        } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+          mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+        } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
         
         cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                         param = cross_valid$unadj.values,
@@ -1903,12 +1903,12 @@ ggsave("../Figures/Eby_model/ACP_and_model_description/Coverage_Eby_Kefi_models.
 
 #***********************************************************
 
-## >> 1) Number of simulations kept in phase 1, optimization for box-cox parameter and post-processing methods ----
+## >> 1) Optimizing pre and post-processing methods ----
 #we play on both the lambda of the boxcox method and the size of the sample for
 #stage 1 of the two step preprocessing procedure
 
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
-condition_cover=which(d_all$rho_p ==0)
+condition_cover=which(d_all$rho_p ==0 | d_all$PLR ==1) #we remove very healthy sites for which PLR = 1 to avoid errors.
 d_all=d_all[-condition_cover,]
 rownames(d_all)=1:nrow(d_all)
 matrix_param=d_all[,1:2]
@@ -2049,10 +2049,6 @@ for (optim_lambda in c(T,F)){
             }
             
           
-            
-            
-            
-            
             cross_valid2=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                             param = cross_valid1$unadj.values,
                             sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
@@ -2062,16 +2058,8 @@ for (optim_lambda in c(T,F)){
             cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),3:(ncol(d_all))] #we keep information with the true values
             
             
-            
-            
           } else {
-            
-            matrix_param=d_all[,1:2]
-            matrix_sumstat=d_all[,3:(ncol(d_all))]
-            save_sumstat=matrix_sumstat
-            
-            n_cross=nrow_for_sample[n]
-            
+
             #for each virtual data, we perform ABC rejection algorithm with linear regression adjustment for posterior
             cross_valid2=abc(target = matrix_sumstat[n_cross,],
                             param = matrix_param[-n_cross,],sumstat = matrix_sumstat[-n_cross,], #removing the target data
@@ -2217,7 +2205,7 @@ p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
   ylim(0,.5)+
   theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 2)))+
-  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898AA4","#E4C035"))
 
 ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Optimization_inference_all.pdf"),p,width = 7,height = 9)
 
@@ -2231,18 +2219,24 @@ p=d%>%
   geom_point(aes(x=N1,y=mean_rmse,fill=interaction(Pre,Post)),color="black",shape=21,size=1)+
   facet_wrap(.~variable,labeller = label_bquote(cols="Parameter = "==.(as.character(variable))))+
   labs(x="# virtual data kept stage 1 pre-processing",color="",linetype=TeX(r"(MLE for $\lambda$)"),y="Mean NRMSE")+
-  scale_x_continuous(breaks = c(1000,2000,3000))+
+  scale_x_continuous(breaks = c(1000,3000))+
   the_theme+
   guides(color = guide_legend(override.aes = list(size = 2)),fill="none")+
   theme(legend.box = "vertical")+
-  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450"))
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898AA4","#E4C035"))
 
 
 ggsave("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 7,height = 4)
 
 
 
-## >> 2) Structure of the neural-network: number neurons and of neural networks ----
+ ###XXXX do the same for sumstats
+
+
+
+
+
+## >> 2) Optimizing the structure of the neural-network ----
 
 
 
@@ -2256,290 +2250,269 @@ matrix_sumstat=d_all[,3:(ncol(d_all))]
 N_for_cross_validation = 100
 nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
 
-for (size_hidden in seq(5,25,by=5)[3:5]){
+for (method_pre in c("PLS","NoPLS")){
   
-  for (rep_network in c(10,20,30)){
-
-    mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
+  for (size_hidden in seq(5,25,by=5)){
     
-    pdf(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Cross_validation_n",N_for_cross_validation,
-               "_hidden_",size_hidden,"_Nnet_",rep_network,".pdf"),width = 8,height = 4)
-    
-    d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-    
-    for (n in 1:N_for_cross_validation){
+    for (rep_network in c(10,20,30)){
       
-      matrix_param=d_all[,1:2]
-      matrix_sumstat=d_all[,3:(ncol(d_all))]
-      save_sumstat=matrix_sumstat
+      mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
       
-      n_cross=nrow_for_sample[n]
       
-      for (x in 1:ncol(matrix_sumstat)) if (x %in% c(4,6)){
+      d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+      
+      for (n in 1:N_for_cross_validation){
         
-        b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-        lambda_x=b$x[which.max(b$y)]
-        if (lambda_x !=0){ #to avoid errors
-          matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-        }
+        matrix_param=d_all[,1:2]
+        matrix_sumstat=d_all[,3:(ncol(d_all))]
+        save_sumstat=matrix_sumstat
         
-      }else {
-        b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
-        lambda_x=b$x[which.max(b$y)]
-        if (lambda_x !=0){ #to avoid errors
-          matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-        }
-      }
-      
-      
-      #Second we scale
-      for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-      
-      #and finally, we perform the first PLS
-      
-      pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-                 data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
-      
-      
-      n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-      
-      
-      if (n_comp_pls > 1){
-        mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
-      } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
-      
-      
-      cross_valid=abc(target = mat_sumstat_pls[n_cross,],
-                      param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
-                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-      
-      #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-      
-      mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
-      mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
-      
-      #again, first box cox
-      
-      for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
+        n_cross=nrow_for_sample[n]
         
-        b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-        lambda_x=b$x[which.max(b$y)]
-        
-        if (lambda_x !=0){ #to avoid errors
-          mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+        for (x in 1:ncol(matrix_sumstat)) if (x %in% c(4,6)){
+          
+          b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+        }else {
+          b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+          }
         }
         
         
-      }else {
-        b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
-        lambda_x=b$x[which.max(b$y)]
-        if (lambda_x !=0){ #to avoid errors
-          mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+        #Second we scale
+        for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+        
+        #and finally, we perform the first PLS
+        if (method_pre=="PLS"){
+          
+          pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                     data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+          n_comp_pls=selectNcomp(pls_1,method = "onesigma")
+          
+          
+          if (n_comp_pls > 1){
+            mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
+          } else if (n_comp_pls==1){ #otherwise we take the whole components
+            mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+          } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
+          
+          
+        } else {
+          mat_sumstat_pls=matrix_sumstat
         }
         
-      }
-      
-      #and normalization
-      for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-      
-      pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
-                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
-      
-      
-      n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-      
-      
-      if (n_comp_pls > 1){
-        mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
-      } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
-      
-      cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
-                      param = cross_valid$unadj.values,
-                      sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                      tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                      numnet = rep_network,sizenet = size_hidden) 
-      
-      cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
-      
-      matrix_sumstat=save_sumstat
-      
-      if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-      
-      cross_valid$adj.values=cross_valid$adj.values
-      #Matrix of correlation between parameters & sumstats
-      mat_cor_param[,,n]=cor(cross_valid$adj.values)
-      
-      
-      #We plot the differences in posterior distribution/true parameter
-
-      if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
-        cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
-                                                               | is.nan(cross_valid$adj.values[,2])),]
         
-      }      
-      par(mfrow=c(1,2))
-      for (i in colnames(matrix_param)){
-        plot(density(cross_valid$adj.values[,i]),main=i,xlab="Value")
-        abline(v = matrix_param[n_cross,i],col="blue")
-        abline(v = colMeans(cross_valid$adj.values)[i],col="red")
-      }
-      
-      
-      par(mfrow=c(1,1))
-      for (i in 1:(length(colnames(cross_valid$adj.values))-1)){
-        for (j in (i+1):length(colnames(cross_valid$adj.values))){
-          plot(x=cross_valid$adj.values[,i],y=cross_valid$adj.values[,j],
-               xlab=colnames(cross_valid$adj.values)[i],ylab=colnames(cross_valid$adj.values)[j],
-               col=alpha("blue",.8))
+        
+        cross_valid=abc(target = mat_sumstat_pls[n_cross,],
+                        param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
+                        tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+        
+        #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+        
+        mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
+        mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
+        
+        #again, first box cox
+        
+        for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
+          
+          b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+          
+        }else {
+          b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+          }
+          
         }
-      }
+        
+        #and normalization
+        for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+        
+        
+        
+        if (method_pre=="PLS"){
+          
+          pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
+                     data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                              mat_sumstat_step1)), scale=TRUE, validation="CV")
+          
+          
+          n_comp_pls=selectNcomp(pls_2,method = "onesigma")
+          
+          
+          if (n_comp_pls > 1){
+            mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
+          } else if (n_comp_pls==1){ #otherwise we take the whole components
+            mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+          } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
+          
+        } else {
+          mat_sumstat_pls2=mat_sumstat_step1
+        }
+        
+        
+        cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
+                        param = cross_valid$unadj.values,
+                        sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
+                        tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                        logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                        numnet = rep_network,sizenet = size_hidden)
+        
+        cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
+        
+        matrix_sumstat=save_sumstat
+        
+        if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+        
+        cross_valid$adj.values=cross_valid$adj.values
+        #Matrix of correlation between parameters & sumstats
+        mat_cor_param[,,n]=cor(cross_valid$adj.values)
+        
+        
+        #We plot the differences in posterior distribution/true parameter
+        
+        if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+          cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                                 | is.nan(cross_valid$adj.values[,2])),]
+          
+        }
+        
+        
+        
+        #we save the mean posterior distribution for each and the true observed parameters
+        d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
+        d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
+        
+        #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
+        
+        
+        #We compute the mean squared error (RMSE)
+        RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
+          sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
+        }
+        )
+        
+        #normalize it by the RMSE under the prior distribution
+        RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
+          sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
+        }
+        )
+        NRMSE = RMSE/RMSE_prior
+        
+        d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
+        
+        
+        #We repeat the same for the summary statistics observed
+        RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+          sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
+        }
+        )
+        
+        RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+          sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
+        }
+        )
+        NRMSE = RMSE/RMSE_prior
+        
+        d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+        
+      } #end loop Nvirtual data
+      
+      colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
+      
+      write.table(d_NRMSE_param,paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_preprocessing_",method_pre,"_",
+                                       size_hidden,"_Nnet_",rep_network,".csv"),sep=";")
       
       
-      d_melt=as.data.frame(cross_valid$ss)%>%
-        melt(.)
       
-      par(mfrow=c(2,5))
-      for (i in colnames(matrix_sumstat)){
-        plot(density(d_melt$value[which(d_melt$variable==i)]),main=i,xlab="Value")
-        abline(v = matrix_sumstat[n_cross,i],col="blue")
-        abline(v = colMeans(cross_valid$ss)[i],col="red")
-      }
-      
-      #we save the mean posterior distribution for each and the true observed parameters
-      d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-      d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      
-      #We compute the mean squared error (RMSE) 
-      RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-        sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-      }
-      )
-      
-      #normalize it by the RMSE under the prior distribution
-      RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-        sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-      }
-      )
-      NRMSE = RMSE/RMSE_prior
-      
-      d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-      
-      
-      #We repeat the same for the summary statistics observed
-      RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-        sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-      }
-      )
-      
-      RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-        sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-      }
-      )
-      NRMSE = RMSE/RMSE_prior
-      
-      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-      
-    } #end loop Nvirtual data
-    
-    colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-    
-    write.table(d_NRMSE_param,paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_",
-                                     size_hidden,"_Nnet_",rep_network,".csv"),sep=";")
-    
-    colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-    dev.off()
-    
-    p=ggplot(d_NRMSE_param%>%
-               melt(.))+
-      geom_jitter(aes(x=variable,y=value,color=variable),
-                  position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-      geom_point(data=as_tibble(t(colMeans(d_NRMSE_param)))%>%
-                   melt(.),
-                 aes(x=variable,y=value),color="black",size=3,shape=18)+
-      labs(x="Parameter",y="NRMSE",color="")+
-      geom_hline(yintercept = 1)+
-      ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-      theme_classic()+
-      theme(legend.position = "none")
-    
-    ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/NRMSE_param_hidden_",
-                  size_hidden,"_Nnet_",rep_network,".pdf"),p,width = 6,height = 3)
-    
-    
+    }
   }
 }
 
 
+
+
+
 all_sim=expand.grid(rep_network=seq(10,30,by=10),N_hidden=seq(5,25,by=5))
 
-d=tibble()
-
-for (i in 1:nrow(all_sim)){
-  d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_",
-                              all_sim$N_hidden[i],"_Nnet_",all_sim$rep_network[i],".csv"),sep=";")%>%
-            add_column(., N_hidden=all_sim$N_hidden[i],N_rep_net=all_sim$rep_network[i]))
+for (plot_id in 1:2){
+  d=tibble()
+  
+  for (i in 1:nrow(all_sim)){
+    d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_preprocessing_",c("NoPLS","PLS")[plot_id],"_",
+                                all_sim$N_hidden[i],"_Nnet_",all_sim$rep_network[i],".csv"),sep=";")%>%
+              add_column(., N_hidden=all_sim$N_hidden[i],N_rep_net=all_sim$rep_network[i]))
+  }
+  
+  
+  mean_rmse=d%>%
+    melt(., id.vars=c("N_hidden","N_rep_net"))%>%
+    group_by(.,variable,N_rep_net,N_hidden)%>%
+    summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+    rename(., "Parameter"="variable")%>%
+    mutate(., N_hidden=as.character(N_hidden))
+  
+  
+  p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
+             rename(., "Parameter"="variable")%>%
+             mutate(., N_hidden=as.character(N_hidden)))+
+    geom_jitter(aes(x=factor(N_hidden,level=c("5","10",'15',"20",'25')),y=value,color=as.factor(N_hidden)),
+                position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
+    geom_point(data=mean_rmse,aes(x=N_hidden,y=mean_rmse),
+               color="white",fill="black",shape=24,size=2.5)+
+    labs(x="Number hidden neurons",y="NRMSE",color="")+
+    facet_grid(Parameter~N_rep_net,labeller = label_both)+
+    the_theme+
+    ylim(0,.5)+
+    theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
+    guides(color = guide_legend(override.aes = list(size = 2)))+
+    scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"),breaks=c('5', '10', '15',"20","25"))
+  
+  ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_all_",c("NoPLS","PLS")[plot_id],".pdf"),
+         p,width = 7,height = 4)
+  
+  
+  p=d%>%
+    melt(., id.vars=c("N_hidden","N_rep_net"))%>%
+    group_by(.,variable,N_hidden,N_rep_net)%>%
+    summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+    mutate(., N_rep_net=as.character(N_rep_net))%>%
+    ggplot(.)+
+    geom_line(aes(x=N_hidden,y=mean_rmse,color=N_rep_net,group=N_rep_net),lwd=.8)+
+    geom_point(aes(x=N_hidden,y=mean_rmse,fill=N_rep_net),color="black",shape=21,size=1)+
+    facet_wrap(.~variable,labeller = label_bquote(cols="Parameter = "==.(as.character(variable))),scales = "free")+
+    labs(x="Number hidden neurons",color="# neural networks  ",y="Mean NRMSE")+
+    scale_x_continuous(breaks = seq(5,25,by=5))+
+    the_theme+
+    guides(color = guide_legend(override.aes = list(size = 2)),fill="none")+
+    scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5"))+
+    scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5"))
+  
+  ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_mean_",c("NoPLS","PLS")[plot_id],".pdf"),
+         p,width = 7,height = 4)
+  
 }
 
 
-mean_rmse=d%>%
-  melt(., id.vars=c("N_hidden","N_rep_net"))%>%
-  group_by(.,variable,N_rep_net,N_hidden)%>%
-  summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  rename(., "Parameter"="variable")%>%
-  mutate(., N_hidden=as.character(N_hidden))
 
-
-p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
-           rename(., "Parameter"="variable")%>%
-           mutate(., N_hidden=as.character(N_hidden)))+
-  geom_jitter(aes(x=factor(N_hidden,level=c("5","10",'15',"20",'25')),y=value,color=as.factor(N_hidden)),
-              position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
-  geom_point(data=mean_rmse,aes(x=N_hidden,y=mean_rmse),
-             color="white",fill="black",shape=24,size=2.5)+
-  labs(x="Number hidden neurons",y="NRMSE",color="")+
-  facet_grid(Parameter~N_rep_net,labeller = label_both)+
-  the_theme+
-  ylim(0,.5)+
-  theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
-  guides(color = guide_legend(override.aes = list(size = 2)))+
-  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"),breaks=c('5', '10', '15',"20","25"))
-
-
-ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_all.pdf"),p,width = 7,height = 4)
-
-
-p=d%>%
-  melt(., id.vars=c("N_hidden","N_rep_net"))%>%
-  group_by(.,variable,N_hidden,N_rep_net)%>%
-  summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  mutate(., N_rep_net=as.character(N_rep_net))%>%
-  ggplot(.)+
-  geom_line(aes(x=N_hidden,y=mean_rmse,color=N_rep_net,group=N_rep_net),lwd=.8)+
-  geom_point(aes(x=N_hidden,y=mean_rmse,fill=N_rep_net),color="black",shape=21,size=1)+
-  facet_wrap(.~variable,labeller = label_bquote(cols="Parameter = "==.(as.character(variable))),scales = "free")+
-  labs(x="Number hidden neurons",color="# neural networks  ",y="Mean NRMSE")+
-  scale_x_continuous(breaks = seq(5,25,by=5))+
-  the_theme+
-  guides(color = guide_legend(override.aes = list(size = 2)),fill="none")+
-  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5"))+
-  scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5"))
-
-
-ggsave("../Figures/Eby_model/Optimizing_inferrence/Neural_net/Optimization_NN_mean.pdf",p,width = 6,height = 3)
-
-
-## >> 3) Number of principal components ----
+## >> 3) Optimizing the number of principal components ----
 
 
 
@@ -2602,10 +2575,10 @@ for (n1_PLS in 1:9){
       
       
       if (n_comp_pls > 1){
-        mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+        mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
       } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+        mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
       
       
       cross_valid=abc(target = mat_sumstat_pls[n_cross,],
@@ -2650,10 +2623,10 @@ for (n1_PLS in 1:9){
       
       
       if (n_comp_pls > 1){
-        mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+        mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
       } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+        mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+      } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
       
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                       param = cross_valid$unadj.values,
@@ -2767,7 +2740,7 @@ p=ggplot(mean_rmse)+
 ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Pls_comp/PLS_comp_all.pdf"),p,width = 7,height = 4)
 
 
-## >> 4) Sensibility to PLR and expo removal ----
+## >> 4) Sensibility to summary statistics removal ----
 
 
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
@@ -2865,10 +2838,10 @@ for (type_removal in c("no_removal","PLR","Expo_PL","PLR_explo_PL","Spectral_rat
     n_comp_pls=selectNcomp(pls_1,method = "onesigma")
     
     if (n_comp_pls > 1){
-      mat_sumstat_pls=pls_1$Yscores[,1:n_comp_pls] # selecting # components
+      mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
     } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls=matrix(pls_1$Yscores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls=pls_1$Yscores[,1:ncol(pls_1$Yscores)]}
+      mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
     
     cross_valid=abc(target = mat_sumstat_pls[n_cross,],
                     param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
@@ -2939,10 +2912,10 @@ for (type_removal in c("no_removal","PLR","Expo_PL","PLR_explo_PL","Spectral_rat
     n_comp_pls=selectNcomp(pls_1,method = "onesigma")
 
     if (n_comp_pls > 1){
-      mat_sumstat_pls2=pls_2$Yscores[,1:n_comp_pls] #pls 2 selecting # components
+      mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
     } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls2=matrix(pls_2$Yscores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls2=pls_2$Yscores[,1:ncol(pls_2$Yscores)]}
+      mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
     
     cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                     param = cross_valid$unadj.values,
@@ -3065,7 +3038,7 @@ colnames(d_sumstat)=c("rho_p","nb_neigh","clustering","skewness","variance","mor
 
 d_biocom=d_biocom%>%
   
-  dplyr::select(., file,id, plotn, MF, Aridity,Sand,lat,long,imgcover,nbpixels)%>%
+  dplyr::select(., file,id, plotn, MF,TypeMF, Aridity,Sand,lat,long,imgcover,nbpixels)%>%
   
   dplyr::rename(., File_ID=file, ID=id, Plot_n=plotn, Lattitude=lat,Longitude=long,Cover=imgcover,Nbpixels=nbpixels)%>%
   
@@ -3259,7 +3232,7 @@ dev.off()
 
 
 
-## >> 1) ABC on all empirical sites ----
+## >> 1) Naive ABC on all empirical sites ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
@@ -3268,789 +3241,22 @@ d_all=d_all[-condition_cover,]
 rownames(d_all)=1:nrow(d_all)
 d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
 
-pdf(paste0('../Figures/Empirical_data/ABC/ABC_posterior_sites.pdf'),width = 7,height = 7)
-
-for (site_ID in 1:nrow(d_biocom)){
-  
-  #observed summary statistics in the site
-  observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                                                                    "Spectral_ratio","PLR","PL_expo"))]
-  
-  if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
-  
-  matrix_param=d_all[,1:2]
-  matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
-  save_sumstat=matrix_sumstat
-  matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
-  
-  Plot_hist_simu_obs(save_sumstat,observed_sumstat)
-  
-  for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-    
-    b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-    }
-  }else {
-    b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-    }
-  }
-  
-  #Second we scale
-  for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-  
-  Plot_hist_simu_obs(matrix_sumstat[-nrow(matrix_sumstat),],matrix_sumstat[nrow(matrix_sumstat),])
-  
-  
-  #and finally, we perform the first PLS (excluding empirical sdata)
-  
-  if (d_biocom$PL_expo[site_ID] ==0){
-    pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
-               data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
-  } else {
-    pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-               data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
-  }
-  
-  n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-  
-  if (n_comp_pls > 1){
-    mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-  } else if (n_comp_pls==1){ #otherwise we take the whole components
-    mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
-  } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-  
-  #predicting the values of observed summary statistics under the pls model
-  observed_sumstat_pls1=predict(pls_1, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
-  
-  Plot_hist_simu_obs(mat_sumstat_pls,observed_sumstat_pls1)
-  
-  
-  
-  
-  cross_valid=abc(target = observed_sumstat_pls1,
-                  param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
-                  tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-  
-  #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-  mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-  mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
-  
-  
-  #again, first box cox
-  for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-    
-    b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-    }
-    
-  }else {
-    b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-    }
-  }
-  
-  #and normalization
-  for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-  
-  Plot_hist_simu_obs(mat_sumstat_step1[-nrow(mat_sumstat_step1),],mat_sumstat_step1[nrow(mat_sumstat_step1),])
-  
-  
-  if (d_biocom$PL_expo[site_ID] ==0){
-    pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR,
-               data=as.data.frame(cbind(rbind(cross_valid$unadj.values),
-                                        mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")  
-    
-  } else {
-    pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-               data=as.data.frame(cbind(rbind(cross_valid$unadj.values),
-                                        mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")  
-  }
-  
-  n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-  
-  #predicting the values of observed summary statistics under the pls model
-  observed_sumstat_pls2=predict(pls_2, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
-  
-  
-  if (n_comp_pls > 1){
-    mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-  } else if (n_comp_pls==1){ #otherwise we take the whole components
-    mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
-  } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
- 
-  Plot_hist_simu_obs(mat_sumstat_pls2,observed_sumstat_pls2)
-  
-
-  cross_valid=abc(target = observed_sumstat_pls2,
-                  param = cross_valid$unadj.values,
-                  sumstat = mat_sumstat_pls2, #removing the target data
-                  tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                  logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                  numnet = 10,sizenet = 10) 
-  
-  cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-  
-  Plot_hist_simu_obs(cross_valid$ss,save_sumstat[site_ID,])
-  
-  par(mfrow=c(3,3))
-  for (i in 1:n_comp_pls){
-    hist(cross_valid$ss[,i],main=colnames(cross_valid$ss)[i],xlab = "")
-    abline(v=observed_sumstat[i],col="red",lwd=3)
-  }
-  
-  
-  matrix_sumstat=save_sumstat
-  
-  if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-  
-
-  if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
-    cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
-                                                           | is.nan(cross_valid$adj.values[,2])),]
-  }      
-  
-  par(mfrow=c(1,2))
-  hist(cross_valid$adj.values[,1],main="",xlab='p')
-  hist(cross_valid$adj.values[,2],main="",xlab='q')
-  
-  if (d_biocom$PL_expo[site_ID] ==0){
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%
-                            add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
-                            add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
-  } else {
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%
-                            add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
-                            add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
-    
-  }
-  
-  
-
-  #We compute the RMSE for the summary statistics observed
-  RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-    sqrt(sum((cross_valid$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid$ss) )})
-  
-  RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-    sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
-  NRMSE = RMSE/RMSE_prior
-  names(NRMSE)= colnames(matrix_sumstat)
-
-  if (d_biocom$PL_expo[site_ID] ==0){
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
-                            add_column(., PL_expo = NA,Site=site_ID))
-  } else {
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
-                            add_column(.,Site=site_ID))
-  }
-  
-  
-  d_biocom[site_ID,20]=mean(cross_valid$adj.values[,1]) #mean posteriors
-  d_biocom[site_ID,21]=mean(cross_valid$adj.values[,2]) #mean posteriors
-  
-
-}
-dev.off()
-
-d_biocom=d_biocom%>%
-  rename(., p=V20,q=V21)
-
-write.table(d_biocom,"../Data/Step7_Empirical_data/Posteriors_sites.csv",sep=";")
-write.table(d_NRMSE_sumstat,"../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
-write.table(d_cross_sumstat,"../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")
-
-
-d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
-d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")
-
-p=d_NRMSE_sumstat%>%
-  melt(., id.vars=c("Site"))%>%
-  ggplot(.,aes(x=variable,y=value))+
-  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
-  geom_violin(aes(fill=variable),alpha=.4)+
-  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
-  the_theme+
-  labs(x="",y="NRMSE",color="",fill="")+
-  geom_hline(yintercept = 1)+
-  guides(color = guide_legend(override.aes = list(size = 3))) 
-
-ggsave("../Figures/Empirical_data/ABC/NRMSE_sumstat_data.pdf",p,width = 9,height = 6)
-
-pdf("../Figures/Empirical_data/ABC/x_y_obs_sum_sumstat_data.pdf",width = 7,height = 7)
-d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
-d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
-par(mfrow=c(3,3))
-for (i in 1:9){
-  plot(as.numeric(d_sim[,i]),
-       as.numeric(d_obs[,i]),col=alpha("blue",.3),pch=21,xlab="Sim",ylab="Obs",
-       main=colnames(d_cross_sumstat)[i])
-  abline(a=0,b=1)
-}
-dev.off()
-
-
-
-## >> 2) Linking quality estimation with distance in PCA  ----
-
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-
-d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
-            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
-
-res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
-
-#centroids in PCA of simulations
-centroid_sim=colMeans(res.pca$ind$coord[1:nrow(d_Eby),])
-
-#getting euclidean distance from centroid for each empirical site
-dist_empirical = sapply((nrow(d_Eby)+1):(nrow(d_tot)),function(x){
-  return( sqrt(sum((res.pca$ind$coord[x,] - centroid_sim)^2)) )
-})
-write.table(dist_empirical,"../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")
-
-#Then we plot NRMSE = f(distance to centroid) 
-d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
-
-p=ggplot(d_NRMSE_sumstat%>%
-         melt(., id.vars=c("Site"))%>%
-         add_column(., Euclid_dist=rep(dist_empirical,9)))+
-  geom_point(aes(x=Euclid_dist,y=value,color=variable),alpha=.4)+
-  facet_wrap(.~variable,scales = "free")+
-  the_theme+
-  theme(legend.position = "none")+
-  labs(x="Distance to centroid in PCA",y="NRMSE")
-
-ggsave("../Figures/Empirical_data/ABC/Dist_PCA_NMRSE_fit.pdf",p,width = 7,height = 6)
-
-#and we do the same with the distance to the x=y line 
-d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")%>%
-  melt(., id.vars=c("Type","Site"))
-
-error_abc=sapply(1:(nrow(d_cross_sumstat)/2),function(x){
-  return(
-    abs(d_cross_sumstat$value[2*(x-1)+1]-d_cross_sumstat$value[2*x] ) #absolute distance between true and fitted 
-  )
-})
-
-p=d_cross_sumstat%>%
-  filter(., Type=="Obs")%>%
-  dplyr::select(., -Type)%>%
-  add_column(., Error_abc=error_abc,Euclid_dist=rep(dist_empirical,9))%>%
-  ggplot(.)+
-  geom_point(aes(x=Euclid_dist,y=Error_abc,color=variable),alpha=.4)+
-  facet_wrap(.~variable,scales = "free")+
-  the_theme+
-  theme(legend.position = "none")+
-  labs(x="Distance to centroid in PCA",y="Absolute difference between fitted and observed ")
-
-ggsave("../Figures/Empirical_data/ABC/Dist_PCA_ABC_sumstat_fitted.pdf",p,width = 7,height = 6)
-
-
-# Similarly for the link between aridity and inferred p values
-d_biocom=read.table("../Data/Step7_Empirical_data/Posteriors_sites.csv",sep=";")
-
-p=ggplot(d_biocom%>%
-         add_column(., Euclid_dist=scale(dist_empirical))%>%
-         melt(., measure.vars=c("p","q"))%>%
-         melt(., measure.vars=c("Aridity","MF","Sand"),variable.name="Driver",value.name = "Driver_value"))+
-  geom_point(aes(x=Driver_value,y=value,color=log(Euclid_dist)))+
-  facet_grid(variable~Driver,scales = "free")+
-  labs(x="Value of the driver",y="Inferred parameter value",color="Distance to PCA centroid (log)")+
-  scale_color_viridis_c()+
-  the_theme
-ggsave("../Figures/Empirical_data/ABC/Driver_inferred_parameters.pdf",p,width = 7,height = 6)
-
-
-
-#doing the same with the smallest distance to a simulation point
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-
-d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
-            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
-
-res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
-
-distances=apply(res.pca$ind$coord[(nrow(res.pca$ind$coord)-344):(nrow(res.pca$ind$coord)),],1, #for each empirical data
-                   function(x) min(apply(res.pca$ind$coord[1:(nrow(res.pca$ind$coord)-345),],1,
-                                         function(y) dist(rbind(x, y))))) #we get the min distance to simulated data
-
-
-write.table(distances,"../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")
-
-#Then we plot NRMSE = f(distance to centroid) 
-distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
-d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
-
-p=ggplot(d_NRMSE_sumstat%>%
-           melt(., id.vars=c("Site"))%>%
-           add_column(., Euclid_dist=rep(distances,9)))+
-  geom_point(aes(x=Euclid_dist,y=value,color=variable),alpha=.4)+
-  facet_wrap(.~variable,scales = "free")+
-  the_theme+
-  theme(legend.position = "none")+
-  labs(x="Distance closest simulation point",y="NRMSE")
-
-ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_PCA_NMRSE_fit.pdf",p,width = 7,height = 6)
-
-#and we do the same with the distance to the x=y line 
-d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")%>%
-  melt(., id.vars=c("Type","Site"))
-
-error_abc=sapply(1:(nrow(d_cross_sumstat)/2),function(x){
-  return(
-    abs(d_cross_sumstat$value[2*(x-1)+1]-d_cross_sumstat$value[2*x] ) #absolute distance between true and fitted 
-  )
-})
-
-p=d_cross_sumstat%>%
-  filter(., Type=="Obs")%>%
-  dplyr::select(., -Type)%>%
-  add_column(., Error_abc=error_abc,Euclid_dist=rep(distances,9))%>%
-  ggplot(.)+
-  geom_point(aes(x=Euclid_dist,y=Error_abc,color=variable),alpha=.4)+
-  facet_wrap(.~variable,scales = "free")+
-  the_theme+
-  theme(legend.position = "none")+
-  labs(x="Distance closest simulation point",y="Absolute difference between fitted and observed ")
-
-ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_PCA_ABC_sumstat_fitted.pdf",p,width = 7,height = 6)
-
-
-# Similarly for the link between aridity and inferred p values
-d_biocom=read.table("../Data/Step7_Empirical_data/Posteriors_sites.csv",sep=";")
-
-p=ggplot(d_biocom%>%
-           add_column(., Euclid_dist=distances)%>%
-           melt(., measure.vars=c("p","q"))%>%
-           melt(., measure.vars=c("Aridity","MF","Sand"),variable.name="Driver",value.name = "Driver_value"))+
-  geom_point(aes(x=Driver_value,y=value,color=(Euclid_dist)))+
-  facet_grid(variable~Driver,scales = "free")+
-  labs(x="Value of the driver",y="Inferred parameter value",color="Distance closest simulation point (log)")+
-  scale_color_viridis_c()+
-  the_theme
-ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Driver_inferred_parameters.pdf",p,width = 7,height = 6)
-
-
-
-
-
-
-
-
-
-#example of sites for which Eby model cannot do much
-pdf("../Figures/Empirical_data/landscapes/Example_for_PDE.pdf",width = 20,height = 4)
-par(mfrow=c(1,5))
-Plot_empirical(10)
-Plot_empirical(12)
-Plot_empirical(283)
-Plot_empirical(296)
-Plot_empirical(345)
-dev.off()
-
-
-
-## >> 3) ABC with some summary stat removal ----
-
 
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
 condition_cover=which(d_all$rho_p ==0)
 d_all=d_all[-condition_cover,]
 rownames(d_all)=1:nrow(d_all)
 
-
-for (remove_ID in c("neighB","clustering","spectralR","moranI","variance")){
-  
-  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-
-  pdf(paste0("../Figures/Empirical_data/ABC/ABC_posterior_sites_",remove_ID,".pdf"),width = 7,height = 7)
-  
-  
-  if (remove_ID == "neighB"){
-    sumstat_kept=colnames(d_all)[3:ncol(d_all)][-2]
-  } else if (remove_ID == "clustering"){
-    sumstat_kept=colnames(d_all)[3:ncol(d_all)][-3]
-  } else if (remove_ID == "spectralR"){
-    sumstat_kept=colnames(d_all)[3:ncol(d_all)][-7]
-  } else if (remove_ID == "moranI"){
-    sumstat_kept=colnames(d_all)[3:ncol(d_all)][-6]
-  } else {
-    sumstat_kept=colnames(d_all)[3:ncol(d_all)][-5]
-  }
-  
-  for (site_ID in 1:nrow(d_biocom)){
-  
-    #observed summary statistics in the site
-    observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% sumstat_kept)]
-
-    if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-ncol(observed_sumstat)] #if we cannot fit a PL or tPL, we remove the PL_expo
-    
-    matrix_param=d_all[,1:2]
-    matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
-    save_sumstat=matrix_sumstat
-    matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
-    
-    for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-      
-      b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-      lambda_x=b$x[which.max(b$y)]
-      if (lambda_x !=0){ #to avoid errors
-        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-      }
-    }else {
-      b=boxcox(lm(matrix_sumstat[,x]+.01 ~ 1),plotit = F,eps = .05)    
-      lambda_x=b$x[which.max(b$y)]
-      if (lambda_x !=0){ #to avoid errors
-        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-      }
-    }
-    
-    #Second we scale
-    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-    
-    #and finally, we perform the first PLS (excluding empirical sdata)
-    
-    print(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
-                           " ~ ",
-                           paste(sumstat_kept,collapse =  " + "))))
-    
-    
-    if (d_biocom$PL_expo[site_ID] ==0){
-      pls_1=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
-                                  " ~ ",
-                                  paste(sumstat_kept[-which(sumstat_kept == "PL_expo")],collapse =  " + "))),
-                 data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
-    } else {
-      pls_1=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
-                                  " ~ ",
-                                  paste(sumstat_kept,collapse =  " + "))),
-                 data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
-    }
-    
-    n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-    
-    if (n_comp_pls > 1){
-      mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-    } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls=as.data.frame(matrix(pls_1$scores[,1:n_comp_pls],ncol=1))
-    } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-    
-    #predicting the values of observed summary statistics under the pls model
-    observed_sumstat_pls1=predict(pls_1, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
-
-    cross_valid1=abc(target = observed_sumstat_pls1,
-                    param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
-                    tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-    
-    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-    mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
-    
-    
-    #again, first box cox
-    for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-      
-      b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-      lambda_x=b$x[which.max(b$y)]
-      if (lambda_x !=0){ #to avoid errors
-        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-      }
-      
-    }else {
-      b=boxcox(lm(mat_sumstat_step1[,x]+.01 ~ 1),plotit = F,eps = .05)    
-      lambda_x=b$x[which.max(b$y)]
-      if (lambda_x !=0){ #to avoid errors
-        mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-      }
-    }
-    
-    #and normalization
-    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-    
-    if (d_biocom$PL_expo[site_ID] ==0){
-      pls_2=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
-                                  " ~ ",
-                                  paste(sumstat_kept[-which(sumstat_kept == "PL_expo")],collapse =  " + "))),
-                 data=as.data.frame(cbind(rbind(cross_valid1$unadj.values),
-                                          mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")
-    } else {
-      pls_2=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
-                                  " ~ ",
-                                  paste(sumstat_kept,collapse =  " + "))),
-                 data=as.data.frame(cbind(rbind(cross_valid1$unadj.values),
-                                          mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")
-    }
-    
-    
-    n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-    
-    #predicting the values of observed summary statistics under the pls model
-    observed_sumstat_pls2=predict(pls_2, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
-    
-    
-    if (n_comp_pls > 1){
-      mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-    } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls2=as.data.frame(matrix(pls_2$scores[,1:n_comp_pls],ncol=1))
-    } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
-    
-    rownames(mat_sumstat_pls2)=rownames(pls_2$scores)
-    
-    cross_valid2=abc(target = observed_sumstat_pls2,
-                    param = cross_valid1$unadj.values,
-                    sumstat = mat_sumstat_pls2, #removing the target data
-                    tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                    logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                    numnet = 10,sizenet = 10) 
-    
-    cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-    
-    par(mfrow=c(3,3))
-    for (i in 1:n_comp_pls){
-      hist(cross_valid2$ss[,i],main=colnames(cross_valid2$ss)[i],xlab = "")
-      abline(v=observed_sumstat[i],col="red",lwd=3)
-    }
-    
-    
-    matrix_sumstat=save_sumstat
-    
-    if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
-    
-    
-    if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
-      cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
-                                                             | is.nan(cross_valid2$adj.values[,2])),]
-    }      
-    
-    par(mfrow=c(1,2))
-    hist(cross_valid2$adj.values[,1],main="",xlab='p')
-    hist(cross_valid2$adj.values[,2],main="",xlab='q')
-    
-    if (d_biocom$PL_expo[site_ID] ==0){
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
-                              add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
-                              add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
-    } else {
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
-                              add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
-                              add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
-      
-    }
-    
-    
-    
-    #We compute the RMSE for the summary statistics observed
-    RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
-      sqrt(sum((cross_valid2$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid2$ss) )})
-    
-    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-      sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
-    NRMSE = RMSE/RMSE_prior
-    names(NRMSE)= colnames(matrix_sumstat)
-    
-    if (d_biocom$PL_expo[site_ID] ==0){
-      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
-                              add_column(., PL_expo = NA,Site=site_ID))
-    } else {
-      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
-                              add_column(.,Site=site_ID))
-    }
-    
-    
-    d_biocom[site_ID,20]=mean(cross_valid2$adj.values[,1]) #mean posteriors
-    d_biocom[site_ID,21]=mean(cross_valid2$adj.values[,2]) #mean posteriors
-    
-    
-  }
-  dev.off()
-  
-  d_biocom=d_biocom%>%
-    rename(., p=V20,q=V21)
-  
-  write.table(d_biocom,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Posteriors_sites_",remove_ID,".csv"),sep=";")
-  write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/NRMSE_sumstat_",remove_ID,".csv"),sep=";")
-  write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Cross_valid_sumstat_",remove_ID,".csv"),sep=";")
-}
-
-
-pdf("../Figures/Empirical_data/ABC/Sensi_removal/Observed_retained_x_y.pdf",width = 7,height = 6)
-
-for (x_file in list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "Cross_valid")){
-  
-  d_cross = read.table(paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/",x_file),sep=";")
-  if (gsub(".csv","",strsplit(x_file,"_")[[1]][4]) !="None"){
-    par(mfrow=c(3,3))
-  } else {
-    par(mfrow=c(3,3))
-  }
-  
-  for (i in 1:ifelse(gsub(".csv","",strsplit(x_file,"_")[[1]][4]) !="None",8,9)){
-    
-    
-    plot(as.numeric(filter(d_cross,Type=="Sim")[,i]),
-         as.numeric(filter(d_cross,Type=="Obs")[,i]),
-         col=alpha("blue",.3),pch=21,xlab="Sim",ylab="Obs",
-         main=colnames(d_cross)[i])
-    abline(a=0,b=1)
-    mtext(paste0("Removal = ",gsub(".csv","",strsplit(x_file,"_")[[1]][4])))
-    
-  }
-}
-dev.off()
-
-
-pdf("../Figures/Empirical_data/ABC/Sensi_removal/NMRSE_sumstat.pdf",width = 9,height = 5)
-
-for (x_file in list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "NRMSE")){
-  print(read.table(paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/",x_file),sep=";")%>%
-    melt(., id.vars=c("Site"))%>%
-    ggplot(.,aes(x=variable,y=value))+
-    geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
-    geom_violin(aes(fill=variable),alpha=.4)+
-    stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
-    the_theme+
-    labs(x="",y="NRMSE",color="",fill="")+
-    geom_hline(yintercept = 1)+
-    ggtitle(paste0("Removed = ",gsub(".csv","",strsplit(x_file,"_")[[1]][3])))+
-    guides(color = guide_legend(override.aes = list(size = 3))))
-}
-dev.off()
-
-
-
-
-
-
-
-
-
-## >> 4) Filtering the landscapes closest to the simulations ----
-
-#first we visualize whether the metrics we use are relevant in the PCA space: this is good
-
-distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
-dist_empirical=read.table("../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")$x
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)%>%
-  dplyr::select(., -p, -q)
-d_tot=rbind(d_biocom[,11:ncol(d_biocom)],d_Eby)
-
-res.pca=PCA(d_tot, scale.unit = T, ncp = 3,  graph=F)
-projec_space=res.pca$ind$coord[1:nrow(d_biocom),]%>%
-  as.data.frame(.)%>%
-  add_column(., Dist_centroid=distances,Dist_simu_points=dist_empirical)
-axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
-
-pdf("../Figures/Empirical_data/ABC/Distance_closest_simu/Linking_PCA_and_distance.pdf",width = 4,height = 3)
-for (metric_distance in which(colnames(projec_space) %in% c("Dist_centroid","Dist_simu_points"))){
-  for (i in 1:3){
-    print(
-      projec_space%>%
-             ggplot(.) +
-             geom_hline(yintercept = 0, lty = 2) +
-             geom_vline(xintercept = 0, lty = 2) +
-             geom_point(aes(x = projec_space[,axes_for_plot$x[i]], y = projec_space[,axes_for_plot$y[i]], 
-                            color = projec_space[,metric_distance],
-                            fill=projec_space[,metric_distance]))+
-             scale_color_viridis_c()+
-             scale_fill_viridis_c()+
-             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
-             ggtitle("")+guides(shape="none")+
-             theme_classic()+theme(legend.position = "bottom")
-    )
-  }
-}
-dev.off()
-
-
-# Then we keep the 20 simulations which are closer to simulations and centroids
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/NRMSE_sumstat.csv",sep=";")
-
-
-p=d_NRMSE_sumstat%>%
-  add_column(., Distance_centroids=distances,Dist_point_sim=dist_empirical,Sum_dist=dist_empirical+distances)%>%
-  add_column(., closest_sites = sapply(1:nrow(.),function(x){return(.$Sum_dist[x]  <=  quantile(.$Sum_dist,probs = .05) )}) )%>% #we keep the 5% closest with the simulations.
-  melt(., id.vars=c("closest_sites","Site","Distance_centroids","Sum_dist","Dist_point_sim"))%>%
-  ggplot(.,aes(x=variable,y=value))+
-  geom_line(aes(group=Site,color=closest_sites),lwd=.2)+
-  geom_violin(aes(fill=variable),alpha=.4)+
-  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
-  the_theme+
-  labs(x="",y="NRMSE",color="",fill="")+
-  geom_hline(yintercept = 1)+
-  scale_color_manual(values=c(alpha("gray",.3),"red"))+
-  guides(color = guide_legend(override.aes = list(size = 3)))
-
-ggsave("../Figures/Empirical_data/ABC/Filtering_data/NRMSE_sumstat_data_filtered.pdf",p,width = 9,height = 6)
-
-d_cross_sumstat=read.table("../Data/Step7_Empirical_data/Cross_valid_sumstat.csv",sep=";")
-
-
-
-
-pdf("../Figures/Empirical_data/ABC/Filtering_data/x_y_obs_sum_sumstat_data_filtered.pdf",width = 7,height = 7)
-
-#Getting the closest sites compared to simulations
-closest_sites = sapply(1:nrow(d_biocom),function(x){return((distances+dist_empirical)[x]  <=  quantile(distances+dist_empirical,probs = .05) )})
-d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
-d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
-par(mfrow=c(3,3))
-
-for (i in 1:9){
-  plot(as.numeric(d_sim[,i]),bg=c(alpha("blue",.6),"red")[as.factor(closest_sites)],col ="transparent",
-       as.numeric(d_obs[,i]),pch=21,xlab="Sim",ylab="Obs",cex=c(.7,1)[as.factor(closest_sites)],
-       main=colnames(d_cross_sumstat)[i])
-  abline(a=0,b=1)
-}
-dev.off()
-
-pdf("../Figures/Empirical_data/ABC/Filtering_data/Closest_landscapes.pdf",width = 5,height = 5)
-for (i in which(closest_sites)){
-  Plot_empirical(i)
-}
-dev.off()
-
-
-
-# for these sites we will compare different methods of performing ABC and how does it impacts the NRMSE of summary stats XXXX
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
-dist_empirical=read.table("../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")$x
-closest_sites = sapply(1:nrow(d_biocom),function(x){return((distances+dist_empirical)[x]  <=  quantile(distances+dist_empirical,probs = .1) )})
-
-d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
-condition_cover=which(d_all$rho_p ==0)
-d_all=d_all[-condition_cover,]
-rownames(d_all)=1:nrow(d_all)
-
-for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
+for (method_data in c("Raw","NoPLS")){
   
   d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
   
   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
   d_posterior=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")[as.numeric(which(closest_sites)),]
   
-  pdf(paste0("../Figures/Empirical_data/ABC/Filtering_data/Testing_methods/ABC_posterior_sites_",method_data,".pdf"),width = 7,height = 7)
-  
+
   index=1
-  for (site_ID in as.numeric(which(closest_sites))){
+  for (site_ID in 1:nrow(d_biocom)){
     
     #observed summary statistics in the site
     observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
@@ -4063,8 +3269,7 @@ for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
     save_sumstat=matrix_sumstat
     matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
     
-    Plot_hist_simu_obs(save_sumstat,observed_sumstat)
-    
+
     for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
       
       b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
@@ -4104,24 +3309,17 @@ for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
       
       #predicting the values of observed summary statistics under the pls model
       observed_sumstat_pls1=predict(pls_1, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
-    
+      
     } else {
       
       mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
       observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
     }
     
-    if (method_data == "Keeping_closest_PLS_comp"){
-      #let's try this threshold, we keep only the closest PLS comp
-      
-      mat_sumstat_pls=mat_sumstat_pls[,which(abs(observed_sumstat_pls1)<colMeans(mat_sumstat_pls)+3*apply(mat_sumstat_pls,2,sd))]
-      observed_sumstat_pls1=as.data.frame(t(observed_sumstat_pls1[which(colnames(observed_sumstat_pls1) %in% colnames(mat_sumstat_pls))]))
-      colnames(observed_sumstat_pls1)=colnames(mat_sumstat_pls)
-    }
-    
+
     cross_valid1=abc(target = observed_sumstat_pls1,
-                    param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
-                    tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+                     param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                     tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
     
     #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
     mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
@@ -4182,37 +3380,17 @@ for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
       observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
     }
     
-    if (method_data == "Keeping_closest_PLS_comp"){
-      
-      #let's try this threshold, we keep only the PLS components that are the closest to the data
-      if (which(abs(observed_sumstat_pls2)<colMeans(mat_sumstat_pls2)+3*apply(mat_sumstat_pls2,2,sd)) ==1){
-        
-        name_col=colnames(observed_sumstat_pls2)[which(abs(observed_sumstat_pls2)<colMeans(mat_sumstat_pls2)+3*apply(mat_sumstat_pls2,2,sd))]
-        mat_sumstat_pls2=as.data.frame(mat_sumstat_pls2[,which(abs(observed_sumstat_pls2)<colMeans(mat_sumstat_pls2)+3*apply(mat_sumstat_pls2,2,sd))])
-        colnames(mat_sumstat_pls2)=name_col
-        observed_sumstat_pls2=as.data.frame(t(observed_sumstat_pls2[which(colnames(observed_sumstat_pls2) %in% colnames(mat_sumstat_pls2))]))
-        colnames(observed_sumstat_pls2)=colnames(mat_sumstat_pls2)
-        
-        
-      } else {
-        mat_sumstat_pls2=mat_sumstat_pls2[,which(abs(observed_sumstat_pls2)<colMeans(mat_sumstat_pls2)+3*apply(mat_sumstat_pls2,2,sd))]
-        observed_sumstat_pls2=as.data.frame(t(observed_sumstat_pls2[which(colnames(observed_sumstat_pls2) %in% colnames(mat_sumstat_pls2))]))
-        colnames(observed_sumstat_pls2)=colnames(mat_sumstat_pls2)
-      }
-    }
     
-  
     cross_valid2=abc(target = observed_sumstat_pls2,
-                    param = cross_valid1$unadj.values,
-                    sumstat = mat_sumstat_pls2, #removing the target data
-                    tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                    logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                    numnet = 10,sizenet = 10) 
+                     param = cross_valid1$unadj.values,
+                     sumstat = mat_sumstat_pls2, #removing the target data
+                     tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                     logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                     numnet = 10,sizenet = 10) 
     
     cross_valid2$ss=as.data.frame(cross_valid2$ss)
     cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
     
-    Plot_hist_simu_obs(cross_valid2$ss,observed_sumstat)
 
     
     matrix_sumstat=save_sumstat
@@ -4222,13 +3400,10 @@ for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
     
     if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
       cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
-                                                             | is.nan(cross_valid2$adj.values[,2])),]
+                                                               | is.nan(cross_valid2$adj.values[,2])),]
     }      
     
-    par(mfrow=c(1,2))
-    hist(cross_valid2$adj.values[,1],main="",xlab='p')
-    hist(cross_valid2$adj.values[,2],main="",xlab='q')
-    
+
     if (d_biocom$PL_expo[site_ID] ==0){
       d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
                               add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
@@ -4270,65 +3445,62 @@ for (method_data in c("Raw","NoPLS","Keeping_closest_PLS_comp")){
   }
   dev.off()
   
-
+  
   d_posterior=d_posterior%>%
     rename(., p=V20,q=V21)
   
-  write.table(d_posterior,paste0("../Data/Step7_Empirical_data/Filtering_data/Posteriors_sites_",method_data,".csv"),sep=";")
-  write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/Filtering_data/NRMSE_sumstat_",method_data,".csv"),sep=";")
-  write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/Filtering_data/Cross_valid_sumstat_",method_data,".csv"),sep=";")
-
+  write.table(d_posterior,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_",method_data,".csv"),sep=";")
+  write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")
+  write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_",method_data,".csv"),sep=";")
+  
 }
 
 
+#NRMSE sumstat
+d_NRMSE_sumstat=rbind(
+  read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")%>%add_column(., Method="No PLS"),
+  read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_PLS.csv",sep=";")%>%add_column(., Method="PLS")
+  )
+p=d_NRMSE_sumstat%>%
+  melt(., id.vars=c("Site","Method"))%>%
+  ggplot(.,aes(x=Method,y=value))+
+  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="",fill="")+
+  geom_hline(yintercept = 1)+
+  guides(fill="none") 
+
+ggsave("../Figures/Empirical_data/ABC/NRMSE_sumstat_data.pdf",p,width = 9,height = 6)
 
 
-pdf("../Figures/Empirical_data/ABC/Filtering_data/Testing_methods/Observed_retained_x_y.pdf",width = 7,height = 6)
+#mean simultion summary stat versus observed sumstat
+d_cross_sumstat=rbind(
+  read.table("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_NoPLS.csv",sep=";")%>%add_column(., Method="No PLS"),
+  read.table("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_PLS.csv",sep=";")%>%add_column(., Method="PLS")
+)
 
-for (x_file in list.files("../Data/Step7_Empirical_data/Filtering_data/",pattern = "Cross_valid")){
-  
-  d_cross = read.table(paste0("../Data/Step7_Empirical_data/Filtering_data/",x_file),sep=";")
-  par(mfrow=c(3,3))
-  
-  for (i in 1:ifelse(gsub(".csv","",strsplit(x_file,"_")[[1]][4]) !="None",8,9)){
-    
-    
-    plot(as.numeric(filter(d_cross,Type=="Sim")[,i]),
-         as.numeric(filter(d_cross,Type=="Obs")[,i]),
-         col=alpha("blue",.7),pch=19,xlab="Sim",ylab="Obs",
-         main=colnames(d_cross)[i])
-    abline(a=0,b=1)
-    mtext(paste0("Removal = ",gsub(".csv","",strsplit(x_file,"_")[[1]][4])))
-    
-  }
+pdf("../Figures/Empirical_data/ABC/x_y_obs_sum_sumstat_data.pdf",width = 7,height = 7)
+d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
+d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(as.numeric(d_sim[,i]),
+       as.numeric(d_obs[,i]),col=c(alpha("#C46FC5",.3),alpha("#80BD5C",.3))[as.factor(d_sim$Method)],pch=21,xlab="Sim",ylab="Obs",
+       main=colnames(d_cross_sumstat)[i])
+  abline(a=0,b=1)
 }
 dev.off()
 
-
-pdf("../Figures/Empirical_data/ABC/Filtering_data/Testing_methods/NMRSE_sumstat.pdf",width = 9,height = 5)
-
-for (x_file in list.files("../Data/Step7_Empirical_data/Filtering_data/",pattern = "NRMSE")){
-  print(read.table(paste0("../Data/Step7_Empirical_data/Filtering_data/",x_file),sep=";")%>%
-          melt(., id.vars=c("Site"))%>%
-          ggplot(.,aes(x=variable,y=value))+
-          geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
-          geom_violin(aes(fill=variable),alpha=.4)+
-          stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
-          the_theme+
-          ylim(0,1.5)+
-          labs(x="",y="NRMSE",color="",fill="")+
-          geom_hline(yintercept = 1)+
-          ggtitle(paste0("Removed = ",gsub(".csv","",strsplit(x_file,"_")[[1]][3])))+
-          guides(color = guide_legend(override.aes = list(size = 3))))
-}
-dev.off()
 
 
 d_posterior=tibble()
-for (x_file in list.files("../Data/Step7_Empirical_data/Filtering_data/",pattern = "Posterior")){
+for (x_file in list.files("../Data/Step7_Empirical_data/ABC_all_sites/",pattern = "Posterior")){
   d_posterior = rbind(
     d_posterior,
-    read.table(paste0("../Data/Step7_Empirical_data/Filtering_data/",x_file),sep=";")%>%
+    read.table(paste0("../Data/Step7_Empirical_data/ABC_all_sites/",x_file),sep=";")%>%
       add_column(., Type=gsub(".csv","",strsplit(x_file,"_")[[1]][3]))
   )
 }
@@ -4336,12 +3508,129 @@ for (x_file in list.files("../Data/Step7_Empirical_data/Filtering_data/",pattern
 p=ggplot(d_posterior%>%
            melt(., measure.vars=c("p","q"))%>%
            melt(., measure.vars=c("Aridity","MF","Sand"),variable.name="Driver",value.name = "Driver_value"))+
-  geom_point(aes(x=Driver_value,y=value,color=Type))+
+  geom_point(aes(x=Driver_value,y=value,color=Type),alpha=.3)+
   geom_smooth(method = "lm",aes(x=Driver_value,y=value,color=Type),se=F)+
   facet_grid(variable~Driver,scales = "free")+
   labs(x="Value of the driver",y="Inferred parameter value",color="Type of pre-processing")+
-  the_theme
-ggsave("../Figures/Empirical_data/ABC/Filtering_data/Testing_methods/Driver_inferred_parameters.pdf",p,width = 7,height = 6)
+  the_theme+
+  scale_color_manual(values=c("#C46FC5","#80BD5C"))
+ggsave("../Figures/Empirical_data/ABC/Driver_inferred_parameters.pdf",p,width = 7,height = 6)
+
+
+
+
+## >> 2) Linking quality estimation with distance in PCA  ----
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+
+d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
+            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
+
+res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
+
+#centroids in PCA of simulations
+centroid_sim=colMeans(res.pca$ind$coord[1:nrow(d_Eby),])
+
+#getting euclidean distance from centroid for each empirical site
+dist_empirical = sapply((nrow(d_Eby)+1):(nrow(d_tot)),function(x){
+  return( sqrt(sum((res.pca$ind$coord[x,] - centroid_sim)^2)) )
+})
+write.table(dist_empirical,"../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")
+
+#Then we plot NRMSE = f(distance to centroid) 
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")
+
+p=ggplot(d_NRMSE_sumstat%>%
+         melt(., id.vars=c("Site"))%>%
+         add_column(., Euclid_dist=rep(dist_empirical,9)))+
+  geom_point(aes(x=Euclid_dist,y=value,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance to centroid in PCA",y="NRMSE")
+
+ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_centroid_NMRSE_fit.pdf",p,width = 7,height = 6)
+
+#and we do the same with the distance to the x=y line 
+d_cross_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_NoPLS.csv",sep=";")%>%
+  melt(., id.vars=c("Type","Site"))
+
+error_abc=sapply(1:(nrow(d_cross_sumstat)/2),function(x){
+  return(
+    abs(d_cross_sumstat$value[2*(x-1)+1]-d_cross_sumstat$value[2*x] ) #absolute distance between true and fitted 
+  )
+})
+
+p=d_cross_sumstat%>%
+  filter(., Type=="Obs")%>%
+  dplyr::select(., -Type)%>%
+  add_column(., Error_abc=error_abc,Euclid_dist=rep(dist_empirical,9))%>%
+  ggplot(.)+
+  geom_point(aes(x=Euclid_dist,y=Error_abc,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance to centroid in PCA",y="Absolute difference between fitted and observed ")
+
+ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_centroid_ABC_sumstat_fitted.pdf",p,width = 7,height = 6)
+
+
+# Similarly for the link between aridity and inferred p values
+
+#doing the same with the smallest distance to a simulation point
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+
+d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
+            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
+
+res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
+
+distances=apply(res.pca$ind$coord[(nrow(res.pca$ind$coord)-344):(nrow(res.pca$ind$coord)),],1, #for each empirical data
+                   function(x) min(apply(res.pca$ind$coord[1:(nrow(res.pca$ind$coord)-345),],1,
+                                         function(y) dist(rbind(x, y))))) #we get the min distance to simulated data
+
+
+write.table(distances,"../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")
+
+#Then we plot NRMSE = f(distance to centroid) 
+distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")
+
+p=ggplot(d_NRMSE_sumstat%>%
+           melt(., id.vars=c("Site"))%>%
+           add_column(., Euclid_dist=rep(distances,9)))+
+  geom_point(aes(x=Euclid_dist,y=value,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance closest simulation point",y="NRMSE")
+
+ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_simupoint_NMRSE_fit.pdf",p,width = 7,height = 6)
+
+#and we do the same with the distance to the x=y line 
+d_cross_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_NoPLS.csv",sep=";")%>%
+  melt(., id.vars=c("Type","Site"))
+
+error_abc=sapply(1:(nrow(d_cross_sumstat)/2),function(x){
+  return(
+    abs(d_cross_sumstat$value[2*(x-1)+1]-d_cross_sumstat$value[2*x] ) #absolute distance between true and fitted 
+  )
+})
+
+p=d_cross_sumstat%>%
+  filter(., Type=="Obs")%>%
+  dplyr::select(., -Type)%>%
+  add_column(., Error_abc=error_abc,Euclid_dist=rep(distances,9))%>%
+  ggplot(.)+
+  geom_point(aes(x=Euclid_dist,y=Error_abc,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")+
+  labs(x="Distance closest simulation point",y="Absolute difference between fitted and observed ")
+
+ggsave("../Figures/Empirical_data/ABC/Distance_closest_simu/Dist_simupoint_ABC_sumstat_fitted.pdf",p,width = 7,height = 6)
 
 
 
@@ -4349,43 +3638,631 @@ ggsave("../Figures/Empirical_data/ABC/Filtering_data/Testing_methods/Driver_infe
 
 
 
-# Other: Correlation and EWS ----
+
+
+#example of sites for which Eby model cannot do much
+pdf("../Figures/Empirical_data/landscapes/Example_for_PDE.pdf",width = 20,height = 4)
+par(mfrow=c(1,5))
+Plot_empirical(10)
+Plot_empirical(12)
+Plot_empirical(283)
+Plot_empirical(296)
+Plot_empirical(345)
+dev.off()
 
 
 
-## Correlation between EWS in a factorial analysis (b, m) ----
+## >> 3) ABC with some summary stat removal ----
 
-d=read.table("../Data/Correlation_EWS_data.csv",sep=",")
-colnames(d)=c("r","d", "f", "m","b","c","delta","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-              "Spectral_ratio","PLR","PL_expo")
 
-color_for_m=colorRampPalette(colors = c("#960261","#C5218B","#E266B6","#9F94EF","#2F48DA","#2F48DA"))(30)
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
 
-pdf("../Figures/Space_param_EWS/mortality_recruitment_EWS.pdf",width = 6,height = 4)
-par(mfrow=c(1,1))
-for (metric in 1:9){
-  for (m_id in seq(1,length(d$m),by=5)){
+for (preprocessing in c("NOPLS","PLS")){
+
+  for (remove_ID in c("neighB","clustering","spectralR","moranI","variance")){
     
-    d_fil=d[which(d$m==unique(d$m)[m_id]),]
+    d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+    d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  
     
-    if (any (which(is.nan(d_fil[,7+metric])))) d_fil=d_fil[-which(is.nan(d_fil[,7+metric])),]
-
-    
-    if (m_id==1 & metric!=3 & metric!=9 & metric !=8){
-      plot(1-d_fil[,5],d_fil[,metric+7],col=color_for_m[m_id],xlab="b",ylab=colnames(d)[metric+7],ylim=c(min(d[,metric+7]),max(d[,metric+7])),
-           type="p",lwd=2)
-    }else if (m_id ==1 & metric==3) {
-      plot(1-d_fil[,5],d_fil[,metric+7],col=color_for_m[m_id],xlab="b",ylab=colnames(d)[metric+7],
-           type="p",lwd=2,ylim=c(0,7))
-    }else if (m_id ==1 & (metric==8 | metric==9)) {
-      plot(1-d_fil[,5],d_fil[,metric+7],col=color_for_m[m_id],xlab="b",ylab=colnames(d)[metric+7],
-           type="p",lwd=2,ylim=c(0,7))
+    if (remove_ID == "neighB"){
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-2]
+    } else if (remove_ID == "clustering"){
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-3]
+    } else if (remove_ID == "spectralR"){
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-7]
+    } else if (remove_ID == "moranI"){
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-6]
     } else {
-      points(1-d_fil[,5],d_fil[,metric+7],col=color_for_m[m_id],lwd=2)
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-5]
     }
+    
+    for (site_ID in 1:nrow(d_biocom)){
+    
+      #observed summary statistics in the site
+      observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% sumstat_kept)]
+  
+      if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-ncol(observed_sumstat)] #if we cannot fit a PL or tPL, we remove the PL_expo
+      
+      matrix_param=d_all[,1:2]
+      matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
+      save_sumstat=matrix_sumstat
+      matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+      
+      for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+        
+        b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+        }
+      }else {
+        b=boxcox(lm(matrix_sumstat[,x]+.01 ~ 1),plotit = F,eps = .05)    
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+        }
+      }
+      
+      #Second we scale
+      for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+      
+      #and finally, we perform the first PLS (excluding empirical sdata)
+      print(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
+                             " ~ ",
+                             paste(sumstat_kept,collapse =  " + "))))
+      
+      if (preprocessing=="PLS"){
+        
+        if (d_biocom$PL_expo[site_ID] ==0){
+          
+          pls_1=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
+                                      " ~ ",
+                                      paste(sumstat_kept[-which(sumstat_kept == "PL_expo")],collapse =  " + "))),
+                     data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
+        } else {
+          pls_1=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
+                                      " ~ ",
+                                      paste(sumstat_kept,collapse =  " + "))),
+                     data=cbind(matrix_param,matrix_sumstat[-nrow(matrix_sumstat),]), scale=TRUE, validation="CV")
+        }
+        
+        n_comp_pls=selectNcomp(pls_1,method = "onesigma")
+        
+        if (n_comp_pls > 1){
+          mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
+        } else if (n_comp_pls==1){ #otherwise we take the whole components
+          mat_sumstat_pls=as.data.frame(matrix(pls_1$scores[,1:n_comp_pls],ncol=1))
+        } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
+        
+        #predicting the values of observed summary statistics under the pls model
+        observed_sumstat_pls1=predict(pls_1, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
+        
+      } else {
+        
+        mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
+        observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
+      }
+  
+      cross_valid1=abc(target = observed_sumstat_pls1,
+                      param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+      
+      #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+      mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+      mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
+      
+      #again, first box cox
+      for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+        
+        b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+        }
+        
+      }else {
+        b=boxcox(lm(mat_sumstat_step1[,x]+.01 ~ 1),plotit = F,eps = .05)    
+        lambda_x=b$x[which.max(b$y)]
+        if (lambda_x !=0){ #to avoid errors
+          mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+        }
+      }
+      
+      #and normalization
+      for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+      
+      if (preprocessing=="PLS"){
+        
+        if (d_biocom$PL_expo[site_ID] ==0){
+          pls_2=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
+                                      " ~ ",
+                                      paste(sumstat_kept[-which(sumstat_kept == "PL_expo")],collapse =  " + "))),
+                     data=as.data.frame(cbind(rbind(cross_valid1$unadj.values),
+                                              mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")
+        } else {
+          pls_2=plsr(as.formula(paste(paste(colnames(d_all)[1:2],collapse =  " + "),
+                                      " ~ ",
+                                      paste(sumstat_kept,collapse =  " + "))),
+                     data=as.data.frame(cbind(rbind(cross_valid1$unadj.values),
+                                              mat_sumstat_step1[-nrow(mat_sumstat_step1),])), scale=TRUE, validation="CV")
+        }
+        
+        n_comp_pls=selectNcomp(pls_2,method = "onesigma")
+        
+        #predicting the values of observed summary statistics under the pls model
+        observed_sumstat_pls2=predict(pls_2, matrix_sumstat[nrow(matrix_sumstat),], ncomp = 1:n_comp_pls, type = "scores")
+        
+        if (n_comp_pls > 1){
+          mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
+        } else if (n_comp_pls==1){ #otherwise we take the whole components
+          mat_sumstat_pls2=as.data.frame(matrix(pls_2$scores[,1:n_comp_pls],ncol=1))
+        } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
+        
+        rownames(mat_sumstat_pls2)=rownames(pls_2$scores)
+        
+      } else {
+        mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
+        observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
+      }
+      
+      cross_valid2=abc(target = observed_sumstat_pls2,
+                      param = cross_valid1$unadj.values,
+                      sumstat = mat_sumstat_pls2, #removing the target data
+                      tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                      numnet = 10,sizenet = 10) 
+      
+      cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+      
+      
+      matrix_sumstat=save_sumstat
+      
+      if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
+      
+      
+      if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
+        cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
+                                                               | is.nan(cross_valid2$adj.values[,2])),]
+      }      
+      
+      if (d_biocom$PL_expo[site_ID] ==0){
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                                add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                                add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
+      } else {
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                                add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
+        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                                add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
+      }
+      
+      
+      
+      #We compute the RMSE for the summary statistics observed
+      RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
+        sqrt(sum((cross_valid2$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid2$ss) )})
+      
+      RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+        sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
+      NRMSE = RMSE/RMSE_prior
+      names(NRMSE)= colnames(matrix_sumstat)
+      
+      if (d_biocom$PL_expo[site_ID] ==0){
+        d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                                add_column(., PL_expo = NA,Site=site_ID))
+      } else {
+        d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                                add_column(.,Site=site_ID))
+      }
+      
+      
+      d_biocom[site_ID,20]=mean(cross_valid2$adj.values[,1]) #mean posteriors
+      d_biocom[site_ID,21]=mean(cross_valid2$adj.values[,2]) #mean posteriors
+      
+      
+    }
+
+    d_biocom=d_biocom%>%
+      rename(., p=V20,q=V21)
+    
+    write.table(d_biocom,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Posteriors_sites_",remove_ID,"_",preprocessing,".csv"),sep=";")
+    write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/NRMSE_sumstat_",remove_ID,"_",preprocessing,".csv"),sep=";")
+    write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Cross_valid_sumstat_",remove_ID,"_",preprocessing,".csv"),sep=";")
   }
 }
+
+for (method_data in c("PLS","NOPLS")){
+
+  d_removal=tibble()
+  for (x_file in list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "NRMSE")[
+    grep(paste0("_",method_data),list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "NRMSE"))]){ #only selecting NoPLS or PLS
+    
+    table=read.table(paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/",x_file),sep=";")%>%
+      add_column(., Removed =strsplit(split = "_",x_file)[[1]][3],
+                 Other_colum=NA)
+    
+    if (strsplit(split = "_",x_file)[[1]][3]=="moranI") {colnames(table)[ncol(table)]="moran_I"
+      } else if (strsplit(split = "_",x_file)[[1]][3]=="neighB"){ colnames(table)[ncol(table)]="nb_neigh"
+    } else if (strsplit(split = "_",x_file)[[1]][3]=="spectralR"){ colnames(table)[ncol(table)]="Spectral_ratio"
+    } else {colnames(table)[ncol(table)]=strsplit(split = "_",x_file)[[1]][3]}
+    
+    #all tables have the same structure despite variable removal
+    table=table%>%
+      dplyr::select(.,rho_p,nb_neigh,clustering,skewness,moran_I,variance,
+             Spectral_ratio,PLR,PL_expo,Site,Removed)
+    
+    d_removal=rbind(d_removal,table)
+  }
+  d_removal=rbind(d_removal,
+                  read.table(paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")%>%
+                    add_column(., Removed="None")
+                    )
+  
+  p=d_removal%>%
+      melt(., id.vars=c("Site","Removed"))%>%
+      ggplot(.,aes(x=Removed,y=value))+
+      geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+      geom_violin(aes(fill=Removed),alpha=.4)+
+      facet_wrap(.~variable,scales="free")+
+      stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+      the_theme+
+      labs(x="",y="NRMSE",color="",fill="")+
+      geom_hline(yintercept = 1)+
+      guides(fill="none")+
+    theme(axis.text.x = element_text(hjust=1,angle=60))
+  
+  ggsave(paste0("../Figures/Empirical_data/ABC/Sensi_removal/NRMSE_removal_sumstat_",method_data,".pdf"),p,width =14,height = 10 )
+}
+
+
+
+for (method_data in c("NOPLS")){
+  
+  pdf(paste0("../Figures/Empirical_data/ABC/Sensi_removal/Observed_retained_x_y_",method_data,".pdf"),width = 7,height = 6)
+
+  d_removal=tibble()
+  for (x_file in list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "Cross_valid")[
+    grep(paste0("_",method_data),list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "Cross_valid"))
+  ]){
+    
+    table=read.table(paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/",x_file),sep=";")%>%
+      add_column(., Removed =strsplit(split = "_",x_file)[[1]][4],
+                 Other_colum=NA)
+    
+    if (strsplit(split = "_",x_file)[[1]][4]=="moranI") {colnames(table)[ncol(table)]="moran_I"
+    } else if (strsplit(split = "_",x_file)[[1]][4]=="neighB"){ colnames(table)[ncol(table)]="nb_neigh"
+    } else if (strsplit(split = "_",x_file)[[1]][4]=="spectralR"){ colnames(table)[ncol(table)]="Spectral_ratio"
+    } else {colnames(table)[ncol(table)]=strsplit(split = "_",x_file)[[1]][4]}
+    
+    #all tables have the same structure despite variable removal
+    table=table%>%
+      dplyr::select(.,rho_p,nb_neigh,clustering,skewness,moran_I,variance,
+                    Spectral_ratio,PLR,PL_expo,Site,Removed,Type)
+    
+    d_removal=rbind(d_removal,table)
+  }
+  d_removal=rbind(d_removal,
+                  read.table(paste0("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_",method_data,".csv"),sep=";")%>%
+                    add_column(., Removed="None"))%>%
+    melt(.,id.vars=c("Site","Removed","Type"))
+  
+
+  sapply(1:length(unique(d_removal$variable)),function(y){
+    par(mfrow=c(2,3))
+    sapply(1:length(unique(d_removal$Removed)),function(x){
+      if (any(filter(d_removal,Type=="Sim",!is.na(value),Removed==unique(d_removal$Removed)[x],variable==unique(d_removal$variable)[y])$value)){
+        plot(x=filter(d_removal,Type=="Sim",!is.na(value),Removed==unique(d_removal$Removed)[x],variable==unique(d_removal$variable)[y])$value,
+             y=filter(d_removal,Type=="Obs",!is.na(value),Removed==unique(d_removal$Removed)[x],variable==unique(d_removal$variable)[y])$value,
+             col=c(alpha("blue",.3)),pch=21,xlab="Sim",ylab="Obs",
+             main=paste0("Removed = ",unique(d_removal$Removed)[x]))
+        abline(a=0,b=1)
+        
+      }
+    })    } )         
+  
+  
+  dev.off()
+}
+
+
+
+
+
+## >> 4) Filtering the landscapes which are closer to the simulations in PCA ----
+
+#first we visualize whether the metrics we use are relevant in the PCA space: this is good
+
+distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
+dist_empirical=read.table("../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")$x
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)%>%
+  dplyr::select(., -p, -q)
+d_tot=rbind(d_biocom[,11:ncol(d_biocom)],d_Eby)
+
+res.pca=PCA(d_tot, scale.unit = T, ncp = 3,  graph=F)
+projec_space=res.pca$ind$coord[1:nrow(d_biocom),]%>%
+  as.data.frame(.)%>%
+  add_column(., Dist_to_sim=distances+dist_empirical)
+
+projec_space$Closest_sim =  projec_space$Dist_to_sim <=  quantile(projec_space$Dist_to_sim,probs = .05) 
+
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+pdf("../Figures/Empirical_data/ABC/Distance_closest_simu/Linking_PCA_and_distance.pdf",width = 4,height = 3)
+for (i in 1:3){
+  print(
+    projec_space%>%
+      ggplot(.) +
+      geom_hline(yintercept = 0, lty = 2) +
+      geom_vline(xintercept = 0, lty = 2) +
+      geom_point(aes(x = projec_space[,axes_for_plot$x[i]], y = projec_space[,axes_for_plot$y[i]], 
+                     color = Closest_sim,
+                     fill=Closest_sim))+
+      scale_color_viridis_d()+
+      scale_fill_viridis_d()+
+      labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+           y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Closest sims",fill="")+
+      ggtitle("")+guides(shape="none")+
+      theme_classic()+theme(legend.position = "bottom")
+  )
+}
+
 dev.off()
+
+
+# Then we keep the simulations which are the closer to simulations and centroids
+
+#First we look at their characteristics
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+p=d_biocom%>%
+  add_column(., 
+             Distance_centroids=distances,
+             Dist_point_sim=dist_empirical,
+             Sum_dist=dist_empirical+distances)%>%
+  add_column(., 
+             closest_sites = sapply(1:nrow(.),function(x){return(.$Sum_dist[x]  <=  quantile(.$Sum_dist,probs = .05) )}) )%>%
+  melt(., id.vars=c("File_ID","ID","Plot_n","Nbpixels",
+                    "Distance_centroids","Dist_point_sim","Sum_dist","closest_sites"))%>%
+  ggplot(.)+
+  labs(fill="Closest site ?",x="")+
+  geom_density(aes(x=value,fill=closest_sites),alpha=.3)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")
+
+ggsave("../Figures/Empirical_data/ABC/Filtering_data/Density_closest_vs_others.pdf",width = 7,height = 6)
+
+
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")
+p=d_NRMSE_sumstat%>%
+  add_column(., Distance_centroids=distances,Dist_point_sim=dist_empirical,Sum_dist=dist_empirical+distances)%>%
+  add_column(., closest_sites = sapply(1:nrow(.),function(x){return(.$Sum_dist[x]  <=  quantile(.$Sum_dist,probs = .05) )}) )%>% #we keep the 5% closest with the simulations.
+  melt(., id.vars=c("closest_sites","Site","Distance_centroids","Sum_dist","Dist_point_sim"))%>%
+  ggplot(.,aes(x=variable,y=value))+
+  geom_line(aes(group=Site,color=closest_sites),lwd=.2)+
+  geom_violin(aes(fill=variable),alpha=.4)+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="Closest sites ?",fill="")+
+  geom_hline(yintercept = 1)+
+  scale_color_manual(values=c(alpha("gray",.3),"red"))+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  theme(legend.box = "vertical")
+
+ggsave("../Figures/Empirical_data/ABC/Filtering_data/NRMSE_sumstat_data_filtered.pdf",p,width = 9,height = 6)
+
+
+
+
+d_cross_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_NoPLS.csv",sep=";")
+pdf("../Figures/Empirical_data/ABC/Filtering_data/x_y_obs_sum_sumstat_data_filtered.pdf",width = 7,height = 7)
+
+#Getting the closest sites compared to simulations
+closest_sites = sapply(1:nrow(d_biocom),function(x){return((distances+dist_empirical)[x]  <=  quantile(distances+dist_empirical,probs = .1) )})
+d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
+d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
+par(mfrow=c(3,3))
+
+for (i in 1:9){
+  plot(as.numeric(d_sim[,i]),bg=c(alpha("gray",.4),"red")[as.factor(closest_sites)],col ="transparent",
+       as.numeric(d_obs[,i]),pch=21,xlab="Sim",ylab="Obs",cex=c(.7,1)[as.factor(closest_sites)],
+       main=colnames(d_cross_sumstat)[i])
+  abline(a=0,b=1)
+}
+dev.off()
+
+
+
+#images of the closest landscapes
+pdf("../Figures/Empirical_data/ABC/Filtering_data/Closest_landscapes.pdf",width = 5,height = 5)
+for (i in which(closest_sites)){
+  Plot_empirical(i)
+}
+dev.off()
+
+
+
+d_posterior=read.table(paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_NoPLS.csv"),sep=";")
+p=ggplot(d_posterior%>%
+           add_column(., 
+                      Distance_centroids=distances,
+                      Dist_point_sim=dist_empirical,
+                      Sum_dist=dist_empirical+distances)%>%
+           add_column(., 
+                      closest_sites = sapply(1:nrow(.),function(x){return(.$Sum_dist[x]  <=  quantile(.$Sum_dist,probs = .1) )}) )%>%
+           melt(., measure.vars=c("p","q"))%>%
+           melt(., measure.vars=c("Aridity","MF","Sand"),variable.name="Driver",value.name = "Driver_value"))+
+  geom_point(aes(x=Driver_value,y=value,color=closest_sites),alpha=.3)+
+  geom_smooth(method = "lm",aes(x=Driver_value,y=value,color=closest_sites),se=F)+
+  facet_grid(variable~Driver,scales = "free")+
+  labs(x="Value of the driver",y="Inferred parameter value",color="Closest sites ?")+
+  the_theme+
+  scale_color_manual(values=c("#ADAAAA","#E45050"))
+ggsave("../Figures/Empirical_data/ABC/Filtering_data/Driver_inferred_parameters_filtered.pdf",p,width = 7,height = 6)
+
+
+## >> 5) Filtering the sites which perform the best ----
+
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")%>%
+  add_column(., Sum_NRMSE = sapply(1:nrow(.),function(x){
+    return(rowSums(.[x,1:9],na.rm = T))
+  }))%>%
+  arrange(., Sum_NRMSE,decreasing=T)
+closest_sites = sapply(1:nrow(d_biocom),function(x){return((distances+dist_empirical)[x]  <=  quantile(distances+dist_empirical,probs = .1) )})
+
+as.numeric(which(closest_sites))
+best_sites=sort(d_NRMSE_sumstat$Site[1:length(as.numeric(which(closest_sites)))])
+best_sites
+#Not exactly the same, let's do the same analysis with this filtered sites.
+
+
+
+d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")
+p=d_NRMSE_sumstat%>%
+  add_column(., Best_sites = sapply(1:nrow(.),function(x){return(ifelse (x %in% best_sites,T,F))}) )%>% 
+  melt(., id.vars=c("Best_sites","Site"))%>%
+  ggplot(.,aes(x=variable,y=value))+
+  geom_line(aes(group=Site,color=Best_sites),lwd=.2)+
+  geom_violin(aes(fill=variable),alpha=.4)+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="Best_sites ?",fill="")+
+  geom_hline(yintercept = 1)+
+  scale_color_manual(values=c(alpha("gray",.3),"red"))+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  theme(legend.box = "vertical")
+
+ggsave("../Figures/Empirical_data/ABC/Filtering_data/NRMSE_sumstat_data_best_sites.pdf",p,width = 9,height = 6)
+
+
+
+# ---------------------- Step 11: Using posteriors to predict the distance to the tipping point --------
+
+## >> 1) Getting the posterior characteristics of the best and closest sites ----
+#We recompute briefly the posteriror of parameters while keeping an IC around the mean posterior
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
+d_posterior=tibble()
+
+
+d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
+condition_cover=which(d_all$rho_p ==0)
+d_all=d_all[-condition_cover,]
+rownames(d_all)=1:nrow(d_all)
+closest_sites=read.table("../Data/Step7_Empirical_data/Closest_sites.csv",sep=";")
+
+
+  
+index=1
+
+#we keep the sites that fit the best and that are the closest to the simulations
+for (site_ID in which(1:nrow(d_biocom) %in% closest_sites$Closest & 1:nrow(d_biocom) %in% closest_sites$Best)){
+  
+  #observed summary statistics in the site
+  observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                                                                    "Spectral_ratio","PLR","PL_expo"))]
+  
+  if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
+  
+  matrix_param=d_all[,1:2]
+  matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
+  save_sumstat=matrix_sumstat
+  matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+
+  for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+    
+    b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+    }
+  }else {
+    b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+    }
+  }
+  
+  #Second we scale
+  for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+  
+  mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
+  observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
+  
+  cross_valid1=abc(target = observed_sumstat_pls1,
+                   param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                   tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+  
+  #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+  mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+  mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
+
+  #again, first box cox
+  for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+    
+    b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+    }
+    
+  }else {
+    b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+    }
+  }
+  #and normalization
+  for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+  
+  mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
+  observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
+
+  cross_valid2=abc(target = observed_sumstat_pls2,
+                   param = cross_valid1$unadj.values,
+                   sumstat = mat_sumstat_pls2, #removing the target data
+                   tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                   logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                   numnet = 10,sizenet = 10) 
+  
+  cross_valid2$ss=as.data.frame(cross_valid2$ss)
+  cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+  
+  matrix_sumstat=save_sumstat
+  
+  if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
+  
+  
+  if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
+    cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
+                                                             | is.nan(cross_valid2$adj.values[,2])),]
+  }      
+  
+  #we keep the mean as well as the quantiles at 5 and 95% for IC
+  d_posterior=rbind(d_posterior,tibble(Mean_p=mean(cross_valid2$adj.values[,1]),Mean_q=mean(cross_valid2$adj.values[,2]),
+                                           p_q05=quantile(cross_valid2$adj.values[,1],probs = .05),q_q05=quantile(cross_valid2$adj.values[,2],probs = .05),
+                                           p_q95=quantile(cross_valid2$adj.values[,1],probs = .95),q_q95=quantile(cross_valid2$adj.values[,2],probs = .95)))
+  index=index+1
+}
+
+
+write.table(d_posterior,"../Data/Step7_Empirical_data/Tipping_point/Posterior_best_sites.csv",sep=";")
+
+
+## >> 2) Computing a distance to the tipping point ----
+
+
 
 
 

@@ -237,46 +237,7 @@ pmap(Run_sim_model_EWS, 1:2800)
 
 
 
-#region, Step XXXX: Correlation EWS along gradient mortality recruitment   
 
-N_sim = 30
-b_seq = collect(range(0.1, 1, length=N_sim))
-m_seq = collect(range(0.005, 0.4, length=N_sim))
-
-
-param = Get_classical_param()
-fraction_cover = [0.8, 0.1, 0.1]
-size_landscape = 50
-ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
-n_metric = 9
-
-summary_stat_table = zeros(N_sim^2, 7 + n_metric)
-
-index = 1
-for b_param in b_seq
-    for m_param in m_seq
-
-        param[5] = b_param
-        param[4] = m_param
-        summary_stat_table[index, 1:7] .= param[1:7]
-        d, land = IBM_drylands(time=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
-        summary_stat_table[index, 8:size(summary_stat_table)[2]] = Get_summary_stat(land)
-        index += 1
-    end
-end
-
-CSV.write("../Data/Correlation_EWS_data.csv", Tables.table(summary_stat_table), writeheader=false)
-
-
-
-
-
-
-
-
-
-
-#endregion
 
 
 
@@ -327,7 +288,7 @@ pmap(Run_sim_model_EWS, 1:(100000/200))
 
 #endregion
 
-# example of Eby model landscapes
+#region, example of Eby model landscapes
 fraction_cover = [0.8, 0.2]
 size_landscape = 100
 ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
@@ -345,6 +306,7 @@ for i in 1:50
 end
 R"dev.off()"
 
+#endregion
 
 
 #region Analysis of the empirical sites: getting the summarystats
@@ -366,3 +328,7 @@ CSV.write("../Data/Data_Biocom/Summary_stats_data.csv", Tables.table(summary_sta
 
 
 #endregion
+
+
+
+#region Geting the distance to the tipping point for each site 
