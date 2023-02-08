@@ -1,4 +1,4 @@
-using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXStrings,
+using StatsBase, RCall, Plots, StatsPlots, Random, LaTeXStrings,
     BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames,
     LatinHypercubeSampling, JLD
 
@@ -48,10 +48,13 @@ function Plot_dynamics(d)
 end
 
 
-function Plot_landscape(landscape)
-
-    landscape[findall((landscape .== -1))] .= 0
-    colGRAD = cgrad([colorant"#696969", colorant"#ACD87B"])
+function Plot_landscape(landscape, with_fertile)
+    if with_fertile
+        landscape[findall((landscape .== 0))] .= 1
+    else
+        landscape[findall((landscape .== 0))] .= -1
+    end
+    colGRAD = cgrad([colorant"white", colorant"black"])
     heatmap(landscape, yflip=true, fill=true, c=colGRAD)
 end
 
@@ -301,7 +304,7 @@ end
 
 
 
-function select_neighbor(row, col, N)
+function select_neighbor(row, col, N, N_neigh)
     #Accounts for torus landscape (periodic boundaries)
 
     i, j = copy(row), copy(col)
@@ -336,14 +339,40 @@ function select_neighbor(row, col, N)
     col_neigh = j
     row_neigh = i
 
-    if test <= 0.25
-        row_neigh = top
-    elseif test <= 0.5
-        row_neigh = bottom
-    elseif test <= 0.75
-        col_neigh = left
+    if N_neigh == 4
+
+        if test <= 0.25
+            row_neigh = top
+        elseif test <= 0.5
+            row_neigh = bottom
+        elseif test <= 0.75
+            col_neigh = left
+        else
+            col_neigh = right
+        end
+
     else
-        col_neigh = right
+        if test <= 1 / 8 #top one
+            row_neigh = top
+        elseif test <= 2 / 8 #bottom one
+            row_neigh = bottom
+        elseif test <= 3 / 8 #left one 
+            col_neigh = left
+        elseif test <= 4 / 8 #right one
+            col_neigh = right
+        elseif test <= 5 / 8 #upper left
+            col_neigh = left
+            row_neigh = top
+        elseif test <= 6 / 8 #bottom left
+            col_neigh = left
+            row_neigh = bottom
+        elseif test <= 7 / 8 #upper right
+            col_neigh = right
+            row_neigh = top
+        else                 # bottom left
+            col_neigh = right
+            row_neigh = bottom
+        end
     end
 
     return row_neigh, col_neigh
@@ -352,8 +381,16 @@ end
 
 
 
-function select_neighbor_pair(row, col, row_n, col_n, N)
 
+
+
+
+function select_neighbor_pair2(coordinate_neighbors, Intensity_feedback)
+    return convert(Array{Int64}, coordinate_neighbors[shuffle(1:end), :][1:Intensity_feedback, :])
+end
+
+
+function Get_coordinate(row, col, row_n, col_n, N, N_neigh)
     i, j = copy(row), copy(col)
     i_n, j_n = copy(row_n), copy(col_n)
 
@@ -409,42 +446,48 @@ function select_neighbor_pair(row, col, row_n, col_n, N)
     end
 
 
-    #Now we select one neighbor of the pair
-    #First we get the all the possible coordinates of each neighbor
+    if N_neigh == 4
 
-    coordinate_n = zeros(8, 2)
-    coordinate_n[1, :] = [i right]
-    coordinate_n[2, :] = [i left]
-    coordinate_n[3, :] = [top j]
-    coordinate_n[4, :] = [bottom j]
-    coordinate_n[5, :] = [i_n rightn]
-    coordinate_n[6, :] = [i_n leftn]
-    coordinate_n[7, :] = [topn j_n]
-    coordinate_n[8, :] = [bottomn j_n]
+        coordinate_n = zeros(8, 2)
+        coordinate_n[1, :] = [i right]
+        coordinate_n[2, :] = [i left]
+        coordinate_n[3, :] = [top j]
+        coordinate_n[4, :] = [bottom j]
+        coordinate_n[5, :] = [i_n rightn]
+        coordinate_n[6, :] = [i_n leftn]
+        coordinate_n[7, :] = [topn j_n]
+        coordinate_n[8, :] = [bottomn j_n]
 
-    #and filter the ones corresponding to focal site and its selected neighbor
-    coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
-                                            coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
+        #and filter the ones corresponding to focal site and its selected neighbor
+        coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
+                                                coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
 
-
-    test = rand()
-
-    if (test <= (0.1666))
-        pair_n = coordinate_n[1, :]
-    elseif (test <= (2 * 0.1666))
-        pair_n = coordinate_n[2, :]
-    elseif (test <= (3 * 0.1666))
-        pair_n = coordinate_n[3, :]
-    elseif (test <= (4 * 0.1666))
-        pair_n = coordinate_n[4, :]
-    elseif (test <= (5 * 0.1666))
-        pair_n = coordinate_n[5, :]
     else
-        pair_n = coordinate_n[6, :]
+
+        coordinate_n = zeros(16, 2)
+        coordinate_n[1, :] = [i right]
+        coordinate_n[2, :] = [i left]
+        coordinate_n[3, :] = [top j]
+        coordinate_n[4, :] = [bottom j]
+        coordinate_n[5, :] = [bottom right]
+        coordinate_n[6, :] = [bottom left]
+        coordinate_n[7, :] = [top right]
+        coordinate_n[8, :] = [top left]
+        coordinate_n[9, :] = [i_n rightn]
+        coordinate_n[10, :] = [i_n leftn]
+        coordinate_n[11, :] = [topn j_n]
+        coordinate_n[12, :] = [bottomn j_n]
+        coordinate_n[13, :] = [bottomn rightn]
+        coordinate_n[14, :] = [bottomn leftn]
+        coordinate_n[15, :] = [topn rightn]
+        coordinate_n[16, :] = [topn leftn]
+
+        #and filter the ones corresponding to focal site and its selected neighbor
+        coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
+                                                coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
+        final_coord = unique(coordinate_n, dims=1) #selecting the uniques sites
+
     end
-
-    return pair_n
-
 end
 
 
@@ -452,8 +495,7 @@ end
 
 
 
-
-function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snapshot=25, burning_phase=400, n_time_bw_snap=50)
+function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snapshot=25, burning_phase=400, n_time_bw_snap=50, Type_neighbors=4, intensity_feedback=1)
 
     if keep_landscape
         all_landscape_snap = zeros(size(landscape)[1], size(landscape)[1], n_snapshot)
@@ -478,7 +520,7 @@ function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snaps
 
             if landscape[focal_i, focal_j] == 1 #if vegetation otherwise do nothing
 
-                neigh = select_neighbor(focal_i, focal_j, size(landscape)[1])
+                neigh = select_neighbor(focal_i, focal_j, size(landscape)[1], Type_neighbors)
 
                 if landscape[neigh[1], neigh[2]] == 0 #if neighbor is unoccupied
                     if rand() <= p_param #then there is reproduction in a neighbor
@@ -489,8 +531,12 @@ function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snaps
 
                 else #neighbor is occupied
                     if rand() <= q_param #facilitation from the neighbor
-                        neigh_pair = select_neighbor_pair(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1]) #neighbor of the pair
-                        landscape[Int64(neigh_pair[1]), Int64(neigh_pair[2])] = 1 #that is changed to an occupied cell
+                        coord_neigh = Get_coordinate(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1], Type_neighbors)
+                        neighbors = select_neighbor_pair2(coord_neigh, intensity_feedback) #that is changed to an occupied cell
+                        for i in eachindex(neighbors[:, 1])
+                            landscape[neighbors[i, 1], neighbors[i, 2]] = 1
+                        end
+
                     else
                         landscape[focal_i, focal_j] = 0
                     end

@@ -1508,7 +1508,7 @@ write.table(d_all,"../Data/All_sim_Eby.csv",sep=";")
 
 
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
-condition_cover=which(d_all$rho_p ==0)
+condition_cover=which(d_all$rho_p ==0 | d_all$rho_p==1 | d_all$PLR==1)
 d_all=d_all[-condition_cover,]
 rownames(d_all)=1:nrow(d_all)
 matrix_param=d_all[,1:2]
@@ -1871,7 +1871,7 @@ for (i in 1:3){
          fviz_pca_biplot(res.pca, geom.ind = "point", 
                          axes=c(axes_for_plot$x[i],axes_for_plot$y[i]), col.ind = d_tot$model,col.var="black",alpha=.5,
                          label = "var", repel = T,pointsize =1)+
-           scale_color_manual(values=c("#A078DA","#68B77A"))+
+           scale_color_manual(values=c("#68B77A","#D4A261"))+
            labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
                 y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="")+
            ggtitle("")+guides(shape="none")+
@@ -3018,7 +3018,7 @@ ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Sensi_removal/Sensi_re
 
 # ---------------------- Step 10: Empirical data ----
 
-## >> 0) Summary statistics of the data & PCA model/data ----
+## >> 0) Summary statistics of the data: plus adding regularity of patterns and characteristics of patches ----
 
 for (id in 1:5){
   pdf(paste0("../Figures/Empirical_data/Landscapes/all_landscapes_",id,".pdf"),width = 6,height = 6)
@@ -3049,18 +3049,132 @@ d_biocom=d_biocom%>%
 write.table(d_biocom,"../Data/Data_Biocom/biocom_data.csv",sep=";")
 
 
-#Distribution of summary statistics
+
+##         Adding the characteristics of the vegetation patterns: regular or irregular
+
+mat_site=list.files("../Data/Data_Biocom/landscapes")
+
+pdf("../Figures/Empirical_data/Landscapes/r_spectrum_sites.pdf",width = 12,height = 6)
+for (i in 1:length(mat_site)){
+  landscape=Get_empirical_site(i)
+  landscape=as.matrix(landscape>0)
+  p1=plot_spectrum(spectral_sews(landscape))+
+    ggtitle(i)
+  
+  print(p1)
+  
+  p2=plot_spectrum(spectral_sews(landscape[1:round(nrow(landscape)/2),1:round(nrow(landscape)/2)]))+ggtitle("S ",1)+
+    theme(axis.title = element_blank(),axis.text = element_text(size=8))
+  p3=plot_spectrum(spectral_sews(landscape[(round(nrow(landscape)/2)+1):nrow(landscape),1:round(nrow(landscape)/2)]))+
+    ggtitle("S ",2)+
+    theme(axis.title = element_blank(),axis.text = element_text(size=8))
+  p4=plot_spectrum(spectral_sews(landscape[1:round(nrow(landscape)/2),(round(nrow(landscape)/2)+1):nrow(landscape)]))+
+    ggtitle("S ",3)+
+    theme(axis.title = element_blank(),axis.text = element_text(size=8))
+  p5=plot_spectrum(spectral_sews(landscape[(round(nrow(landscape)/2)+1):nrow(landscape),(round(nrow(landscape)/2)+1):nrow(landscape)]))+
+    ggtitle("S ",4)+
+    theme(axis.title = element_blank(),axis.text = element_text(size=8))
+  Plot_empirical(i)
+  print(ggarrange(ggarrange(ggplot()+theme_void(),p1,ggplot()+theme_void(),ncol=3,widths = c(.5,1,.5)),ggarrange(p2,p3,p4,p5,ncol=4),nrow = 2))
+}
+dev.off()
+
+#script for classifying regular and irregular patterns following Berdugo advices in 2019 paper
+Classif_regular_irregular=function(n_begin=1,n_end=345){
+
+  d_subplots=tibble()
+  
+  for (i in n_begin:n_end){
+    d_biocom=read.table("../Data/Step7_Empirical_data/Patterns/biocom_data_patterns.csv",sep=";")
+    
+    
+    
+    plot_i=readline(paste0("Is site ",i,"regular (1) or irregular (2) ?, (plot ",d_biocom$File_ID[i],")") ) 
+    
+    x1=x2=x3=x4=NA
+    
+    if (plot_i !=1 & plot_i!=2){ #if there is a doubt, we divide into 4 landscapes
+      
+      x1=readline("Is subplot 1 regular (1) or irregular (2) ?")
+      x2=readline("Is subplot 2 regular (1) or irregular (2) ?")  
+      x3=readline("Is subplot 3 regular (1) or irregular (2) ?")  
+      x4=readline("Is subplot 4 regular (1) or irregular (2) ?")
+      print(paste0("Number of regular subsites = ",x1+x2+x3+x4))
+      plot_i=readline("Therefore how should it be classified ?")  
+      
+    }
+    d_biocom$Regular[i] = plot_i
+    d_subplots=rbind(d_subplots,tibble(Plot=plot_i,subplot1=x1,subplot2=x2,subplot3=x3,subplot4=x4))
+    write.table(d_biocom,"../Data/Step7_Empirical_data/Patterns/biocom_data_patterns.csv",sep=";")
+    
+  }
+  
+  return(list(d_biocom,d_subplots))
+  
+}
+
+classif=Classif_regular_irregular(1,345)
+
+#Now we compare the classif with the one in Berdugo et al 2019
+d_regular=read.table("../Data/Step7_Empirical_data/Patterns/biocom_data_patterns.csv",sep=";")
+d_berdugo=read.table("../Data/Step7_Empirical_data/Patterns/Classif_berdugo.csv",sep=";")
+
+d_regular$Regular=NA
+#applying for each site the following rule: if 2 subplot are classified as regular, the site is classified as regular
+for (i in seq(1,nrow(d_regular),by=3)){
+  d_regular$Regular[i:(i+2)]=ifelse(sum(d_regular$Regular[i:(i+2)])>4,0,1)
+}
+
+#adding Berdugo classification
+d_regular$Regular_berdugo=sapply(1:nrow(d_regular),function(x){
+  return(d_berdugo$ReguConsensus[which(d_berdugo$plotn == gsub("-a","",gsub("-b","",gsub("-c","",d_regular$File_ID[x]))))])
+})
+
+table(d_regular$Regular_berdugo,d_regular$Regular)
+
+#We keep the classification in Berdugo et al 2019
+
+write.table(d_regular[,c(1:11,21:22,12:20)],"../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+
+##           Adding the characteristics of the patches: mean, max, min, sd
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+d_patches=tibble()
+for (i in 1:345){
+  land=Get_empirical_site(i)>0
+  psd=sort(patchsizes(land>0)) 
+  d_patches=rbind(d_patches,tibble(max_psd=max(psd),mean_psd=mean(psd),sd_psd=sd(psd)))
+}
+
+d_biocom=cbind(d_biocom,d_patches)
+write.table(d_biocom[,c(1:13,23:25,14:22)],"../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+
+
+
+
+
+##           Distribution of summary statistics
 
 pdf("../Figures/Empirical_data/Comparizon_models_data/Distrib_sum_stat_data.pdf",width = 7,height = 6)
 par(mfrow=c(3,3))
 for (sumstat in 1:9){
-  hist(d_biocom[,10+sumstat],xlab=colnames(d_biocom)[10+sumstat],main="",col=alpha("blue",.3))
+  hist(d_biocom[,17+sumstat],xlab=colnames(d_biocom)[14+sumstat],main="",col=alpha("blue",.3))
 }
 dev.off()
 
 #and comparizon with Eby model
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-p=ggplot(rbind(d_biocom[,11:ncol(d_biocom)]%>%add_column(.,Type="Data"),d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Model"))%>%
+p=ggplot(rbind(d_biocom[,17:ncol(d_biocom)]%>%
+                 add_column(.,Type="Data")%>%
+                 mutate(., Spectral_ratio=log(Spectral_ratio),
+                        clustering=log(clustering)),
+               d_Eby[,3:ncol(d_Eby)]%>%
+                 add_column(., Type="Model")%>%
+                 mutate(., Spectral_ratio=log(Spectral_ratio),
+                        clustering=log(clustering)))%>%
            melt(., id.vars=c("Type")))+
     geom_density(aes(x=value,fill=Type),alpha=.7)+
     the_theme+
@@ -3070,12 +3184,216 @@ p=ggplot(rbind(d_biocom[,11:ncol(d_biocom)]%>%add_column(.,Type="Data"),d_Eby[,3
 ggsave("../Figures/Empirical_data/Comparizon_models_data/Density_Eby_and_data.pdf",p,width = 7,height = 6)
 
 
-# PCA for comparing data and model
+
+
+# Seems to be an effect of the number of pixels. Let's separate the data set into two groups depending on their number of pixels
+# And we look at the summary stat of these two group
+
+p1=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
+  ggplot(.)+
+  geom_histogram(aes(x=Nbpixels),alpha=.3,fill="blue")+
+  geom_vline(xintercept = 80000,col="red")+
+  the_theme+
+  labs(x="Number of pixels",y="")
+
+p2=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
+  mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))%>%
+  mutate(., Nbpixels=.$Nbpixels>80000)%>%
+  melt(., measure.vars=colnames(.)[17:ncol(.)])%>%
+  ggplot(.)+
+  geom_density(aes(x=value,fill=Nbpixels),alpha=.7)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="",y="",fill="Large image")+
+  scale_fill_manual(values=c("#E4C88D","#AA91CE"))
+
+ggsave("../Figures/Empirical_data/Comparizon_models_data/Understanding_differences/Consequence_image_site_sumstat.pdf",
+       ggarrange(ggarrange(ggplot()+theme_void(),p1,ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),p2,nrow=2,labels=letters[1:2],heights = c(.7,1.5)),
+       width = 7,height = 8)
+
+#Finally we cross this information with the data resolution of each site that can be accessed in Berdugo et al 2017 NEE data
+
+d_berdugo=as_tibble(readxl::read_xlsx("../Data//BerdugoetalData.xlsx"))
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_biocom$Resolution=sapply(1:nrow(d_biocom),function(x){
+  return(d_berdugo$Resolution[which(d_berdugo$plotn==d_biocom$Plot_n[x])])
+})
+
+
+p=d_biocom%>%
+  mutate(., Nbpixels=.$Nbpixels>80000)%>%
+  ggplot(.)+
+  geom_density(aes(x=Resolution,fill=Nbpixels),alpha=.7)+
+  theme_classic()+
+  theme(legend.position = "bottom")+
+  labs(x="Image resolution",y="",fill="Large image")+
+  scale_fill_manual(values=c("#E4C88D","#AA91CE"))
+
+ggsave("../Figures/Empirical_data/Comparizon_models_data/Understanding_differences/Image_resolution.pdf",p, width = 6,height = 4)
+
+
+test=d_biocom%>%
+  mutate(., Nbpixels=Nbpixels>80000)%>%
+  arrange(., Nbpixels)
+
+pdf("./test.pdf",width = 5,height = 5)
+for (i in seq(1,nrow(test),by=20)){
+  Plot_empirical(i) 
+  mtext(paste0(test$Nbpixels[i]))
+}
+dev.off()
+
+
+
+#Finally let's understand the correlations between all summary statistics in the data
+p=ggpairs(d_biocom[,c(14:25)]%>%
+            mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                   max_psd=log(max_psd),mean_psd=log(mean_psd),sd_psd=log(sd_psd)))+
+  the_theme
+
+ggsave("../Figures/Empirical_data/Pair_correlation_stats.pdf",p,width = 15,height = 15)
+
+
+
+## >> 1) Separating each large landscape into 4 of equal size ----
+
+## Let's try to separate each large landscape into 4 of equal size 
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_biocom$Nbpixels=d_biocom$Nbpixels>80000
+
+d_divided=tibble()
+for (x in 1:nrow(d_biocom)){
+  
+  if (d_biocom$Nbpixels[x]){ #if large landscape
+    
+    for (sub_site in 1:4){
+      
+      landscape=Get_empirical_site(x)
+      
+      if (sub_site==1){
+        landscape=landscape[1:round(nrow(landscape)/2),1:round(nrow(landscape)/2)] #top left
+      } else if (sub_site==2){
+        landscape=landscape[(round(nrow(landscape)/2)+1):nrow(landscape),1:round(nrow(landscape)/2)] #bottom left
+      } else if (sub_site==3){
+        landscape=landscape[1:round(nrow(landscape)/2),(round(nrow(landscape)/2)+1):nrow(landscape)] #top right
+      } else {
+        landscape=landscape[(round(nrow(landscape)/2)+1):nrow(landscape),(round(nrow(landscape)/2)+1):nrow(landscape)] #bottom right
+      }
+      
+      cover = sum(landscape) / (dim(landscape)[1]**2)
+      
+      # number of neighbors
+      #vegetation clustering
+      neighbors_mat = simecol::neighbors(x =landscape,state = 1, wdist =  matrix( c(0, 1, 0,1, 0, 1, 0, 1, 0), nrow = 3),bounds = 1)
+      mean_nb_neigh = mean(neighbors_mat[which(landscape == 1)]) #mean number of plant neighbors
+      mean_clustering = mean_nb_neigh / cover
+      spatial_ews = generic_sews(landscape>0,4,moranI_coarse_grain = T)$value
+
+      spectral_ratio = as.data.frame(spectral_sews(landscape>0,quiet=T))$value
+      
+      psd=spatialwarnings::patchdistr_sews(landscape>0)
+      max_patchsize=max(psd$psd_obs)
+      PLR=spatialwarnings::raw_plrange(landscape>0)
+      if (nrow(psd$psd_type)==1){ 
+            alpha_exp=NA        
+        } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]} #i.e., when there is no good fit, return NA
+
+
+      d_divided=rbind(d_divided,d_biocom[x,c(1:3)]%>%
+                        add_column(.,
+                                   rho_p=cover,
+                                   nb_neigh=mean_nb_neigh,clustering=mean_clustering,
+                                   skewness=spatial_ews[2],variance=spatial_ews[1],moran_I=spatial_ews[3],
+                                   Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp,
+                                   Id_subsite=sub_site,
+                                   Type_landscape="High_res"))
+      
+
+      
+    }
+    
+  }else {
+    d_divided=rbind(d_divided,d_biocom[x,c(1:3,17:25)]%>%
+                      add_column(.,
+                                 Id_subsite=1,
+                                 Type_landscape="Low_res"))
+  }
+  print(x)
+  
+}
+
+# write.table(d_divided,"../Data/Step7_Empirical_data/Dividing_data.csv",sep=";")
+
+d_divided=read.table("../Data/Step7_Empirical_data/Dividing_data.csv",sep=";")
+ggplot(d_divided%>%filter(., Type_landscape=="High_res")%>% 
+         melt(.,measure.vars=colnames(d_divided)[4:12]))+
+  geom_histogram(aes(x=value,fill=as.factor(Id_subsite)),alpha=.7)+
+  the_theme+
+  labs(x="",y="",fill="Sub-landscape id")+
+  facet_wrap(.~variable,scales = "free")
+
+#not so much variation across sublandscapes
+
+
+ggplot(d_divided%>%
+         melt(.,measure.vars=colnames(d_divided)[4:12]))+
+  geom_density(aes(x=value,fill=Type_landscape),alpha=.7)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  scale_fill_manual(values=c("#C0CEAA","#5D589C"))
+
+
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type_landscape="Eby model"),
+            d_divided[,c(4:12,14)])%>%
+  arrange(., Type_landscape)
+
+
+p=ggplot(d_tot%>%
+           mutate(., Spectral_ratio=log(Spectral_ratio),
+                  clustering=log(clustering))%>%
+         melt(.,measure.vars=colnames(d_tot)[1:(ncol(d_tot)-1)]))+
+  geom_density(aes(x=value,fill=Type_landscape),alpha=.5)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  scale_fill_manual(values=c("#7B3636","#FD4848","#C0CEAA"))+
+  labs(x="",y="",fill="Type landscape")
+
+
+ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/Understanding_differences/",
+       "Density_after_spliting_landscapes.pdf"),
+       width = 7,height = 5)
+
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+p=ggplot(rbind(d_biocom[,c(11,17:25)]%>%
+                 filter(.,Nbpixels>80000)%>%
+                 dplyr::select(., -Nbpixels)%>%
+                 add_column(., Type_landscape="Before"),
+               d_divided[,c(4:12,14)]%>%filter(., Type_landscape=="High_res"))%>%
+           mutate(., Type_landscape=recode_factor(Type_landscape,"High_res"="After"))%>%
+           mutate(., Spectral_ratio=log(Spectral_ratio),
+                  clustering=log(clustering))%>%
+           melt(.,measure.vars=colnames(d_tot)[1:(ncol(d_tot)-1)]))+
+  geom_density(aes(x=value,fill=Type_landscape),alpha=.5)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  scale_fill_manual(values=c("#7B3636","#FD4848","#C0CEAA"))+
+  labs(x="",y="",fill="Type landscape")
+
+ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/",
+       "Understanding_differences/Comparizon_before_after_dividing_high_res_landscapes.pdf"),
+       width = 7,height = 5)
+
+
+## >> 2) PCA comparing data and model ---- 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p > 0.1  && rho_p < 0.8)
+d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p !=0)
 d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
-            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="zEmpirical sites"), #to plot the empirical sites above simulations
+            d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)), #to plot the empirical sites above simulations
             d_Kefi[sample(1:nrow(d_Kefi),15000,F),8:ncol(d_Kefi)]%>%add_column(., Type="Kefi model"))%>%
   arrange(., Type)
 
@@ -3087,7 +3405,7 @@ axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
 
 #getting the centroids
 centroids=tibble(Type=d_tot$Type)%>%
-  mutate(., Type=recode_factor(Type,"zEmpirical sites"="Empirical sites"))%>%
+  mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
   add_column(., PC1=res.pca$ind$coord[,1],PC2=res.pca$ind$coord[,2],PC3=res.pca$ind$coord[,3])%>%
   group_by(., Type)%>%
   summarise(., .groups = "keep",C1=mean(PC1),C2=mean(PC2),C3=mean(PC3))%>%
@@ -3097,16 +3415,16 @@ centroids=tibble(Type=d_tot$Type)%>%
 for (i in 1:3){
   assign(paste0("p",i),
          d_tot%>%
-           mutate(., Type=recode_factor(Type,"zEmpirical sites"="Empirical sites"))%>%
+           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
            add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
            ggplot(.) +
            geom_hline(yintercept = 0, lty = 2) +
            geom_vline(xintercept = 0, lty = 2) +
            geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
-           scale_size_manual(values=c(.5,1,.5))+
-           scale_color_manual(values=c("#FD4848",alpha("#C0CEAA",.5),alpha("#A078DA",.5)))+
-           scale_fill_manual(values=c("#FD4848",alpha("#C0CEAA",.5),alpha("#A078DA",.5)))+
-           geom_point(data=centroids,aes(x=centroids[,axes_for_plot$x[i]+1],y=centroids[,axes_for_plot$y[i]+1]),shape=24,fill="black",color="white")+
+           scale_size_manual(values=c(1,1,.5,.5))+
+           scale_color_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5)))+
+           scale_fill_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5)))+
+           # geom_point(data=centroids,aes(x=centroids[,axes_for_plot$x[i]+1],y=centroids[,axes_for_plot$y[i]+1]),shape=24,fill="black",color="white")+
            labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
                 y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
            ggtitle("")+guides(shape="none")+
@@ -3136,20 +3454,20 @@ for (model in c("Kefi","Eby")){
   for (i in 1:3){
     assign(paste0("p",i),
            dat%>%
-             mutate(., Type=recode_factor(Type,"zEmpirical sites"="Empirical sites"))%>%
+             mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
              add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
              ggplot(.) +
              geom_hline(yintercept = 0, lty = 2) +
              geom_vline(xintercept = 0, lty = 2) +
-             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type),size=.5,alpha=.5)+
-             
-             scale_color_manual(values=c("#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#A078DA",.5))))+
-             scale_fill_manual(values=c("#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#A078DA",.5))))+
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+             scale_size_manual(values=c(1,1,.5))+
+             scale_color_manual(values=c("#7B3636","#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5))))+
+             scale_fill_manual(values=c("#7B3636","#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5))))+
              labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
                   y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
              ggtitle("")+guides(shape="none")+
              theme_classic()+theme(legend.position = "bottom")+
-             guides(color = guide_legend(override.aes = list(size = 3)),fill="none")  
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
     )
   }
   
@@ -3161,12 +3479,84 @@ for (model in c("Kefi","Eby")){
   
   ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/PCA_",ifelse(model=="Kefi","Eby","Kefi"),"_empirical_data.pdf"),p, width=9,height = 4)
   
+  if (model == "Kefi"){
+    dat=dat%>%
+      mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))
+    
+    for (i in 1:3){
+      
+      assign(paste0("p",i),
+             fviz_pca_biplot(res.pca, geom.ind = "point", 
+                             axes=c(axes_for_plot$x[i],axes_for_plot$y[i]), col.ind =dat$rho_p ,col.var="black",
+                             label = "var", repel = T)+
+               scale_color_viridis_c()+
+               labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                    y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+               ggtitle("")+guides(shape="none")+
+               theme_classic()+theme(legend.position = "bottom")+
+               guides(color = guide_legend(override.aes = list(size = 3)),fill="none")  
+      )
+    }
+  
+    p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                          p2+theme(legend.position = "none"),
+                          p3+theme(legend.position = "none"),
+                          ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+                nrow=2,heights = c(1,.1))
+    
+    ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/Understanding_differences/PCA_COVER_Eby_empirical_data.pdf"),p, width=9,height = 4)
+  }
+}
+
+
+## PCA with empirical sites colored by the characteristics of the psd distribution
+
+for (metric_psd in c("mean_psd","max_psd",'sd_psd',"Nbpixels")){
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+  d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p > 0.1  && rho_p < 0.8)
+  d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type=NA),
+              d_Kefi[sample(1:nrow(d_Kefi),15000,F),8:ncol(d_Kefi)]%>%add_column(., Type=NA),
+              d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=d_biocom[,metric_psd]))
+  #First raw PCA
+  
+  sumstat_name=colnames(d_Eby)[3:ncol(d_Eby)]
+  res.pca=PCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)], scale.unit = T, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_tot%>%
+             filter(., !is.na(Type))%>%
+             add_column(., PC1=res.pca$ind$coord[!is.na(d_tot$Type),axes_for_plot$x[i]],PC2=res.pca$ind$coord[!is.na(d_tot$Type),axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = log(Type),fill=log(Type)),alpha=.5)+
+             scale_color_viridis_c(option = "C")+
+             scale_fill_viridis_c(option = "C")+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=metric_psd,fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+    )
+  }
+    
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/Understanding_differences/PCA_",metric_psd,".pdf"),p, width=9,height = 4)
+  
+  
 }
 
 
 
-
-#Knock-out of some summary statistics and projection on PCA simulations + data
+##    Knock-out of some summary statistics and projection on PCA simulations + data
 pdf("../Figures/Empirical_data/Comparizon_models_data/Knock_out_PCA_Eby_data.pdf", width=9,height = 4)
 
 for (scena_sumstat_removal in c("None","PLR","Expo_PL","PLR_explo_PL","Spectral_ratio","Spec_PLR_expo","clustering","nb_neigh","neigh_clust")){
@@ -3232,7 +3622,7 @@ dev.off()
 
 
 
-## >> 1) Naive ABC on all empirical sites ----
+## >> 3) Naive ABC on all empirical sites ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
@@ -3252,7 +3642,7 @@ for (method_data in c("Raw","NoPLS")){
   d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
   
   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  d_posterior=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")[as.numeric(which(closest_sites)),]
+  d_posterior=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
   
 
   index=1
@@ -3438,8 +3828,8 @@ for (method_data in c("Raw","NoPLS")){
     
     
     
-    d_posterior[index,20]=mean(cross_valid2$adj.values[,1]) #mean posteriors
-    d_posterior[index,21]=mean(cross_valid2$adj.values[,2]) #mean posteriors
+    d_posterior[index,23]=mean(cross_valid2$adj.values[,1]) #mean posteriors
+    d_posterior[index,24]=mean(cross_valid2$adj.values[,2]) #mean posteriors
     index=index+1
     
   }
@@ -3447,7 +3837,7 @@ for (method_data in c("Raw","NoPLS")){
   
   
   d_posterior=d_posterior%>%
-    rename(., p=V20,q=V21)
+    rename(., p=V23,q=V24)
   
   write.table(d_posterior,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_",method_data,".csv"),sep=";")
   write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")
@@ -3519,13 +3909,13 @@ ggsave("../Figures/Empirical_data/ABC/Driver_inferred_parameters.pdf",p,width = 
 
 
 
-## >> 2) Linking quality estimation with distance in PCA  ----
+## >> 4) Linking quality estimation with distance in PCA  ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
 
 d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
-            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
+            d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
 
 res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
 
@@ -3583,7 +3973,7 @@ d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
 
 d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
-            d_biocom[,11:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
+            d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type="Empirical sites"))
 
 res.pca=PCA(d_tot[,-ncol(d_tot)], scale.unit = T, ncp = 3,  graph=F)
 
@@ -3652,7 +4042,7 @@ dev.off()
 
 
 
-## >> 3) ABC with some summary stat removal ----
+## >> 5) ABC with some summary stat removal ----
 
 
 d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
@@ -3660,9 +4050,9 @@ condition_cover=which(d_all$rho_p ==0)
 d_all=d_all[-condition_cover,]
 rownames(d_all)=1:nrow(d_all)
 
-for (preprocessing in c("NOPLS","PLS")){
+for (preprocessing in c("NOPLS","PLS")[1]){
 
-  for (remove_ID in c("neighB","clustering","spectralR","moranI","variance")){
+  for (remove_ID in c("neighB","clustering","spectralR","moranI","variance","neighclust")[6]){
     
     d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
     d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
@@ -3676,6 +4066,8 @@ for (preprocessing in c("NOPLS","PLS")){
       sumstat_kept=colnames(d_all)[3:ncol(d_all)][-7]
     } else if (remove_ID == "moranI"){
       sumstat_kept=colnames(d_all)[3:ncol(d_all)][-6]
+    } else if (remove_ID == "neighclust"){
+      sumstat_kept=colnames(d_all)[3:ncol(d_all)][-c(2:3)]
     } else {
       sumstat_kept=colnames(d_all)[3:ncol(d_all)][-5]
     }
@@ -3861,14 +4253,14 @@ for (preprocessing in c("NOPLS","PLS")){
       }
       
       
-      d_biocom[site_ID,20]=mean(cross_valid2$adj.values[,1]) #mean posteriors
-      d_biocom[site_ID,21]=mean(cross_valid2$adj.values[,2]) #mean posteriors
+      d_biocom[site_ID,23]=mean(cross_valid2$adj.values[,1]) #mean posteriors
+      d_biocom[site_ID,24]=mean(cross_valid2$adj.values[,2]) #mean posteriors
       
       
     }
 
     d_biocom=d_biocom%>%
-      rename(., p=V20,q=V21)
+      rename(., p=V23,q=V24)
     
     write.table(d_biocom,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Posteriors_sites_",remove_ID,"_",preprocessing,".csv"),sep=";")
     write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/NRMSE_sumstat_",remove_ID,"_",preprocessing,".csv"),sep=";")
@@ -3971,9 +4363,43 @@ for (method_data in c("NOPLS")){
 
 
 
+#Checking the posterior of each parameters depending on the sumstat that is removed. 
+
+  
+
+d_removal=tibble()
+for (x_file in list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "Posteriors")[
+  grep(paste0("_NOPLS"),list.files("../Data/Step7_Empirical_data/Removal_sumary_stat/",pattern = "Posteriors"))
+]){
+  d_removal=rbind(d_removal,read.table(paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/",x_file),sep=";")%>%
+                    dplyr::select(., p, q,File_ID)%>%
+                    add_column(., Removed =strsplit(split = "_",x_file)[[1]][3]))
+}
+d_removal=rbind(d_removal,
+                read.table(paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_NOPLS.csv"),sep=";")%>%
+                  dplyr::select(., p, q,File_ID)%>%
+                  add_column(., Removed="None"))%>%
+  melt(.,id.vars=c("Removed","File_ID"))
+
+p=d_removal%>%
+  ggplot(.,aes(x=Removed,y=value))+
+  geom_line(aes(group=File_ID),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=Removed),alpha=.4)+
+  facet_wrap(.~variable,scales="free")+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="",fill="")+
+  geom_hline(yintercept = 1)+
+  guides(fill="none")+
+  theme(axis.text.x = element_text(hjust=1,angle=60))
+ggsave("../Figures/Empirical_data/ABC/Sensi_removal/Posterior_parameters_NoPLS.pdf",p,width = 8,height = 5)
 
 
-## >> 4) Filtering the landscapes which are closer to the simulations in PCA ----
+
+
+
+
+## >> 6) Filtering the landscapes which are closer to the simulations in PCA ----
 
 #first we visualize whether the metrics we use are relevant in the PCA space: this is good
 
@@ -3982,7 +4408,7 @@ dist_empirical=read.table("../Data/Step7_Empirical_data/Closest_sim/Dist_centroi
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)%>%
   dplyr::select(., -p, -q)
-d_tot=rbind(d_biocom[,11:ncol(d_biocom)],d_Eby)
+d_tot=rbind(d_biocom[,17:ncol(d_biocom)],d_Eby)
 
 res.pca=PCA(d_tot, scale.unit = T, ncp = 3,  graph=F)
 projec_space=res.pca$ind$coord[1:nrow(d_biocom),]%>%
@@ -4106,7 +4532,11 @@ p=ggplot(d_posterior%>%
 ggsave("../Figures/Empirical_data/ABC/Filtering_data/Driver_inferred_parameters_filtered.pdf",p,width = 7,height = 6)
 
 
-## >> 5) Filtering the sites which perform the best ----
+# >> Filtering the sites which perform the best
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+distances=read.table("../Data/Step7_Empirical_data/Closest_sim/Distance_closest_point.csv",sep=";")$x
+dist_empirical=read.table("../Data/Step7_Empirical_data/Closest_sim/Dist_centroid.csv",sep=";")$x
 
 d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")%>%
   add_column(., Sum_NRMSE = sapply(1:nrow(.),function(x){
@@ -4125,13 +4555,15 @@ best_sites
 d_NRMSE_sumstat=read.table("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_NoPLS.csv",sep=";")
 p=d_NRMSE_sumstat%>%
   add_column(., Best_sites = sapply(1:nrow(.),function(x){return(ifelse (x %in% best_sites,T,F))}) )%>% 
-  melt(., id.vars=c("Best_sites","Site"))%>%
+  add_column(., Sum_NRMSE = sapply(1:nrow(.),function(x){return(rowSums(.[x,1:9],na.rm = T))}) )%>% 
+  add_column(., Best_sites2 = sapply(1:nrow(.),function(x){return(.$Sum_NRMSE[x] <= quantile(.$Sum_NRMSE,.1))}) )%>% 
+  melt(., id.vars=c("Best_sites","Site","Sum_NRMSE","Best_sites2"))%>%
   ggplot(.,aes(x=variable,y=value))+
-  geom_line(aes(group=Site,color=Best_sites),lwd=.2)+
+  geom_line(aes(group=Site,color=Best_sites2),lwd=.2)+
   geom_violin(aes(fill=variable),alpha=.4)+
   stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
   the_theme+
-  labs(x="",y="NRMSE",color="Best_sites ?",fill="")+
+  labs(x="",y="NRMSE",color="Best sites ?",fill="")+
   geom_hline(yintercept = 1)+
   scale_color_manual(values=c(alpha("gray",.3),"red"))+
   guides(color = guide_legend(override.aes = list(size = 3)))+
@@ -4141,7 +4573,434 @@ ggsave("../Figures/Empirical_data/ABC/Filtering_data/NRMSE_sumstat_data_best_sit
 
 
 
-# ---------------------- Step 11: Using posteriors to predict the distance to the tipping point --------
+# ---------------------- Step 11: Bringing data and models closer ----
+## >> 1) PCA of models and data for space cover of different models ----
+
+all_dat=list.files("../Data/Data_Eby_feedbacks/")
+
+d_merged_sim=tibble()
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+for (type_feedback in all_dat){
+  
+  list_simu=list.files(paste0('../Data/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
+  
+  d_all=tibble()
+  for (file_simu in list_simu){
+    
+    d=read.table(paste0("../Data/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
+    colnames(d)= c("p","q",
+                   "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                   "Spectral_ratio","PLR","PL_expo")
+    
+    d_all=rbind(d_all,d)
+  }
+  
+  
+  d_all=filter(d_all,rho_p!=0)
+  
+  
+  #classic one colored by simulation type
+  
+  d_tot=rbind(d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo),NBpixels=d_biocom$Nbpixels), #to plot the empirical sites above simulations
+              d_all[sample(1:nrow(d_all),20000,F),3:ncol(d_all)]%>%add_column(., Type=type_feedback,NBpixels=NA))%>%
+    arrange(., Type)
+  
+  #First raw PCA
+  
+  sumstat_name=colnames(d_all)[3:ncol(d_all)]
+  res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_tot%>%
+             mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+             scale_size_manual(values=c(1,1,.5,.5,.5))+
+             scale_color_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+             scale_fill_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  ggsave(paste0("../Figures/Eby_model/With_feedbacks/PCA_coverage_",type_feedback,".pdf"),p, width=9,height = 4)
+  
+  
+  
+  #colored by pixel size  simulations
+  
+  
+  
+  sumstat_name=colnames(d_all)[3:ncol(d_all)]
+  res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_tot%>%
+             mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = log(NBpixels),fill=log(NBpixels),size=(Type)),alpha=.5)+
+             scale_size_manual(values=c(1,1,.5,.5,.5))+
+             scale_color_viridis_c()+
+             scale_fill_viridis_c()+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  ggsave(paste0("../Figures/Eby_model/With_feedbacks/PCA_coverage_PIXELS_",type_feedback,".pdf"),p, width=9,height = 4)
+  
+  
+  
+  
+  # ONly small pixel images
+  
+  sumstat_name=colnames(d_all)[3:ncol(d_all)]
+  d_tot=filter(d_tot,NBpixels<80000 | is.na(NBpixels))
+  res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_tot%>%
+             mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = log(NBpixels),fill=log(NBpixels),size=(Type)),alpha=.5)+
+             scale_size_manual(values=c(1,1,.5,.5,.5))+
+             scale_color_viridis_c()+
+             scale_fill_viridis_c()+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  
+  ggsave(paste0("../Figures/Eby_model/With_feedbacks/PCA_coverage_only_small_pixels_",type_feedback,".pdf"),p, width=9,height = 4)
+  
+  d_merged_sim=rbind(d_merged_sim,d_all%>%add_column(., Type=type_feedback))
+  
+}
+
+p=ggplot(d_merged_sim%>%
+           mutate(., clustering=log(clustering),Spectral_ratio=log(Spectral_ratio))%>%
+           melt(., id.vars=c("Type","p","q")))+
+  geom_density(aes(x=value,fill=Type),alpha=.5)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")
+
+ggsave("../Figures/Eby_model/With_feedbacks/Merged_densities.pdf",p, width=7,height = 7)
+
+
+
+#filtering 4NN with feedback of 4
+
+d_fil=filter(d_merged_sim,Type=="4NN_feedback4")
+d_tot=rbind(d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo),NBpixels=d_biocom$Nbpixels,p=NA,q=NA), #to plot the empirical sites above simulations
+            d_fil[,3:ncol(d_fil)]%>%add_column(., NBpixels=NA,p=d_fil$p,q=d_fil$q))%>%
+  arrange(., Type)
+
+#First raw PCA
+
+sumstat_name=colnames(d_all)[3:ncol(d_all)]
+res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_tot%>%
+           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = p,fill=p,size=Type),alpha=.5)+
+           scale_size_manual(values=c(1,1,.5,.5,.5))+
+           scale_color_viridis_c()+
+           scale_fill_viridis_c()+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
+}
+
+p_1=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+
+
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_tot%>%
+           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = q,fill=q,size=Type),alpha=.5)+
+           scale_size_manual(values=c(1,1,.5,.5,.5))+
+           scale_color_viridis_c()+
+           scale_fill_viridis_c()+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
+}
+
+p_2=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+p=ggarrange(p_1,p_2,nrow=2,labels = c("p","q"))
+
+ggsave("../Figures/Eby_model/With_feedbacks/Parameters_covering_data_4NN_4.pdf",p,width = 9,height = 8)
+
+
+
+
+
+
+
+## >> 2) ABC to compare the models ----
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+
+all_dat=list.files("../Data/Data_Eby_feedbacks/")
+
+
+for (type_feedback in all_dat){
+  
+  list_simu=list.files(paste0('../Data/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
+  
+  d_all=tibble()
+  for (file_simu in list_simu){
+    
+    d=read.table(paste0("../Data/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
+    colnames(d)= c("p","q",
+                   "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                   "Spectral_ratio","PLR","PL_expo")
+    
+    d_all=rbind(d_all,d)
+  }
+  
+  
+  d_all=filter(d_all,rho_p!=0)
+
+  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  d_posterior=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  
+  
+  index=1
+  for (site_ID in 1:nrow(d_biocom)){
+    
+    #observed summary statistics in the site
+    observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                                                                      "Spectral_ratio","PLR","PL_expo"))]
+    
+    if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
+    
+    matrix_param=d_all[,1:2]
+    matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
+    save_sumstat=matrix_sumstat
+    matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+    
+    
+    for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+    }else {
+      b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #Second we scale
+    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+    
+    #and finally, we perform the first PLS (excluding empirical sdata)
+
+    mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
+    observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
+    
+    
+    
+    cross_valid1=abc(target = observed_sumstat_pls1,
+                     param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                     tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
+    
+    
+    #again, first box cox
+    for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+      
+    }else {
+      b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
+    observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
+    
+    
+    
+    cross_valid2=abc(target = observed_sumstat_pls2,
+                     param = cross_valid1$unadj.values,
+                     sumstat = mat_sumstat_pls2, #removing the target data
+                     tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                     logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                     numnet = 10,sizenet = 10) 
+    
+    cross_valid2$ss=as.data.frame(cross_valid2$ss)
+    cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+    
+    
+    
+    matrix_sumstat=save_sumstat
+    
+    if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
+    
+    
+    if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
+      cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
+                                                               | is.nan(cross_valid2$adj.values[,2])),]
+    }      
+    
+    
+    if (d_biocom$PL_expo[site_ID] ==0){
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                              add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                              add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
+    } else {
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                              add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                              add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
+      
+    }
+    
+    
+    
+    #We compute the RMSE for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
+      sqrt(sum((cross_valid2$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid2$ss) )})
+    
+    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+      sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
+    NRMSE = RMSE/RMSE_prior
+    names(NRMSE)= colnames(matrix_sumstat)
+    
+    if (d_biocom$PL_expo[site_ID] ==0){
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                              add_column(., PL_expo = NA,Site=site_ID))
+    } else {
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                              add_column(.,Site=site_ID))
+    }
+    
+    
+    
+    d_posterior[index,23]=mean(cross_valid2$adj.values[,1]) #mean posteriors
+    d_posterior[index,24]=mean(cross_valid2$adj.values[,2]) #mean posteriors
+    index=index+1
+    
+  }
+  dev.off()
+  
+  
+  d_posterior=d_posterior%>%
+    rename(., p=V23,q=V24)
+  
+  write.table(d_posterior,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_",method_data,".csv"),sep=";")
+  write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")
+  write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_",method_data,".csv"),sep=";")
+  
+}
+
+
+
+
+
+
+# ---------------------- Step 12: Using posteriors to predict the distance to the tipping point --------
 
 ## >> 1) Getting the posterior characteristics of the best and closest sites ----
 #We recompute briefly the posteriror of parameters while keeping an IC around the mean posterior

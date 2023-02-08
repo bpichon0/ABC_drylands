@@ -5,6 +5,7 @@ library(deSolve);library(rootSolve);library(ggdendro)
 library(FME);library(ggpubr);library(spatialwarnings)
 library(reshape2);library(abc);library(igraph);library(cluster)
 library(FactoMineR) ;library(factoextra);library(pls)
+library(missMDA);library(GGally)
 
 
 
@@ -65,7 +66,8 @@ Plot_dynamics=function(d,different_sim=F){
 }
 
 Plot_landscape=function(landscape){
-  image(landscape,xaxt = "n",yaxt ="n",col=c("#9DD696","#D2C48F","#777777") )
+  landscape[landscape>1] = 0
+  image(landscape,xaxt = "n",yaxt ="n",col=rev(c("white","black") ))
 }
 
 
@@ -329,6 +331,7 @@ Run_CA_kefi=function(time=seq(1,1000,1),params,ini,plot=F){
     
     d=rbind(d,tibble(Time=k,Rho_V=state$Rho_v,Rho_F=state$Rho_f,Rho_D=state$Rho_D))
   }
+  state$Landscape[state$Landscape>2]=0
   
   return(list(d=d,State=state$Landscape))
   
@@ -380,6 +383,54 @@ Plot_hist_simu_obs=function(simu, obs){
   par(mfrow=c(1,1))
 }
 
+Get_empirical_site=function(id){
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  return(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))))
+}
+
+Get_path_empirical_raster=function(id){
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  land=as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt")))
+  
+  
+  tiff(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"), compression = "lzw")
+  
+  image(land,col=c("white","black"),xaxs="i",yaxs="i")
+
+  dev.off()    
+  
+  
+  return(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"))
+}
 
 
+Get_sumstat=function(landscape){
+  
+  cover = sum(landscape) / (dim(landscape)[1]**2)
+  
+  # number of neighbors
+  #vegetation clustering
+  neighbors_mat = simecol::neighbors(x =landscape,state = 1, wdist =  matrix( c(0, 1, 0,1, 0, 1, 0, 1, 0), nrow = 3),bounds = 1)
+  mean_nb_neigh = mean(neighbors_mat[which(landscape == 1)]) #mean number of plant neighbors
+  mean_clustering = mean_nb_neigh / cover
+  spatial_ews = generic_sews(landscape>0,4,moranI_coarse_grain = T)$value
+  
+  spectral_ratio = as.data.frame(spectral_sews(landscape>0,quiet=T))$value
+  
+  psd=spatialwarnings::patchdistr_sews(landscape>0)
+  max_patchsize=max(psd$psd_obs)
+  PLR=spatialwarnings::raw_plrange(landscape>0)
+  if (nrow(psd$psd_type)==1){ 
+    alpha_exp=NA        
+  } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]} #i.e., when there is no good fit, return NA
+  
+  
+  d=tibble(rho_p=cover,
+         nb_neigh=mean_nb_neigh,clustering=mean_clustering,
+         skewness=spatial_ews[2],variance=spatial_ews[1],moran_I=spatial_ews[3],
+         Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp)
+  
+  return(d)
+}
 

@@ -1,15 +1,73 @@
 include("./Drylands_ABC_functions.jl")
 
 #region, Testing region
-param = Get_classical_param()
-fraction_cover = [0.8, 0.1, 0.1]
+param = Get_classical_param_Eby()
+fraction_cover = [0.8, 0.1]
 size_landscape = 50
-ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
-@time d2, land2 = IBM_drylands(time=1500, param=copy(param),
-    landscape=copy(ini_land), keep_landscape=true)
+ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
 
-Get_summary_stat(land2)
-Plot_dynamics(d2)
+param = Get_classical_param_Eby(p=0.8, q=0.5)
+@time d2, land2 = IBM_Eby_model(time_t=1500, param=copy(param),
+    landscape=copy(ini_land), keep_landscape=false)
+
+plot(d2[:, 1], ylim=(0, 1))
+Plot_landscape_Eby(land2)
+
+@time d3, land3 = IBM_Eby_model2(time_t=1500, param=copy(param),
+    landscape=copy(ini_land), keep_landscape=false)
+
+plot(d3[:, 1], ylim=(0, 1))
+Plot_landscape_Eby(land3)
+
+
+sumstat_eby1 = zeros(30, 9)
+index = 1
+for p in [0.8 0.6 0.4], q in collect(range(0, 1, length=10))
+    param = Get_classical_param_Eby(p=p, q=q)
+    @time d2, land2 = IBM_Eby_model(time_t=1500, param=copy(param),
+        landscape=copy(ini_land), keep_landscape=true, burning_phase=100, n_snapshot=10)
+    if d2[size(d2)[1], 1] > 0.05 && d2[size(d2)[1], 1] < 1
+        sumstat_eby1[index, :] .= Get_summary_stat(land2)
+    else
+        sumstat_eby1[index, :] .= zeros(9, 1)
+    end
+    index += 1
+end
+
+sumstat_eby2 = zeros(30, 9)
+index = 1
+for p in [0.8 0.6 0.4], q in collect(range(0, 1, length=10))
+    param = Get_classical_param_Eby(p=p, q=q)
+    @time d2, land2 = IBM_Eby_model2(time_t=1500, param=copy(param),
+        landscape=copy(ini_land), keep_landscape=true, burning_phase=100, n_snapshot=10)
+    if d2[size(d2)[1], 1] > 0.05 && d2[size(d2)[1], 1] < 1
+        sumstat_eby2[index, :] .= Get_summary_stat(land2)
+    else
+        sumstat_eby2[index, :] .= zeros(9, 1)
+    end
+    index += 1
+end
+
+all_dat = vcat(sumstat_eby1, sumstat_eby2)
+
+CSV.write("./comparizon_eby.csv", Tables.table(all_dat), writeheader=false)
+
+
+
+param = Get_classical_param()
+param[5] = 0.3
+fraction_cover = [0.8, 0.1, 0.1]
+size_landscape = 100
+ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+
+@time d2, land2 = IBM_drylands(time=500, param=copy(param),
+    landscape=copy(ini_land), keep_landscape=false)
+
+plot(d2[:, 2], ylim=(0, 1))
+Plot_landscape(land2, false)
+
+
+
 
 #endregion
 
@@ -258,10 +316,10 @@ end
 
     pseudo_param = CSV.read("../Data/Eby_model/Pseudo_parameters_Eby.csv", DataFrame, header=1, delim=';')[((N_sim-1)*200+1):(N_sim*200), :]
 
-    param = Get_classical_param()
-    fraction_cover = [0.8, 0.1, 0.1]
+    param = Get_classical_param_Eby()
+    fraction_cover = [0.8, 0.2]
     size_landscape = 50
-    ini_land = Get_initial_lattice(frac=fraction_cover, size_mat=size_landscape)
+    ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
     n_metric = 9
 
     summary_stat_table = zeros(200, size(pseudo_param)[2] + n_metric)
@@ -269,16 +327,26 @@ end
 
     @inbounds for i in 1:size(pseudo_param)[1]
         param[1:2] .= Vector{Float64}(pseudo_param[i, :])
-        d, land = IBM_Eby_model(time_t=2000, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=25)
-        summary_stat_table[i, 3:size(summary_stat_table)[2]] = Get_summary_stat(land)
+        d, land = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=false)
+        if d[size(d)[1], 1] < 0.9 #we don't keep very large cover not useful, not representative of data
 
+            d, land = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+                keep_landscape=true, burning_phase=1000)
+
+            if d[size(d)[1], 1] > 0.05 && d[size(d)[1], 1] < 1 #we only compute sumstat when we are sure of the outcome
+                summary_stat_table[i, 3:size(summary_stat_table)[2]] = Get_summary_stat(land)
+            else
+                sumstat_eby2[index, :] .= zeros(9, 1)
+            end
+        end
     end
 
-    CSV.write("../Data/Eby_model/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+    CSV.write("./Data/Eby_model/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
 end
 
 
-pmap(Run_sim_model_EWS, 1:(100000/200))
+pmap(Run_sim_model_EWS, 1:(200000/200))
 
 
 
