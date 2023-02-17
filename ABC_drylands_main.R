@@ -3,1465 +3,7 @@ source("./ABC_drylands_function.R")
 
 #***********************************************************
 
-# ---------------------- Step 1 : Generating parameters for sensitivity analysis ----------
-
-#***********************************************************
-
-dir.create("../Data/Step1_sensitivity",showWarnings = F)
-
-## >> 1) One dimensional analysis ----
-
-
-range_params=data.frame(min = c(0, 0.02, 0, 0.005,0,0,0),
-                        max = c(1, 1, 1, 1,1,1,1))
-rownames(range_params)=c("r", "d", "f", "m","b","c","delta")
-
-based_param=c(.05,.1,.9,.1,.5,.2,.1)
-N_sim_param=40
-
-sensi_table_param=tibble()
-for (id_param in 1:nrow(range_params)){
-  
-  sensi_table_param=rbind(sensi_table_param,
-                          expand_grid(based_param[1],based_param[2],based_param[3],based_param[4],
-                                      based_param[5],based_param[6],based_param[7],
-                                      seq(range_params$min[id_param],range_params$max[id_param],
-                                          length.out=N_sim_param)
-                                      ))
-  
-}
-colnames(sensi_table_param)=c("r", "d", "f", "m","b","c","delta","range")
-
-for (i in 1:(ncol(sensi_table_param)-1)){
-  sensi_table_param[(N_sim_param*(i-1)+1):(i*N_sim_param),i]=sensi_table_param$range[(N_sim_param*(i-1)+1):(i*N_sim_param)]
-}
-sensi_table_param=sensi_table_param%>%
-  select(., -range)
-
-write.table(sensi_table_param,"../Data/Step1_sensitivity/sensitivity_1D_param.csv",sep=";",row.names = F)
-
-
-
-#plotting metrics against parameters
-
-results1D=read.table("../Data/Step1_sensitivity/All_data_1D.csv",sep=",")
-colnames(results1D)=c("r", "d", "f", "m","b","c","delta",
-                      "rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio",
-                      "PLR","PL_expo")
-
-n_param=7;nsim=40;n_metric=9
-
-pdf("../Figures/Sensitivity/Sensitivity_1D.pdf",width = 6,height = 7)
-for (i in 1:n_param){
-  
-  par(mar = c(4,2,.2,1))
-  
-  par(mfrow=c(5,2))
-  
-  d=results1D[((i-1)*nsim+1):(i*nsim),]
-  
-  col_metric=c("green","blue","red","pink","black","orange","grey","lightblue","purple")
-  name_metric=c("Cover","# neighbors","Clustering","Skeness","Variance","Moran I",
-                "Spectral ratio","PLR","PL expo")
-  
-  for (metric in 1:n_metric){
-    if (metric==3){ #for clustering we constrain the values as they go up with low cover
-      plot(x=d[,i],y=d[,colnames(results1D)[metric+n_param]],col=col_metric[metric],
-           xlab="",ylab=name_metric[metric],ylim=c(0,10))
-    } else{
-      plot(x=d[,i],y=d[,colnames(results1D)[metric+n_param]],col=col_metric[metric],
-           xlab="",ylab=name_metric[metric])
-    }
-    
-    legend(x = "topleft",legend=c(name_metric[metric]),fill = c(col_metric[metric]))
-  }
-  mtext(paste0("Parameter = ",colnames(results1D)[i]),line=-52,outer=TRUE)
-  
-}
-dev.off()
-
-
-
-
-
-
-# Getting the trend for each metric and plotting it
-
-results1D=read.table("../Data/Step1_sensitivity/All_data_1D.csv",sep=",")
-colnames(results1D)=c("r", "d", "f", "m","b","c","delta",
-                      "rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio",
-                      "PLR","PL_expo")
-
-n_param=7;n_metric=9;nsim=40
-
-trends_param=trends_with_scaling=corr_param_metric=tibble()
-for (metric in 1:n_metric){
-  for (i in 1:n_param){
-    
-    d=results1D[((i-1)*nsim+1):(i*nsim),c(i,8,metric+n_param)] #we keep the parameter, the cover and the focal metric
-    if (any(which(d[,2]<.1))) d=d[-which(d[,2]<.2),] #to avoid problems of linear regression fitting 
-    
-    reg=lm(d[,3]~d[,1])$coefficients[2]
-    trends_param=rbind(trends_param,tibble(Coeff=reg,
-                                           Param=as.character(colnames(results1D)[i]),
-                                           Metric=as.character(colnames(results1D)[metric+n_param])))
-    
-    trends_with_scaling=rbind(trends_with_scaling,
-                              tibble(Coeff=reg,
-                                     Param=as.character(colnames(results1D)[i]),
-                                     Metric=as.character(colnames(results1D)[metric+n_param])))
-    
-    corr_param_metric=rbind(corr_param_metric,
-                            tibble(Coeff=cor(d[,3],d[,1]),
-                                   Param=as.character(colnames(results1D)[i]),
-                                   Metric=as.character(colnames(results1D)[metric+n_param])))
-  }
-  #for each metric, we normalize the trends across parameters
-  trends_with_scaling$Coeff[((metric-1)*n_param+1):(metric*n_param)] = as.numeric(scale(trends_with_scaling$Coeff[((metric-1)*n_param+1):(metric*n_param)]))
-}
-
-p1=ggplot(trends_param)+
-  geom_tile(aes(x=Param,y=Metric,fill=Coeff),color="black")+
-  theme_classic()+
-  scale_fill_gradient2(low="#D82828",mid="white",high="#0E5DCE")
-
-p2=ggplot(trends_with_scaling)+
-  geom_tile(aes(x=Param,y=Metric,fill=Coeff),color="black")+
-  theme_classic()+
-  scale_fill_gradient2(low="#D82828",mid="white",high="#0E5DCE")
-
-p3=ggplot(corr_param_metric)+
-  geom_tile(aes(x=Param,y=Metric,fill=Coeff),color="black")+
-  theme_classic()+
-  scale_fill_gradient2(low="#D82828",mid="white",high="#0E5DCE")
-
-ggsave("../Figures/Sensitivity/Trends_1D_param.pdf",ggarrange(ggarrange(p1,p2,ncol=2,labels=letters[1:2]),
-                                                              ggarrange(ggplot()+theme_void(),p3,ggplot()+theme_void(), ncol=3,widths = c(.5,1,.5)),
-                                                              nrow=2,labels=c("",letters[3])),
-       width = 10,height = 7)
-
-
-
-## >> 2) Two dimensional analysis for parameters pairs ----
-
-range_params=data.frame(min = c(0, 0.02, 0, 0.005,0,0,0),
-                        max = c(1, 1, 1, 1,1,1,1))
-rownames(range_params)=c("r", "d", "f", "m","b","c","delta")
-
-based_param=c(.05,.1,.9,.1,.5,.2,.1)
-N_sim_param=20 #we reduce the number of simulations
-
-sensi_table_param=tibble()
-for (id_param1 in 1:(nrow(range_params)-1)){ # for each pair of parameters
-  for (id_param2 in (id_param1+1):nrow(range_params)){
-  
-    sensi_table_param=rbind(sensi_table_param,
-                            expand_grid(based_param[1],based_param[2],based_param[3],based_param[4],
-                                        based_param[5],based_param[6],based_param[7],
-                                        seq(range_params$min[id_param1],range_params$max[id_param1],
-                                            length.out=N_sim_param),
-                                        seq(range_params$min[id_param2],range_params$max[id_param2],
-                                            length.out=N_sim_param)
-                            ))
-  }
-  
-}
-colnames(sensi_table_param)=c("r", "d", "f", "m","b","c","delta","range1","range2")
-
-index=1
-for (id_param1 in 1:(nrow(range_params)-1)){ # for each pair of parameters
-  for (id_param2 in (id_param1+1):nrow(range_params)){
-    sensi_table_param[((N_sim_param**2)*(index-1)+1):(index*(N_sim_param**2)),id_param1]=
-      sensi_table_param$range1[((N_sim_param**2)*(index-1)+1):(index*(N_sim_param**2))]
-    
-    sensi_table_param[((N_sim_param**2)*(index-1)+1):(index*(N_sim_param**2)),id_param2]=
-      sensi_table_param$range2[((N_sim_param**2)*(index-1)+1):(index*(N_sim_param**2))]
-    index=index+1
-  }
-}
-sensi_table_param=sensi_table_param%>%
-  select(., -range1,-range2)
-
-write.table(sensi_table_param,"../Data/Step1_sensitivity/sensitivity_2D_param.csv",sep=";",row.names = F)
-
-#plotting
-results2D=read.table("../Data/Step1_sensitivity/All_data_2D.csv",sep=",")
-colnames(results2D)=c("r", "d", "f", "m","b","c","delta",
-                      "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                      "Spectral_ratio","PLR","PL_expo")
-
-n_param=7;nsim=400
-pdf("../Figures/Sensitivity/Sensitivity_2D.pdf",width = 10,height = 8)
-index=1
-for (i in 1:(n_param-1)){
-  for (j in (i+1):n_param){
-  
-    d=results2D[((index-1)*nsim+1):(index*nsim),]
-    d$Var1=d[,i]
-    d$Var2=d[,j]
-    
-    for (metric in 1:9){
-      which_metric=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio","PLR","PL_expo")[metric]
-      
-      if (which_metric != "rho_p"){
-        
-        assign(paste0("p_",metric),d%>%
-                 melt(., measure.vars=which_metric)%>%
-                 mutate(value = ifelse(value>10 | value==0, NA, value))%>%
-                 
-                 ggplot(.)+
-                 geom_tile(aes(x=Var1,y=Var2,
-                               fill=value))+
-                 theme_classic()+
-                 labs(x=colnames(d)[i],y=colnames(d)[j],fill=which_metric)+
-                 scale_fill_gradientn(colors = colorRampPalette(c("#F1DB71","#9DE284","#84AEE2"))(100)))
-        
-      } else{
-        
-        assign(paste0("p_",metric),d%>%
-                 melt(., measure.vars=which_metric)%>%
-                 mutate(value = ifelse(value>10 | value==0, NA, value))%>%
-                 
-                 ggplot(.)+
-                 geom_tile(aes(x=Var1,y=Var2,
-                               fill=value))+
-                 theme_classic()+
-                 labs(x=colnames(d)[i],y=colnames(d)[j],fill=which_metric)+
-                 scale_fill_gradient2(low = "white",mid = "#6FDE47",
-                                                          high = "#218647",midpoint = .5))
-        
-      }
-    }    
-    
-    print(ggarrange(p_1,p_2,p_3,p_4,p_5,p_6,p_7,p_8,p_9,ncol = 3,nrow = 3 ))
-  
-    
-    #Performing ACP
-    if (any(is.nan(d$PL_expo) | is.nan(d$PLR)))  d=d[-which(is.nan(d$PL_expo) | is.nan(d$PLR)),]
-    
-    res.pca=PCA(d[,8:ncol(d)], scale.unit = T, ncp = 3,  graph=F)
-    
-    p1=fviz_pca_biplot(res.pca, geom.ind = "point", 
-                 axes=c(1,2), col.ind = d$Var1,col.var="black",
-                 label = "var", repel = T)+
-      scale_color_gradientn(colours = 
-                              colorRampPalette(colors = 
-                                                 c("#960261","#C5218B","#E266B6",
-                                                   "#9F94EF","#2F48DA","#2F48DA"))(100),
-      )+
-      labs(x=paste0("PC 1 (",round(res.pca$eig[1,2], 1)," %)"),
-           y=paste0("PC 2 (",round(res.pca$eig[2,2], 1)," %)"),color=paste0(colnames(d)[i],"  "))+
-      ggtitle(paste0(colnames(d)[i],"  "))+
-      theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
-    
-    
-    
-    p2=fviz_pca_biplot(res.pca, geom.ind = "point", 
-                    axes=c(1,2), col.ind = d$Var2,col.var="black",
-                    label = "var", repel = T)+
-      scale_color_gradientn(colours = 
-                              colorRampPalette(colors = 
-                                                 c("#960261","#C5218B","#E266B6",
-                                                   "#9F94EF","#2F48DA","#2F48DA"))(100),
-      )+
-      labs(x=paste0("PC 1 (",round(res.pca$eig[1,2], 1)," %)"),
-           y=paste0("PC 2 (",round(res.pca$eig[2,2], 1)," %)"),color=paste0(colnames(d)[j],"  "))+
-      ggtitle(paste0(colnames(d)[j],"  "))+
-      theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
-    
-    
-    print(ggarrange(p1,p2))
-    
-    
-    
-    
-    
-    index=index+1
-  }
-}
-dev.off()
-
-#example for overleaf with f and c
-
-index=14
-d=results2D[((index-1)*nsim+1):(index*nsim),]
-d$Var1=d[,3]
-d$Var2=d[,6]
-
-
-for (metric in 1:9){
-  which_metric=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio","PLR","PL_expo")[metric]
-  
-  if (which_metric != "rho_p"){
-    
-    assign(paste0("p_",metric),d%>%
-             melt(., measure.vars=which_metric)%>%
-             mutate(value = ifelse(value>10 | value==0, NA, value))%>%
-             
-             ggplot(.)+
-             geom_tile(aes(x=Var1,y=Var2,
-                           fill=value))+
-             theme_classic()+
-             labs(x=colnames(d)[i],y=colnames(d)[j],fill=which_metric)+
-             scale_fill_gradientn(colors = colorRampPalette(c("#F1DB71","#9DE284","#84AEE2"))(100)))
-    
-  } else{
-    
-    assign(paste0("p_",metric),d%>%
-             melt(., measure.vars=which_metric)%>%
-             mutate(value = ifelse(value>10 | value==0, NA, value))%>%
-             
-             ggplot(.)+
-             geom_tile(aes(x=Var1,y=Var2,
-                           fill=value))+
-             theme_classic()+
-             labs(x=colnames(d)[i],y=colnames(d)[j],fill=which_metric)+
-             scale_fill_gradient2(low = "white",mid = "#6FDE47",
-                                  high = "#218647",midpoint = .5))
-    
-  }
-}    
-
-p=ggarrange(p_1,p_2,p_3,p_4,p_5,p_6,p_7,p_8,p_9,ncol = 3,nrow = 3 )
-ggsave("../Figures/Sensitivity/Example_interaction_f_c.pdf",p,width = 10,height = 6)
-
-
-#***********************************************************
-
-# ---------------------- Step 2 : Cross verification ---------------------------
-
-#***********************************************************
-
-## >> 1) Generating pseudo-parameters using latin hypercube sampling ----
-
-set.seed(123)
-#defining the priors
-range_priors=data.frame(min = c(0, 0, 0.005,0,0,0),
-                        max = c(1, 1, 1,1,1,1))
-rownames(range_priors)=c("d", "f", "m","b","c","delta")
-
-# Latin hypercube sampling on the priors
-pseudo_param=as.data.frame(Latinhyper(range_priors, 2.5e5))
-pseudo_param$r=.05
-pseudo_param[, "m"]=qlnorm(pseudo_param[,"m"], -2.25,.7)
-
-#reorganizing
-pseudo_param=pseudo_param[,c(7,1:6)]
-write.table(pseudo_param,'../Data/Pseudo_parameters.csv',sep=";",row.names = F)
-
-
-## >> 2) Analysis ----
-
-#Merging the julia outputs
-
-list_simu=list.files('../Data/Step2_cross_validation',pattern = ".csv")
-
-d_all=tibble()
-for (file_simu in list_simu){
-  
-  d=read.table(paste0("../Data/Step2_cross_validation/",file_simu),sep=",")
-  colnames(d)= c("r","d", "f", "m","b","c","delta",
-                 "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                 "Spectral_ratio","PLR","PL_expo")
-  
-  d_all=rbind(d_all,d)
-}
-d_all=d_all[-which(is.nan(d_all$PLR) | is.nan(d_all$PL_expo)),]
-write.table(d_all,"../Data/All_sim_ABC.csv",sep=";")
-
-
-
-# Analyzing outputs using linear models
-
-d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
-
-n_metric=9;n_param=7
-d=tibble()
-for (metric in 1:n_metric){
-  
-  reg0=lm(as.formula(paste(colnames(d_all)[n_param+metric],"~1")),data=d_all[,-c((n_param+1):ncol(d_all))[-which(c((n_param+1):ncol(d_all)) == metric+n_param)]])
-  select_param=step(reg0,scope=as.formula(paste("~",paste(colnames(d_all)[1:n_param],collapse = "+"))),direction="both")
-  d=rbind(d,as_tibble(t(select_param$coefficients[-1]))%>%
-            add_column(., Y=colnames(d_all)[n_param+metric]))
-}
-
-d
-
-
-
-
-
-#correlation summary stat
-
-
-matrix_param=d_all[,1:7]
-matrix_sumstat=d_all[,8:(ncol(d_all))]
-
-
-
-mat_cor_sumstat=cor(matrix_sumstat)
-
-p=ggplot(get_upper_tri(mat_cor_sumstat)%>%
-           melt(.)) + 
-  geom_tile(aes(Var2, Var1,fill=value), color = "white")+
-  geom_text(aes(Var2, Var1, label = round(value,2)), color = "black", size = 4) +
-  labs(x="",y="",fill="")+
-  theme_classic()+
-  theme(legend.position = "bottom",axis.text.x = element_text(angle = 60,vjust=.7))+
-  scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
-
-ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/Correlation_sumstats.pdf"),width = 5,height = 5)
-
-
-#Dimentionality of EWS
-mat_cor_sumstat_scaled =2**((mat_cor_sumstat - min(mat_cor_sumstat)) / diff(range(mat_cor_sumstat)))
-diag(mat_cor_sumstat)=NA
-
-
-graph_cor=graph_from_adjacency_matrix(adjmatrix = as.matrix(mat_cor_sumstat_scaled),mode = "undirected",weighted = T)
-plot(graph_cor)
-modules=igraph::edge.betweenness.community(graph=graph_cor)
-modules$membership #each seem to bring some information
-
-t(matrix_sumstat)%>% scale %>% dist %>% 
-  hclust %>% as.dendrogram %>%
-  ggdendrogram
-
-
-
-
-#cross-validation
-d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
-
-condition_cover=which(d_all$rho_p < 0.1  | d_all$rho_p>.8)
-matrix_param=d_all[-condition_cover,2:7]
-matrix_sumstat=d_all[-condition_cover,8:(ncol(d_all))]
-N_for_cross_validation = 100
-nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
-
-for (method_abc in c("rejection","neuralnet","loclinear")){
-  
-  mat_cor_param=array(0,c(6,6,N_for_cross_validation)) #correlation matrix for parameters
-  
-  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/Cross_validation_n",N_for_cross_validation,"_",method_abc,".pdf"),width = 8,height = 4)
-  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-  
-  for (n in 1:N_for_cross_validation){
-    
-    n_cross=nrow_for_sample[n]
-    
-    #for each virtual data, we perform ABC rejection algorithm with linear regression adjustment for posterior
-    cross_valid=abc(target = matrix_sumstat[n_cross,],
-                    param = matrix_param[-n_cross,],sumstat = matrix_sumstat[-n_cross,], #removing the target data
-                    tol = 100/nrow(matrix_param),method = method_abc) #we keep the 100 closest simulations
-    
-    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-    
-    cross_valid$adj.values=cross_valid$adj.values
-    #Matrix of correlation between parameters & sumstats
-    mat_cor_param[,,n]=cor(cross_valid$adj.values)
-
-    
-    #We plot the differences in posterior distribution/true parameter
-    
-    
-    par(mfrow=c(2,4))
-    for (i in colnames(matrix_param)){
-      plot(density(cross_valid$adj.values[,i]),main=i,xlab="Value")
-      abline(v = matrix_param[n_cross,i],col="blue")
-      abline(v = colMeans(cross_valid$adj.values)[i],col="red")
-    }
-  
-    d_melt=as.data.frame(cross_valid$ss)%>%
-      melt(.)
-    
-    par(mfrow=c(2,4))
-    for (i in 1:(length(colnames(cross_valid$adj.values))-1)){
-      for (j in (i+1):length(colnames(cross_valid$adj.values))){
-        plot(x=cross_valid$adj.values[,i],y=cross_valid$adj.values[,j],
-             xlab=colnames(cross_valid$adj.values)[i],ylab=colnames(cross_valid$adj.values)[j],
-             col=alpha("blue",.8))
-      }
-    }
-
-    par(mfrow=c(2,5))
-    for (i in colnames(matrix_sumstat)){
-      plot(density(d_melt$value[which(d_melt$variable==i)]),main=i,xlab="Value")
-      abline(v = matrix_sumstat[n_cross,i],col="blue")
-      abline(v = colMeans(cross_valid$ss)[i],col="red")
-    }
-    
-    #we save the mean posterior distribution for each and the true observed parameters
-    d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-    d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    
-    #We compute the mean squared error (RMSE) 
-    RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-      sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-      }
-    )
-    
-    #normalize it by the RMSE under the prior distribution
-    RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-      sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-    
-    
-    #We repeat the same for the summary statistics observed
-    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-      sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-    }
-    )
-    
-    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-      sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-    
-  } #end loop Nvirtual data
-  
-  colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-  colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-  dev.off()
-  
-  
-  #Ploting the correlation between parameters 
-  colnames(mat_cor_param)=rownames(mat_cor_param)=colnames(d_NRMSE_param)
-  
-  p=ggplot(get_upper_tri(rowMeans(mat_cor_param, dims = 2,na.rm = T))%>%
-           melt(.)) + 
-    geom_tile(aes(Var2, Var1,fill=value), color = "white")+
-    geom_text(aes(Var2, Var1, label = round(value,2)), color = "black", size = 4) +
-    labs(x="",y="",fill="")+
-    theme_classic()+
-    theme(legend.position = "bottom")+
-    scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/Correlation_parameters_",method_abc,".pdf"),width = 6,height = 5)
-  
-  
-  #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
-  ##d-melting the tibble
-  
-  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/x_y_obs_true_param_",method_abc,".pdf"),width = 8,height = 5)
-  par(mfrow=c(2,3))
-  for (i in colnames(matrix_param)){
-    d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
-      mutate(., idx=rep(1:(nrow(d_cross_param)/2),each=2))%>%
-      dcast(., idx ~ Type,value.var=i)%>%
-      mutate(., Parameter=i)
-    
-    plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-    abline(coef = c(0,1),col="red")
-  }
-  dev.off()
-  
-  
-  
-  pdf(paste0("../Figures/Kefi_inferrence/Cross_validation/x_y_obs_true_summarystat_",method_abc,".pdf"),width = 10,height = 7)
-  
-  par(mfrow=c(3,3))
-  for (i in colnames(matrix_sumstat)){
-    d=d_cross_sumstat[,c(which(colnames(d_cross_sumstat)==i),ncol(d_cross_sumstat))]%>%
-      mutate(., idx=rep(1:(nrow(d_cross_sumstat)/2),each=2))%>%
-      dcast(., idx ~ Type,value.var=i)%>%
-      mutate(., Parameter=i)
-    
-    plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-    abline(coef = c(0,1),col="red")
-  }
-  dev.off()
-  
-  p=ggplot(d_NRMSE_param%>%
-           melt(.))+
-    geom_jitter(aes(x=variable,y=value,color=variable),
-                position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-    geom_point(data=as_tibble(t(colMeans(d_NRMSE_param)))%>%
-                 melt(.),
-               aes(x=variable,y=value),color="black",size=3,shape=18)+
-    labs(x="Parameter",y="NRMSE",color="")+
-    geom_hline(yintercept = 1)+
-    ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-    theme_classic()+
-    theme(legend.position = "none")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
-  
-  
-  p=ggplot(d_NRMSE_sumstat%>%
-             melt(.))+
-    geom_jitter(aes(x=variable,y=value,color=variable),
-                position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-    geom_point(data=as_tibble(t(colMeans(d_NRMSE_sumstat)))%>%
-                melt(.),
-              aes(x=variable,y=value),color="black",size=3,shape=18)+
-    labs(x="Parameter",y="NRMSE",color="")+
-    geom_hline(yintercept = 1)+
-    theme_classic()+
-    theme(legend.position = "none")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Cross_validation/NRMSE_summarystat_",method_abc,".pdf"),p,width = 8,height = 5)
-  
-}# loop over the two method for ABC
-
-
-
-## >> 3) PCA and variables ----
-
-
-d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
-
-sample_row=sample(1:nrow(d_all),size=10000,replace = F)
-res.pca=PCA(d_all[sample_row,8:ncol(d_all)], scale.unit = T, ncp = 3,  graph=F)
-
-pdf("../Figures/Space_param_EWS/Space_EWS_parameters.pdf",width = 12,height = 4)
-for (param in 1:7){
-  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
-  for (i in 1:3){
-    assign(paste0("p",i),
-           
-           fviz_pca_biplot(res.pca, geom.ind = "point", 
-                           axes=c(axes_for_plot$x[i],axes_for_plot$y[i]), col.ind = d_all[sample_row,param],col.var="black",
-                           label = "var", repel = T)+
-             scale_color_gradientn(colours = 
-                                     colorRampPalette(colors = 
-                                                        c("#960261","#C5218B","#E266B6",
-                                                          "#9F94EF","#2F48DA","#2F48DA"))(100),
-             )+
-             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color=colnames(d_all)[param])+
-             ggtitle(paste0(colnames(d_all)[param]))+
-             theme_classic()+theme(legend.position = "bottom",plot.title = element_text(size=25))
-           
-    )
-  }
-  print(ggarrange(p1,p2,p3,ncol=3))
-  
-}
-dev.off()
-ggsave("../Figures/Space_param_EWS/ACP_delta.pdf",
-       ggarrange(p1+ggtitle(TeX("$\\delta$")),
-                 p2+ggtitle(TeX("$\\delta$")),
-                 p3+ggtitle(TeX("$\\delta$")),ncol=3),width = 12,height = 4)
-
-
-
-
-#***********************************************************
-
-# ---------------------- Step 3: Influence of the number of photos to average ----
-
-#***********************************************************
-
-nb_picture = c(3,5,15,25,35)
-d_distance=tibble()
-
-for (nb_pic in nb_picture){
-  d=tibble()
-  list_simu=list.files(paste0("../Data/Step3_nbr_pictures/",nb_pic,"_pic"))
-  
-  for (simu_file in list_simu){
-    d=rbind(d,read.table(paste0("../Data/Step3_nbr_pictures/",nb_pic,"_pic/",simu_file),sep=","))
-  }
-  colnames(d)= c("r","d", "f", "m","b","c","delta",
-                 "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                 "Spectral_ratio","PLR","PL_expo")
-  
-  write.table(d,paste0("../Data/Step3_nbr_pictures/Simu_",nb_pic,"_pictures.csv"),sep=";")
-
-  condition_cover=which(d$rho_p < 0.1  | d$rho_p>.8)
-  matrix_param=d[-condition_cover,2:7]
-  matrix_sumstat=d[-condition_cover,8:(ncol(d))]
-  N_for_cross_validation = 150
-  set.seed(123)
-  nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
-  
-  for (method_abc in c("rejection")){
-    
-    mat_cor_param=array(0,c(6,6,N_for_cross_validation)) #correlation matrix for parameters
-    
-    d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-    
-    for (n in 1:N_for_cross_validation){
-      
-      n_cross=nrow_for_sample[n]
-      
-      #for each virtual data, we perform ABC rejection algorithm with linear regression adjustment for posterior
-      cross_valid=abc(target = matrix_sumstat[n_cross,],
-                      param = matrix_param[-n_cross,],sumstat = matrix_sumstat[-n_cross,], #removing the target data
-                      tol = 100/nrow(matrix_param),method = method_abc) #we keep the 100 closest simulations
-      
-      if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-      
-      cross_valid$adj.values=cross_valid$adj.values
-      #Matrix of correlation between parameters & sumstats
-      mat_cor_param[,,n]=cor(cross_valid$adj.values)
-      
-      
-      
-      #we save the mean posterior distribution for each and the true observed parameters
-      d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-      d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      
-      #We compute the mean squared error (RMSE) 
-      RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-        sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-      }
-      )
-      
-      #normalize it by the RMSE under the prior distribution
-      RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-        sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-      }
-      )
-      NRMSE = RMSE/RMSE_prior
-      
-      d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-      
-      
-      #We repeat the same for the summary statistics observed
-      RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-        sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-      }
-      )
-      
-      RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-        sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-      }
-      )
-      NRMSE = RMSE/RMSE_prior
-      
-      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-      
-    } #end loop Nvirtual data
-    
-    colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-    colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-  
-    
-    #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
-    ##d-melting the tibble
-    
-    pdf(paste0("../Figures/Kefi_inferrence/Number_pictures/x_y_obs_true_param_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 8,height = 5)
-    par(mfrow=c(2,3))
-    for (i in colnames(matrix_param)){
-      d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
-        mutate(., idx=rep(1:(nrow(d_cross_param)/2),each=2))%>%
-        dcast(., idx ~ Type,value.var=i)%>%
-        mutate(., Parameter=i)
-      
-      plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-      abline(coef = c(0,1),col="red")
-    }
-    dev.off()
-    
-    
-    
-    pdf(paste0("../Figures/Kefi_inferrence/Number_pictures/x_y_obs_true_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),width = 10,height = 7)
-    
-    par(mfrow=c(3,3))
-    for (i in colnames(matrix_sumstat)){
-      d=d_cross_sumstat[,c(which(colnames(d_cross_sumstat)==i),ncol(d_cross_sumstat))]%>%
-        mutate(., idx=rep(1:(nrow(d_cross_sumstat)/2),each=2))%>%
-        dcast(., idx ~ Type,value.var=i)%>%
-        mutate(., Parameter=i)
-      
-      plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-      abline(coef = c(0,1),col="red")
-    }
-    dev.off()
-    
-    p=ggplot(d_NRMSE_param%>%
-               melt(.))+
-      geom_jitter(aes(x=variable,y=value,color=variable),
-                  position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-      geom_point(data=as_tibble(t(colMeans(d_NRMSE_param,na.rm = T)))%>%
-                   melt(.),
-                 aes(x=variable,y=value),color="black",size=3,shape=18)+
-      labs(x="Parameter",y="NRMSE",color="")+
-      geom_hline(yintercept = 1)+
-      ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-      theme_classic()+
-      theme(legend.position = "none")
-    
-    ggsave(paste0("../Figures/Kefi_inferrence/Number_pictures/NRMSE_param_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
-    
-    
-    #keeping the distance of NRMSE to 1 for each 
-    
-    d_distance=rbind(d_distance,as_tibble(t(colMeans(d_NRMSE_param,na.rm = T)))%>%add_column(., nb_picture=nb_pic))
-    
-    p=ggplot(d_NRMSE_sumstat%>%
-               melt(.))+
-      geom_jitter(aes(x=variable,y=value,color=variable),
-                  position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-      geom_point(data=as_tibble(t(colMeans(d_NRMSE_sumstat,na.rm = T)))%>%
-                   melt(.),
-                 aes(x=variable,y=value),color="black",size=3,shape=18)+
-      labs(x="Parameter",y="NRMSE",color="")+
-      geom_hline(yintercept = 1)+
-      theme_classic()+
-      theme(legend.position = "none")
-    
-    ggsave(paste0("../Figures/Kefi_inferrence/Number_pictures/NRMSE_summarystat_",method_abc,"_nbpic_",nb_pic,".pdf"),p,width = 8,height = 5)
-    
-  }# loop over the two method for ABC
-  
-}
-
-
-p=ggplot(d_distance%>%melt(., id.vars=c("nb_picture")))+
-  geom_line(aes(x=nb_picture,y=value,color=variable),lwd=1)+
-  geom_point(aes(x=nb_picture,y=value,color=variable),size=3,shape=21,fill="white")+
-  geom_point(data=tibble(mean_NRMSE=rowMeans(d_distance[,-ncol(d_distance)]),nb_picture=d_distance$nb_picture),
-             aes(x=nb_picture,y=mean_NRMSE),shape=15)+
-  geom_line(data=tibble(mean_NRMSE=rowMeans(d_distance[,-ncol(d_distance)]),nb_picture=d_distance$nb_picture),
-             aes(x=nb_picture,y=mean_NRMSE),linetype=9)+
-  the_theme+
-  geom_hline(yintercept = 1)+
-  labs(x="# of pictures",y="Mean NRMSE (150 virtual data \n and keeping the best 100 datasets)",color="")+
-  scale_x_continuous(breaks = d_distance$nb_picture)
-  
-ggsave("../Figures/Kefi_inferrence/Number_pictures/Influence_#_pictures.pdf",p,width = 6,height = 4)
-
-
-
-
-
-
-
-
-#***********************************************************
-
-# ---------------------- Step 4: Fixing some parameters, varying others ----
-
-#***********************************************************
-
-
-## >> 1) Pseudo-parameters ----
-# 14 combinations: we fix b or d, or r or c and their combination.
-
-set.seed(123)
-
-
-experience_parameters=matrix(0,nrow = 14,7) #14 different combinations. As maximum: 3 parameters fixed
-colnames(experience_parameters)=c('r',"d", "f", "m","b","c","delta")
-experience_parameters[,1]=c(0,1,0,1,1,0,1,rep(0,7))
-experience_parameters[,2]=c(rep(0,7),0,1,0,1,1,0,1)
-experience_parameters[,3]=c(rep(0,14))
-experience_parameters[,4]=c(rep(0,14))
-experience_parameters[,5]=rep(c(1,0,0,0,1,1,1),2)
-experience_parameters[,6]=rep(c(0,0,1,1,0,1,1),2)
-experience_parameters[,7]=c(rep(0,14))
-based_param=c('r'=.05,"d"=.1, "f"=.9, "m"=.1,"b"=.8,"c"=.2,"delta"=.1)
-
-d_prior_all=tibble()
-for (i in 1:nrow(experience_parameters)){
-  
-  range_priors=data.frame(min = c(0,0, 0, 0.005,0,0,0),
-                          max = c(1,1, 1, 1,1,1,1))
-  rownames(range_priors)=c('r',"d", "f", "m","b","c","delta")
-  
-  # Latin hypercube sampling on the priors
-  pseudo_param=as.data.frame(Latinhyper(range_priors, 4e4))
-  pseudo_param[, "m"]=qlnorm(pseudo_param[,"m"], -2.25,.7)
-  
-  
-  for (j in 1:length(names(which(experience_parameters[i,]!=0)))){
-    pseudo_param[,names(which(experience_parameters[i,]!=0))[j]] = based_param[names(which(experience_parameters[i,]!=0))[j]] 
-  }
-
-  #reorganizing
-  d_prior_all=rbind(d_prior_all,pseudo_param)
-}
-
-write.table(d_prior_all,paste0("../Data/Pseudo_param_all_combinations.csv"),sep=";",row.names = F)
-
-
-## >> 2) Analysis ----
-
-
-for (virtual_exp in 1:14){ #for each combination of parameters that were knocked-out, we do the analysis
-  
-  d=tibble()
-  for (simu_id in ((virtual_exp-1)*400+1):(virtual_exp*400)){
-    d=rbind(d,read.table(paste0("../Data/Step4_combination_param/Simulation_ABC_number_",simu_id,".csv"),sep=","))
-  }
-  
-  colnames(d)= c("r","d", "f", "m","b","c","delta",
-                 "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                 "Spectral_ratio","PLR","PL_expo")
-  
-  knocked_param=which(experience_parameters[virtual_exp,] == 1)
-  
-  condition_cover=which(d$rho_p < 0.1  | d$rho_p>.8)
-  matrix_param=d[-condition_cover,1:7] #removing very low cover and very high cover where PL can't be fitter 
-  
-  print(nrow(matrix_param))
-  
-  matrix_param=matrix_param[,-knocked_param] #removing the fixed parameters
-  
-  matrix_sumstat=d[-condition_cover,8:(ncol(d))]
-  N_for_cross_validation = 100
-  set.seed(123)
-  nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F) # the virtual data sampled
-  
-  for (method_abc in c("fixed_nb")){ #old 20/01, does not change anything for (method_abc in c("fixed_tol","fixed_nb")){
-    
-    mat_cor_param=array(0,c(7-length(knocked_param),
-                            7-length(knocked_param),
-                            N_for_cross_validation)) #correlation matrix for parameters
-    
-    d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-    
-    for (n in 1:N_for_cross_validation){
-      
-      n_cross=nrow_for_sample[n]
-      
-      #for each virtual data, we perform ABC rejection algorithm 
-      cross_valid=abc(target = matrix_sumstat[n_cross,],
-                      param = matrix_param[-n_cross,],sumstat = matrix_sumstat[-n_cross,], #removing the target data
-                      tol = ifelse(method_abc=="fixed_tol",.002,100/nrow(matrix_param)),method = "rejection") #we keep the 100 closest simulations
-      
-      if (names(cross_valid)[1]=="unadj.values") names(cross_valid)[1] = "adj.values"
-      
-      cross_valid$adj.values=cross_valid$adj.values
-      
-      #Matrix of correlation between parameters & sumstats
-      mat_cor_param[,,n]=cor(cross_valid$adj.values)
-      
-      #we save the mean posterior distribution for each and the true observed parameters
-      d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-      d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-      
-      
-      #We compute the mean squared error (RMSE) 
-      RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-        sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )}
-      )
-      
-      #normalize it by the RMSE under the prior distribution
-      RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-        sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )})
-      
-      NRMSE = RMSE/RMSE_prior
-      d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-      
-      
-      #We repeat the same for the summary statistics observed
-      RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-        sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-      }
-      )
-      
-      RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-        sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )})
-      
-      NRMSE = RMSE/RMSE_prior
-      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-      
-    } #end loop Nvirtual data
-    
-    colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-    colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-    
-    
-    
-    p=ggplot(d_NRMSE_param%>%
-               melt(.))+
-      geom_jitter(aes(x=variable,y=value,color=variable),
-                  position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-      geom_point(data=as_tibble(t(colMeans(d_NRMSE_param)))%>%
-                   melt(.),
-                 aes(x=variable,y=value),color="black",size=3,shape=18)+
-      labs(x="Parameter",y="NRMSE",color="")+
-      geom_hline(yintercept = 1)+
-      ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-      theme_classic()+
-      theme(legend.position = "none")+
-      ggtitle(paste0(c("r","d", "f", "m","b","c","delta")[knocked_param],collapse = ", "))
-    
-    ggsave(paste0("../Figures/Kefi_inferrence/Combination_param/NRMSE_param_",virtual_exp,"_",method_abc,".pdf"),p,width = 8,height = 5)
-    
-    
-    
-    pdf(paste0("../Figures/Kefi_inferrence/Combination_param/x_y_obs_true_param_",virtual_exp,"_",method_abc,".pdf"),width = 8,height = 5)
-    par(mfrow=c(2,4))
-    for (i in colnames(matrix_param)){
-      d=d_cross_param[,c(which(colnames(d_cross_param)==i),ncol(d_cross_param))]%>%
-        mutate(., idx=rep(1:(nrow(d_cross_param)/2),each=2))%>%
-        dcast(., idx ~ Type,value.var=i)%>%
-        mutate(., Parameter=i)
-      
-      plot(d$Obs,d$Sim,xlab="True parameter",ylab="Simulated parameter",col=alpha("blue",.5),main=i)
-      abline(coef = c(0,1),col="red")
-    }
-    dev.off()
-    
-    
-
-    
-    #Ploting the correlation between parameters 
-    colnames(mat_cor_param)=rownames(mat_cor_param)=colnames(d_NRMSE_param)
-    
-    p=ggplot(get_upper_tri(rowMeans(mat_cor_param, dims = 2,na.rm = T))%>%
-               melt(.)) + 
-      geom_tile(aes(Var2, Var1,fill=value), color = "white")+
-      geom_text(aes(Var2, Var1, label = round(value,2)), color = "black", size = 4) +
-      labs(x="",y="",fill="")+
-      theme_classic()+
-      theme(legend.position = "bottom")+
-      scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
-    
-    ggsave(paste0("../Figures/Kefi_inferrence/Combination_param/Correlation_parameters_",virtual_exp,"_",method_abc,".pdf"),width = 6,height = 5)
-    
-    
-  }
-  
-}
-
-
-
-
-
-
-
-
-
-
-
-
-#***********************************************************
-
-# ---------------------- Step 5: Testing two step procedure proposed by Siren et al., 2019 ----
-
-#***********************************************************
-
-#cross-validation
-d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
-condition_cover=which(d_all$rho_p < 0.1  | d_all$rho_p>.8)
-d_all=d_all[-condition_cover,]
-rownames(d_all)=1:nrow(d_all)
-matrix_param=d_all[,2:7]
-matrix_sumstat=d_all[,8:(ncol(d_all))]
-N_for_cross_validation = 50
-nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
-
-for (two_step in c(T,F)){
-  
-  mat_cor_param=array(0,c(6,6,N_for_cross_validation)) #correlation matrix for parameters
-  
-  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-  
-  for (n in 1:N_for_cross_validation){
-    
-    matrix_param=d_all[,2:7]
-    matrix_sumstat=d_all[,8:(ncol(d_all))]
-    save_sumstat=matrix_sumstat
-    
-    n_cross=nrow_for_sample[n]
-    
-    if (two_step){ #Applying the two step procedure used in Siren MEE paper : Don't know whether it make sense in our case. TO discuss Monday
-
-      #First box cox transformation of variables to that they approach normality
-      #As we have negative values, we used the transformation coined by Manly in 1971
-      for (x in 1:ncol(matrix_sumstat)) if (x %in% c(4,6)){
-        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(.5)) -1)/(.5)
-      }else {matrix_sumstat[,x] = (matrix_sumstat[,x]^(.5) -1)/(.5)}
-      
-      #Second we scale
-      for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-
-      #and finally, we perform the first PLS
-  
-
-      pls_1=plsr(f + d + m + b + c + delta~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-           data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
-      
-      
-      n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-      
-      
-      if (n_comp_pls > 1){
-        mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-      } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-      
-      
-      cross_valid=abc(target = mat_sumstat_pls[n_cross,],
-                      param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
-                      tol = 2000/nrow(matrix_param),method = "rejection") #we keep the 2000 closest simulations for the first step
-      
-      #Keeping 2000 simulations and doing the same steps again: normality, scaling and PLS
-      
-      mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),8:(ncol(d_all))] #we keep information with the true values
-      mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,8:(ncol(d_all))])
-      
-      #again, first box cox
-      for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
-        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
-      }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
-      
-      #and normalization
-      for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-      
-      pls_2=plsr(f + d + m + b + c + delta~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-                 data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
-                                          mat_sumstat_step1)), scale=TRUE, validation="CV")
-      
-      
-      n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-      
-
-      if (n_comp_pls > 1){
-        mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-      } else if (n_comp_pls==1){ #otherwise we take the whole components
-        mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
-      } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
-      
-      cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
-                      param = cross_valid$unadj.values,
-                      sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                      tol = 100/nrow(mat_sumstat_pls2),method = "rejection") #we keep the 100 closest simulations
-      
-      cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),8:(ncol(d_all))] #we keep information with the true values
-      
-      
-      
-      
-    } else {
-      
-      #for each virtual data, we perform ABC rejection algorithm with linear regression adjustment for posterior
-      cross_valid=abc(target = matrix_sumstat[n_cross,],
-                      param = matrix_param[-n_cross,],sumstat = matrix_sumstat[-n_cross,], #removing the target data
-                      tol = 100/nrow(matrix_param),method = "rejection") #we keep the 100 closest simulations
-    }
-    
-    
-    matrix_sumstat=save_sumstat
-    
-    
-    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-    
-    cross_valid$adj.values=cross_valid$adj.values
-    mat_cor_param[,,n]=cor(cross_valid$adj.values)
-    
-    
-    #We plot the differences in posterior distribution/true parameter
-
-    #we save the mean posterior distribution for each and the true observed parameters
-    d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-    d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    
-    #We compute the mean squared error (RMSE) 
-    RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-      sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-    }
-    )
-    
-    #normalize it by the RMSE under the prior distribution
-    RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-      sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-    
-    
-    #We repeat the same for the summary statistics observed
-    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-      sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-    }
-    )
-    
-    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-      sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-    
-  } #end loop Nvirtual data
-  
-  colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-  colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-
-  
-  #Ploting the correlation between parameters 
-  colnames(mat_cor_param)=rownames(mat_cor_param)=colnames(d_NRMSE_param)
-  
-  p=ggplot(get_upper_tri(rowMeans(mat_cor_param, dims = 2,na.rm = T))%>%
-             melt(.)) + 
-    geom_tile(aes(Var2, Var1,fill=value), color = "white")+
-    geom_text(aes(Var2, Var1, label = round(value,2)), color = "black", size = 4) +
-    labs(x="",y="",fill="")+
-    theme_classic()+
-    theme(legend.position = "bottom")+
-    scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Siren_two_steps/Correlation_parameters_",ifelse(two_step,"twostep","classic"),".pdf"),width = 6,height = 5)
-  
-  
-  #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
-  ##d-melting the tibble
-  
-
-  p=ggplot(d_NRMSE_param%>%
-             melt(.))+
-    geom_jitter(aes(x=variable,y=value,color=variable),
-                position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-    geom_point(data=as_tibble(t(colMeans(d_NRMSE_param)))%>%
-                 melt(.),
-               aes(x=variable,y=value),color="black",size=3,shape=18)+
-    labs(x="Parameter",y="NRMSE",color="")+
-    geom_hline(yintercept = 1)+
-    ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-    theme_classic()+
-    theme(legend.position = "none")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Siren_two_steps/NRMSE_param_",ifelse(two_step,"twostep","classic"),".pdf"),p,width = 8,height = 5)
-  
-  
-}# loop over the two method for ABC
-
-
-
-
-
-#***********************************************************
-
-# ---------------------- Step 6: Adding post-processing with linear regression ----
-
-#***********************************************************
-
-
-
-
-#cross-validation
-d_all=read.table("../Data/All_sim_ABC.csv",sep=";")
-condition_cover=which(d_all$rho_p < 0.1  | d_all$rho_p>.8)
-d_all=d_all[-condition_cover,]
-rownames(d_all)=1:nrow(d_all)
-matrix_param=d_all[,2:7]
-matrix_sumstat=d_all[,8:(ncol(d_all))]
-N_for_cross_validation = 50
-nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
-
-for (method_abc in c("rejection","loclinear","neuralnet")){
-  
-  mat_cor_param=array(0,c(6,6,N_for_cross_validation)) #correlation matrix for parameters
-  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-  
-  for (n in 1:N_for_cross_validation){
-    
-    matrix_param=d_all[,2:7]
-    matrix_sumstat=d_all[,8:(ncol(d_all))]
-    save_sumstat=matrix_sumstat
-
-    n_cross=nrow_for_sample[n]
-    
-    
-    #First box cox transformation of variables to that they approach normality
-    #As we have negative values, we used the transformation coined by Manly in 1971
-    for (x in 1:ncol(matrix_sumstat)) if (x %in% c(4,6)){
-      matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(.5)) -1)/(.5)
-    }else {matrix_sumstat[,x] = (matrix_sumstat[,x]^(.5) -1)/(.5)}
-    
-    #Second we scale
-    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-    
-    #and finally, we perform the first PLS
-    
-    
-    pls_1=plsr(f + d + m + b + c + delta~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-               data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
-    
-    
-    n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-    
-    
-    if (n_comp_pls > 1){
-      mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-    } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-    
-    
-    cross_valid=abc(target = mat_sumstat_pls[n_cross,],
-                    param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
-                    tol = 2000/nrow(matrix_param),method = "rejection") #we keep the 2000 closest simulations for the first step
-    
-    #Keeping 2000 simulations and doing the same steps again: normality, scaling and PLS
-    
-    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),8:(ncol(d_all))] #we keep information with the true values
-    mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,8:(ncol(d_all))])
-    
-    #again, first box cox
-    for (x in 1:ncol(mat_sumstat_step1)) if (x %in% c(4,6)){
-      mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
-    }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
-    
-    #and normalization
-    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-    
-    pls_2=plsr(f + d + m + b + c + delta~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo,
-               data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
-                                        mat_sumstat_step1)), scale=TRUE, validation="CV")
-    
-    
-    n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-    
-    
-    if (n_comp_pls > 1){
-      mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-    } else if (n_comp_pls==1){ #otherwise we take the whole components
-      mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
-    } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
-    
-    cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
-                    param = cross_valid$unadj.values,
-                    sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                    tol = 100/nrow(mat_sumstat_pls2),method = method_abc,transf = rep("logit",6), #as parameters are proba, we perform logit regression
-                    logit.bounds = matrix(c(0,1),6,2,byrow = T))
-    
-    cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),8:(ncol(d_all))] #we keep information with the true values
-    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-    
-  
-    mat_cor_param[,,n]=cor(cross_valid$adj.values)
-    
-    
-    #We plot the differences in posterior distribution/true parameter
-    
-    #we save the mean posterior distribution for each and the true observed parameters
-    d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-    d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-    
-    
-    #We compute the mean squared error (RMSE) 
-    RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-      sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-    }
-    )
-    
-    #normalize it by the RMSE under the prior distribution
-    RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-      sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-    
-    
-    #We repeat the same for the summary statistics observed
-    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-      sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-    }
-    )
-    
-    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-      sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-    
-  } #end loop Nvirtual data
-  
-  colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-  colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-  matrix_sumstat=save_sumstat
-  
-  
-  #Ploting the correlation between parameters 
-  colnames(mat_cor_param)=rownames(mat_cor_param)=colnames(d_NRMSE_param)
-  
-  p=ggplot(get_upper_tri(rowMeans(mat_cor_param, dims = 2,na.rm = T))%>%
-             melt(.)) + 
-    geom_tile(aes(Var2, Var1,fill=value), color = "white")+
-    geom_text(aes(Var2, Var1, label = round(value,2)), color = "black", size = 4) +
-    labs(x="",y="",fill="")+
-    theme_classic()+
-    theme(legend.position = "bottom")+
-    scale_fill_gradient2(low = "red", high = "blue", mid = "white",limit = c(-1,1),na.value = "white")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Adding_postprocessing/Correlation_parameters_",method_abc,"post_processing.pdf"),width = 6,height = 5)
-  
-  
-  #Ploting f(x,y) with x=True parameter/summary stat, y=simulated
-  ##d-melting the tibble
-  
-  
-  p=ggplot(d_NRMSE_param%>%
-             melt(.))+
-    geom_jitter(aes(x=variable,y=value,color=variable),
-                position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0), alpha=.5)+
-    geom_point(data=as_tibble(t(colMeans(d_NRMSE_param)))%>%
-                 melt(.),
-               aes(x=variable,y=value),color="black",size=3,shape=18)+
-    labs(x="Parameter",y="NRMSE",color="")+
-    geom_hline(yintercept = 1)+
-    ylim(0,ifelse(max(d_NRMSE_param[,-1])>3,3,max(d_NRMSE_param[,-1])))+
-    theme_classic()+
-    theme(legend.position = "none")
-  
-  ggsave(paste0("../Figures/Kefi_inferrence/Adding_postprocessing/NRMSE_param_",method_abc,".pdf"),p,width = 8,height = 5)
-  
-}
-
-
-
-
-
-
-
-#***********************************************************
-
-# ---------------------- Step 7: Sensitivity analysis on the landscape size (50, 75, 100, 125) ----
-
-#***********************************************************
-#XXX do figures & sims
-
-
-
-#***********************************************************
-
-# ---------------------- Step 8: Testing with the Eby model  ----
+# ---------------------- Step 1: Testing with the Eby model  ----
 
 #***********************************************************
 
@@ -1854,7 +396,7 @@ ggsave("../Figures/Eby_model/ACP_and_model_description/ACP_param_Eby.pdf",
 
 d_all_eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%
   filter(., rho_p !=0)
-d_all_kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%
+d_all_kefi=read.table("../Data/All_sim_Kefi.csv",sep=";")%>%
   filter(., rho_p > .05 & rho_p < .9)
 
 n_keep=1000
@@ -1899,7 +441,7 @@ ggsave("../Figures/Eby_model/ACP_and_model_description/Coverage_Eby_Kefi_models.
 
 #***********************************************************
 
-# ---------------------- Step 9: Improving inference ----
+# ---------------------- Step 2: Improving inference ----
 
 #***********************************************************
 
@@ -2228,9 +770,6 @@ p=d%>%
 
 ggsave("../Figures/Eby_model/Optimizing_inferrence/Pre_post/Optimization_inference_size_step1_preproc.pdf",p,width = 7,height = 4)
 
-
-
- ###XXXX do the same for sumstats
 
 
 
@@ -3014,10 +1553,12 @@ ggsave(paste0("../Figures/Eby_model/Optimizing_inferrence/Sensi_removal/Sensi_re
 
 
 
+#***********************************************************
+
+# ---------------------- Step 3: Empirical data ----
 
 
-# ---------------------- Step 10: Empirical data ----
-
+#***********************************************************
 ## >> 0) Summary statistics of the data: plus adding regularity of patterns and characteristics of patches ----
 
 for (id in 1:5){
@@ -3391,7 +1932,7 @@ ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/",
 ## >> 2) PCA comparing data and model ---- 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p !=0)
+d_Kefi=read.table("../Data/All_sim_Kefi.csv",sep=";")%>%filter(., rho_p !=0)
 d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
             d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)), #to plot the empirical sites above simulations
             d_Kefi[sample(1:nrow(d_Kefi),15000,F),8:ncol(d_Kefi)]%>%add_column(., Type="Kefi model"))%>%
@@ -3441,14 +1982,33 @@ p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
 ggsave("../Figures/Empirical_data/Comparizon_models_data/PCA_coverage_models_data.pdf",p, width=9,height = 4)
 
 
-#Second, PCA on Eby model or Kefi model only with data
-for (model in c("Kefi","Eby")){
+#Second, PCA on Eby model, Kefi, Schneider model only with data
+
+list_model=c("Kefi","Eby","Schneider")
+
+for (model in 1:length(list_model)){
+  
+  color_model=c(alpha("#C0CEAA",.5),alpha("#ADDDE2",.5),alpha("#3C82E4",.2))
+  
+  d_sim=read.table(paste0("../Data/All_sim_",list_model[model],".csv"),sep=";")
+  d_sim=d_sim[,which(colnames(d_sim) %in% sumstat_name)]
   
   sumstat_name=colnames(d_Eby)[3:ncol(d_Eby)]
-  dat=as.data.frame(d_tot[-which(d_tot$Type==paste0(model," model")),])
+  dat=rbind(d_sim%>%
+      filter(., rho_p !=0)%>%
+      sample_n(., 25000)%>%add_column(., Type=paste0(list_model[model]," model")),
+      d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)))
   
-  res.pca=PCA(as.data.frame(dat[,which(colnames(dat) %in% sumstat_name)]),
-              scale.unit = T, ncp = 3,  graph=F)
+  res.comp=imputePCA(dat[,-ncol(dat)], scale = T, ncp = 3,  graph=F)
+  
+  if ("completeObs" %in% names(res.comp)){
+    res.pca=PCA(res.comp$completeObs,
+                scale.unit = T, ncp = 3,  graph=F)
+  }else {
+    res.pca=PCA(res.comp,
+                scale.unit = T, ncp = 3,  graph=F)
+  }
+  
   axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
   
   for (i in 1:3){
@@ -3459,10 +2019,10 @@ for (model in c("Kefi","Eby")){
              ggplot(.) +
              geom_hline(yintercept = 0, lty = 2) +
              geom_vline(xintercept = 0, lty = 2) +
-             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.4)+
              scale_size_manual(values=c(1,1,.5))+
-             scale_color_manual(values=c("#7B3636","#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5))))+
-             scale_fill_manual(values=c("#7B3636","#FD4848",ifelse(model=="Kefi",alpha("#C0CEAA",.5),alpha("#ADDDE2",.5))))+
+             scale_color_manual(values=c("#7B3636","#FD4848",color_model[model]))+
+             scale_fill_manual(values=c("#7B3636","#FD4848",color_model[model]))+
              labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
                   y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
              ggtitle("")+guides(shape="none")+
@@ -3477,9 +2037,9 @@ for (model in c("Kefi","Eby")){
                         ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
               nrow=2,heights = c(1,.1))
   
-  ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/PCA_",ifelse(model=="Kefi","Eby","Kefi"),"_empirical_data.pdf"),p, width=9,height = 4)
+  ggsave(paste0("../Figures/Empirical_data/Comparizon_models_data/PCA_",list_model[model],"_empirical_data.pdf"),p, width=9,height = 4)
   
-  if (model == "Kefi"){
+  if (model == "Eby"){
     dat=dat%>%
       mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))
     
@@ -3515,7 +2075,7 @@ for (metric_psd in c("mean_psd","max_psd",'sd_psd',"Nbpixels")){
   
   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
   d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
-  d_Kefi=read.table("../Data/All_sim_ABC.csv",sep=";")%>%filter(., rho_p > 0.1  && rho_p < 0.8)
+  d_Kefi=read.table("../Data/All_sim_Kefi.csv",sep=";")%>%filter(., rho_p > 0.1  && rho_p < 0.8)
   d_tot=rbind(d_Eby[sample(1:nrow(d_Eby),15000,F),3:ncol(d_Eby)]%>%add_column(., Type=NA),
               d_Kefi[sample(1:nrow(d_Kefi),15000,F),8:ncol(d_Kefi)]%>%add_column(., Type=NA),
               d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=d_biocom[,metric_psd]))
@@ -3828,8 +2388,8 @@ for (method_data in c("Raw","NoPLS")){
     
     
     
-    d_posterior[index,23]=mean(cross_valid2$adj.values[,1]) #mean posteriors
-    d_posterior[index,24]=mean(cross_valid2$adj.values[,2]) #mean posteriors
+    d_posterior[index,26]=mean(cross_valid2$adj.values[,1]) #mean posteriors
+    d_posterior[index,27]=mean(cross_valid2$adj.values[,2]) #mean posteriors
     index=index+1
     
   }
@@ -3837,7 +2397,7 @@ for (method_data in c("Raw","NoPLS")){
   
   
   d_posterior=d_posterior%>%
-    rename(., p=V23,q=V24)
+    rename(., p=V26,q=V27)
   
   write.table(d_posterior,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_",method_data,".csv"),sep=";")
   write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")
@@ -4260,7 +2820,7 @@ for (preprocessing in c("NOPLS","PLS")[1]){
     }
 
     d_biocom=d_biocom%>%
-      rename(., p=V23,q=V24)
+      rename(., p=V26,q=V27)
     
     write.table(d_biocom,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/Posteriors_sites_",remove_ID,"_",preprocessing,".csv"),sep=";")
     write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/Removal_sumary_stat/NRMSE_sumstat_",remove_ID,"_",preprocessing,".csv"),sep=";")
@@ -4573,22 +3133,30 @@ ggsave("../Figures/Empirical_data/ABC/Filtering_data/NRMSE_sumstat_data_best_sit
 
 
 
-# ---------------------- Step 11: Bringing data and models closer ----
+
+
+
+
+#***********************************************************
+
+# ---------------------- Step 4: Bringing data and models closer ----
+
+#***********************************************************
 ## >> 1) PCA of models and data for space cover of different models ----
 
-all_dat=list.files("../Data/Data_Eby_feedbacks/")
+all_dat=list.files("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/")
 
 d_merged_sim=tibble()
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 
 for (type_feedback in all_dat){
   
-  list_simu=list.files(paste0('../Data/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
+  list_simu=list.files(paste0('../Data/Step8_Solutions_gap/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
   
   d_all=tibble()
   for (file_simu in list_simu){
     
-    d=read.table(paste0("../Data/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
+    d=read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
     colnames(d)= c("p","q",
                    "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
                    "Spectral_ratio","PLR","PL_expo")
@@ -4596,8 +3164,9 @@ for (type_feedback in all_dat){
     d_all=rbind(d_all,d)
   }
   
-  
-  d_all=filter(d_all,rho_p!=0)
+  d_all=filter(d_all,rho_p!=0 & PL_expo >= 0 | is.na(PL_expo))
+  rownames(d_all)=1:nrow(d_all)
+  write.table(d_all,paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",type_feedback,".csv"),sep=";")
   
   
   #classic one colored by simulation type
@@ -4644,8 +3213,6 @@ for (type_feedback in all_dat){
   
   
   #colored by pixel size  simulations
-  
-  
   
   sumstat_name=colnames(d_all)[3:ncol(d_all)]
   res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
@@ -4735,82 +3302,6 @@ ggsave("../Figures/Eby_model/With_feedbacks/Merged_densities.pdf",p, width=7,hei
 
 
 
-#filtering 4NN with feedback of 4
-
-d_fil=filter(d_merged_sim,Type=="4NN_feedback4")
-d_tot=rbind(d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo),NBpixels=d_biocom$Nbpixels,p=NA,q=NA), #to plot the empirical sites above simulations
-            d_fil[,3:ncol(d_fil)]%>%add_column(., NBpixels=NA,p=d_fil$p,q=d_fil$q))%>%
-  arrange(., Type)
-
-#First raw PCA
-
-sumstat_name=colnames(d_all)[3:ncol(d_all)]
-res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
-res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
-axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
-
-
-for (i in 1:3){
-  assign(paste0("p",i),
-         d_tot%>%
-           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
-           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
-           ggplot(.) +
-           geom_hline(yintercept = 0, lty = 2) +
-           geom_vline(xintercept = 0, lty = 2) +
-           geom_point(aes(x = PC1, y = PC2, color = p,fill=p,size=Type),alpha=.5)+
-           scale_size_manual(values=c(1,1,.5,.5,.5))+
-           scale_color_viridis_c()+
-           scale_fill_viridis_c()+
-           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
-           ggtitle("")+guides(shape="none")+
-           theme_classic()+theme(legend.position = "bottom")+
-           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
-  )
-}
-
-p_1=ggarrange(ggarrange(p1+theme(legend.position = "none"),
-                        p2+theme(legend.position = "none"),
-                        p3+theme(legend.position = "none"),
-                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
-              nrow=2,heights = c(1,.1))
-
-
-
-
-for (i in 1:3){
-  assign(paste0("p",i),
-         d_tot%>%
-           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
-           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
-           ggplot(.) +
-           geom_hline(yintercept = 0, lty = 2) +
-           geom_vline(xintercept = 0, lty = 2) +
-           geom_point(aes(x = PC1, y = PC2, color = q,fill=q,size=Type),alpha=.5)+
-           scale_size_manual(values=c(1,1,.5,.5,.5))+
-           scale_color_viridis_c()+
-           scale_fill_viridis_c()+
-           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
-           ggtitle("")+guides(shape="none")+
-           theme_classic()+theme(legend.position = "bottom")+
-           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
-  )
-}
-
-p_2=ggarrange(ggarrange(p1+theme(legend.position = "none"),
-                        p2+theme(legend.position = "none"),
-                        p3+theme(legend.position = "none"),
-                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
-              nrow=2,heights = c(1,.1))
-p=ggarrange(p_1,p_2,nrow=2,labels = c("p","q"))
-
-ggsave("../Figures/Eby_model/With_feedbacks/Parameters_covering_data_4NN_4.pdf",p,width = 9,height = 8)
-
-
-
-
 
 
 
@@ -4818,38 +3309,36 @@ ggsave("../Figures/Eby_model/With_feedbacks/Parameters_covering_data_4NN_4.pdf",
 
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
 
-all_dat=list.files("../Data/Data_Eby_feedbacks/")
+#we only save the sumstats of the closest simulations. for posteriors we need to calibrate the inference
+d_cross_sumstat=d_NRMSE_sumstat=tibble()
+
+all_dat=list.files("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/")
 
 
 for (type_feedback in all_dat){
   
-  list_simu=list.files(paste0('../Data/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
+  list_simu=list.files(paste0('../Data/Step8_Solutions_gap/Data_Eby_feedbacks/',type_feedback),pattern = ".csv")
   
   d_all=tibble()
   for (file_simu in list_simu){
     
-    d=read.table(paste0("../Data/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
+    d=read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",type_feedback,"/",file_simu),sep=",")
     colnames(d)= c("p","q",
                    "rho_p","nb_neigh","clustering","skewness","variance","moran_I",
                    "Spectral_ratio","PLR","PL_expo")
-    
     d_all=rbind(d_all,d)
   }
+  d_all=filter(d_all,rho_p!=0,!is.na(PL_expo),PL_expo>0)
+  rownames(d_all)=1:nrow(d_all)
   
-  
-  d_all=filter(d_all,rho_p!=0)
-
-  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+  d_cross_param=d_NRMSE_param=d_cross_sumstat=d_NRMSE_sumstat=tibble()
   
   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  d_posterior=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  
-  
-  index=1
+
+
   for (site_ID in 1:nrow(d_biocom)){
-    
+
     #observed summary statistics in the site
     observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
                                                                       "Spectral_ratio","PLR","PL_expo"))]
@@ -4860,7 +3349,6 @@ for (type_feedback in all_dat){
     matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
     save_sumstat=matrix_sumstat
     matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
-    
     
     for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
       
@@ -4880,12 +3368,10 @@ for (type_feedback in all_dat){
     #Second we scale
     for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
     
-    #and finally, we perform the first PLS (excluding empirical sdata)
-
+    #and finally, we perform the first PLS (excluding empirical data)
+    
     mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
     observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
-    
-    
     
     cross_valid1=abc(target = observed_sumstat_pls1,
                      param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
@@ -4919,24 +3405,15 @@ for (type_feedback in all_dat){
     mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
     observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
     
-    
-    
     cross_valid2=abc(target = observed_sumstat_pls2,
                      param = cross_valid1$unadj.values,
                      sumstat = mat_sumstat_pls2, #removing the target data
-                     tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                     logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                     numnet = 10,sizenet = 10) 
+                     tol = 75/nrow(mat_sumstat_pls2),method = "rejection") # we only perform simple rejection here as we are not yet interested in the posterior
     
     cross_valid2$ss=as.data.frame(cross_valid2$ss)
     cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
     
-    
-    
     matrix_sumstat=save_sumstat
-    
-    if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
-    
     
     if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
       cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
@@ -4954,10 +3431,7 @@ for (type_feedback in all_dat){
                               add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
       d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
                               add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
-      
     }
-    
-    
     
     #We compute the RMSE for the summary statistics observed
     RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
@@ -4977,156 +3451,979 @@ for (type_feedback in all_dat){
     }
     
     
-    
-    d_posterior[index,23]=mean(cross_valid2$adj.values[,1]) #mean posteriors
-    d_posterior[index,24]=mean(cross_valid2$adj.values[,2]) #mean posteriors
-    index=index+1
-    
   }
-  dev.off()
-  
-  
-  d_posterior=d_posterior%>%
-    rename(., p=V23,q=V24)
-  
-  write.table(d_posterior,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Posteriors_sites_",method_data,".csv"),sep=";")
-  write.table(d_NRMSE_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/NRMSE_sumstat_",method_data,".csv"),sep=";")
-  write.table(d_cross_sumstat,paste0("../Data/Step7_Empirical_data/ABC_all_sites/Cross_valid_sumstat_",method_data,".csv"),sep=";")
-  
+
+  write.table(d_NRMSE_sumstat,paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks//NRMSE_sumstat_",type_feedback,".csv"),sep=";")
+  write.table(d_cross_sumstat,paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/ABC_empirical/Cross_valid_sumstat_",type_feedback,".csv"),sep=";")
 }
 
+d_NRMSE_sumstat=tibble()
+for (i in list.files("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/ABC_empirical/",pattern = "NRMSE")){
+  d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,
+                        read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/ABC_empirical/",i),sep=";")%>%
+                          add_column(.,Type_feedback=gsub(".csv","",gsub("NRMSE_sumstat_4NN_","",i)))
+  )
+}
+
+p=d_NRMSE_sumstat%>%
+  melt(., id.vars=c("Type_feedback","Site"))%>%
+  ggplot(.,aes(x=Type_feedback,y=value))+
+  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  the_theme+
+  labs(x="",y="NRMSE",color="",fill="")+
+  geom_hline(yintercept = 1)+
+  guides(fill="none") +
+  theme(axis.text.x = element_text(angle=60,hjust=1))
+
+ggsave("../Figures/Eby_model/With_feedbacks/Comparing_summary_stat_ABC_feedback.pdf",p,width = 10,height = 9)
 
 
 
 
 
-# ---------------------- Step 12: Using posteriors to predict the distance to the tipping point --------
 
-## >> 1) Getting the posterior characteristics of the best and closest sites ----
-#We recompute briefly the posteriror of parameters while keeping an IC around the mean posterior
+
+
+## >> 3) Pooling pixels in empirical landscapes ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
-condition_cover=which(d_all$rho_p ==0)
-d_all=d_all[-condition_cover,]
-rownames(d_all)=1:nrow(d_all)
-d_posterior=tibble()
+
+pdf("../Figures/Empirical_data/Pooling/Pooling_landscapes.pdf",width = 9,height = 3)
+par(mfrow=c(1,2),mar=c(1,1,1,1))
+example_landcapes=which(d_biocom$Nbpixels>80000)
+d_pooled=d_double_pool=tibble()
+for (id in example_landcapes){
+  image(Get_empirical_site(id),col=c("white","black"),axes=F)
+  
+  simple_pool=pooling(Get_empirical_site(id),2)>.5
+  
+  image(simple_pool,col=c("white","black"),axes=F)
+  d_pooled=rbind(d_pooled,Get_sumstat(simple_pool))
+  
+  douple_pool=pooling(pooling(Get_empirical_site(id),2)>.3,2)>.3
+  image(douple_pool,col=c("white","black"),axes=F)
+  d_double_pool=rbind(d_double_pool,Get_sumstat(douple_pool))
+}
+dev.off()
 
 
-d_all=read.table("../Data/All_sim_Eby.csv",sep=";")
-condition_cover=which(d_all$rho_p ==0)
-d_all=d_all[-condition_cover,]
-rownames(d_all)=1:nrow(d_all)
-closest_sites=read.table("../Data/Step7_Empirical_data/Closest_sites.csv",sep=";")
+#for the example
+
+pdf("../Figures/Empirical_data/Pooling/Example_simple_pooling_landscapes.pdf",width = 6,height = 6)
+par(mfrow=c(2,2),mar=c(1,1,1,1))
+example_landcapes=which(d_biocom$Nbpixels>80000)
+for (id in example_landcapes[c(10,50)]){
+  image(Get_empirical_site(id),col=c("white","black"),axes=F)
+  
+  simple_pool=pooling(Get_empirical_site(id),2)>.5
+  image(simple_pool,col=c("white","black"),axes=F)
+  
+}
+dev.off()
 
 
+pdf("../Figures/Empirical_data/Pooling/Example_double_pooling_landscapes.pdf",width = 9,height = 3)
+par(mfrow=c(1,3),mar=c(1,1,1,1))
+example_landcapes=which(d_biocom$Nbpixels>80000)
+for (id in example_landcapes[50]){
+  image(Get_empirical_site(id),col=c("white","black"),axes=F)
   
-index=1
+  simple_pool=pooling(Get_empirical_site(id),2)>.5
+  image(simple_pool,col=c("white","black"),axes=F)
 
-#we keep the sites that fit the best and that are the closest to the simulations
-for (site_ID in which(1:nrow(d_biocom) %in% closest_sites$Closest & 1:nrow(d_biocom) %in% closest_sites$Best)){
-  
-  #observed summary statistics in the site
-  observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                                                                    "Spectral_ratio","PLR","PL_expo"))]
-  
-  if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
-  
-  matrix_param=d_all[,1:2]
-  matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
-  save_sumstat=matrix_sumstat
-  matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+  douple_pool=pooling(pooling(Get_empirical_site(id),2)>.3,2)>.3
+  image(douple_pool,col=c("white","black"),axes=F)
+}
+dev.off()
 
-  for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-    
-    b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-    }
-  }else {
-    b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-    }
-  }
-  
-  #Second we scale
-  for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-  
-  mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
-  observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
-  
-  cross_valid1=abc(target = observed_sumstat_pls1,
-                   param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
-                   tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-  
-  #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-  mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-  mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
 
-  #again, first box cox
-  for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
-    
-    b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-    }
-    
-  }else {
-    b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
-    lambda_x=b$x[which.max(b$y)]
-    if (lambda_x !=0){ #to avoid errors
-      mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-    }
-  }
-  #and normalization
-  for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-  
-  mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
-  observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
+#comparing sumstat
 
-  cross_valid2=abc(target = observed_sumstat_pls2,
-                   param = cross_valid1$unadj.values,
-                   sumstat = mat_sumstat_pls2, #removing the target data
-                   tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                   logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                   numnet = 10,sizenet = 10) 
-  
-  cross_valid2$ss=as.data.frame(cross_valid2$ss)
-  cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
-  
-  matrix_sumstat=save_sumstat
-  
-  if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
-  
-  
-  if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
-    cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
-                                                             | is.nan(cross_valid2$adj.values[,2])),]
-  }      
-  
-  #we keep the mean as well as the quantiles at 5 and 95% for IC
-  d_posterior=rbind(d_posterior,tibble(Mean_p=mean(cross_valid2$adj.values[,1]),Mean_q=mean(cross_valid2$adj.values[,2]),
-                                           p_q05=quantile(cross_valid2$adj.values[,1],probs = .05),q_q05=quantile(cross_valid2$adj.values[,2],probs = .05),
-                                           p_q95=quantile(cross_valid2$adj.values[,1],probs = .95),q_q95=quantile(cross_valid2$adj.values[,2],probs = .95)))
-  index=index+1
+d_plot=rbind(d_pooled%>%
+                 add_column(., Site=rep(example_landcapes,1)),
+               d_biocom[example_landcapes,17:25]%>%
+                 add_column(., Site=example_landcapes))%>%
+  add_column(., Pooled=rep(c("yes, 2","no"),each=length(example_landcapes)))
+
+
+p=ggplot(d_plot%>%
+           mutate(., clustering=log(clustering),Spectral_ratio=log(Spectral_ratio))%>%
+           melt(., id.vars=c("Pooled","Site")))+
+  geom_line(aes(x=Pooled,y=value,group=Site),color="gray")+
+  facet_wrap(.~variable,scales="free")+
+  the_theme+
+  labs(x="Pooled landscapes ?",y="")
+ggsave("../Figures/Empirical_data/Pooling/Change_in_sumstat_pooling.pdf",p,width = 7,height=6)
+
+write.table(d_pooled,"../Data/Step8_Solutions_gap/Pooling_pixels/Pooled_sites.csv",sep=";")
+write.table(d_double_pool,"../Data/Step8_Solutions_gap/Pooling_pixels/Pooled_sites_double.csv",sep=";")
+
+
+## Density of sumstat when compared to empirical data and low res landscapes
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_pooled=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooled_sites.csv",sep=";")
+d_biocom[which(d_biocom$Nbpixels>80000),17:25]=d_pooled[,1:9]
+
+
+p=d_biocom%>%
+  mutate(., Nbpixels=.$Nbpixels>80000)%>%
+  mutate(.,Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))%>%
+  melt(., measure.vars=colnames(.)[17:ncol(.)])%>%
+  ggplot(.)+
+  geom_density(aes(x=value,fill=Nbpixels),alpha=.7)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="",y="",fill="Large image")+
+  scale_fill_manual(values=c("#E4C88D","#AA91CE"))
+
+ggsave("../Figures/Empirical_data/Pooling/Sumstat_pooling_landscapes.pdf",p,width = 7,height=6)
+
+
+
+## Seeing how these sites are changed in the PCA
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%filter(., rho_p !=0)
+d_tot=rbind(d_Eby[,3:ncol(d_Eby)]%>%add_column(., Type="Eby model"),
+            d_biocom[,17:ncol(d_biocom)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)))%>%
+  arrange(., Type)
+
+#First raw PCA
+
+sumstat_name=colnames(d_Eby)[3:ncol(d_Eby)]
+res.pca=PCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)], ncp = 3,  graph=F)
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+
+d_pooled=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooled_sites.csv",sep=";")
+d_pooled$PL_expo[is.na(d_pooled$PL_expo)]=0
+PCA_push=predict.PCA(res.pca,d_pooled[,1:9])#predicting the projection
+d_all=rbind(res.pca$ind$coord[(nrow(d_Eby)+1):nrow(res.pca$ind$coord),][which(d_biocom$Nbpixels>80000),],PCA_push$coord)%>%
+  as.data.frame(.)%>%
+  add_column(., ID=rep(1:length(which(d_biocom$Nbpixels>80000)),2))
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         tibble(PC1=d_all[,axes_for_plot$x[i]],
+                PC2=d_all[,axes_for_plot$y[i]],
+                ID=d_all$ID,group=rep(c("Before pooling","After pooling"),each=length(which(d_biocom$Nbpixels>80000))))%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_line(aes(x = PC1, y = PC2, group=ID),color="gray",alpha=.7,lwd=.5)+
+           geom_point(aes(x = PC1, y = PC2, color = group,fill=group),size=2,alpha=.5)+
+           scale_color_manual(values=c("#B32DA6","#64C568"))+
+           scale_fill_manual(values=c("#B32DA6","#64C568"))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
 }
 
 
-write.table(d_posterior,"../Data/Step7_Empirical_data/Tipping_point/Posterior_best_sites.csv",sep=";")
+p=ggarrange(ggarrange(p1+theme(legend.position = "none",plot.title=element_blank()),
+                      p2+theme(legend.position = "none",plot.title=element_blank()),
+                      p3+theme(legend.position = "none",plot.title=element_blank()),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
 
 
-## >> 2) Computing a distance to the tipping point ----
-
-
-
-
-
-
-
+ggsave("../Figures/Empirical_data/Pooling/Change_in_PCA_space_simple_pooling.pdf",p,width = 9,height=4)
 
 
 
+d_pooled=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooled_sites_double.csv",sep=";")
+d_pooled$PL_expo[is.na(d_pooled$PL_expo)]=0
+PCA_push=predict.PCA(res.pca,d_pooled[,1:9])#predicting the projection
+d_all=rbind(res.pca$ind$coord[(nrow(d_Eby)+1):nrow(res.pca$ind$coord),][which(d_biocom$Nbpixels>80000),],PCA_push$coord)%>%
+  as.data.frame(.)%>%
+  add_column(., ID=rep(1:length(which(d_biocom$Nbpixels>80000)),2))
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         tibble(PC1=d_all[,axes_for_plot$x[i]],
+                PC2=d_all[,axes_for_plot$y[i]],
+                ID=d_all$ID,group=rep(c("Before pooling","After pooling"),each=length(which(d_biocom$Nbpixels>80000))))%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_line(aes(x = PC1, y = PC2, group=ID),color="gray",alpha=.7,lwd=.5)+
+           geom_point(aes(x = PC1, y = PC2, color = group,fill=group),size=2,alpha=.5)+
+           scale_color_manual(values=c("#B32DA6","#64C568"))+
+           scale_fill_manual(values=c("#B32DA6","#64C568"))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
+}
+
+
+p=ggarrange(ggarrange(p1+theme(legend.position = "none",plot.title=element_blank()),
+                      p2+theme(legend.position = "none",plot.title=element_blank()),
+                      p3+theme(legend.position = "none",plot.title=element_blank()),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
+
+
+ggsave("../Figures/Empirical_data/Pooling/Change_in_PCA_space_double_pooling.pdf",p,width = 9,height=4)
+
+
+
+
+
+
+# ---------------------- Step 5: Increasing/decreasing spatial resolution ----
+
+## 1) >> Doing it on empirical data ----
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+
+d_pooled=tibble()
+for (id in 1:345){
+  landscape=Get_empirical_site(id)
+  for (pooling_coeff in c(.25,.33,.5,2,3,4)){
+    d_pooled=rbind(d_pooled,Get_sumstat(pooling(landscape,pooling_coeff))%>%
+                     add_column(., Pooling=pooling_coeff))
+  }
+}
+
+
+write.table(d_pooled,"../Data/Step9_Spatial_resolution/d_pooled_empirical_data.csv",sep=";")
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_pooled=read.table("../Data/Step9_Spatial_resolution/d_pooled_empirical_data.csv",sep=";")
+
+dat=rbind(d_pooled%>%add_column(., Site=rep(1:345,each=length(unique(d_pooled$Pooling)))),
+          d_biocom[,17:ncol(d_biocom)]%>%add_column(., Pooling=1, Site=1:345))%>%
+  mutate(., clustering=log(clustering),Spectral_ratio=log(Spectral_ratio))
+
+p=ggplot(dat%>%
+         melt(., id.vars=c("Pooling","Site"))%>%
+         mutate(., Pooling=as.numeric(as.factor(Pooling))),
+       aes(x=Pooling,y=value))+
+  geom_line(aes(group=Site),color="gray70",alpha=.4)+
+  stat_summary(fun = "mean", geom = "line", lwd = 1,fill="red",color="red")+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="Pooling intensity",y="")+
+  scale_x_continuous(labels = c("1/4","1/3","1/2","1","2","3","4"),
+                     breaks = 1:length(unique(dat$Pooling)))
+
+ggsave("../Figures/Spatial_resolution/Spatial_resolution_data.pdf",p,width = 7,height = 6)
+
+
+#doing a PCA 
+
+sumstat_name=colnames(dat)[1:9]
+res.comp=imputePCA(dat[,which(colnames(dat) %in% sumstat_name)],ncp=3,scale = T) 
+res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         fviz_pca_biplot(res.pca, geom.ind = "point", 
+                         axes=c(axes_for_plot$x[i],axes_for_plot$y[i]), col.ind = log(dat$Pooling),col.var="black",
+                         label = "var", repel = T,alpha=.3)+
+           scale_color_viridis_c(option = "C",breaks=c(-1,1),labels=c("High res","Low res"))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="")+
+           ggtitle("")+
+           theme_classic()+theme(legend.position = "bottom",legend.text = element_text(size=12))
+  )
+}
+
+p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                      p2+theme(legend.position = "none"),
+                      p3+theme(legend.position = "none"),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.2))
+
+ggsave("../Figures/Spatial_resolution/PCA_spatial_resolution_data.pdf",p,width = 11,height = 5)
+
+
+
+
+
+## 2) >> Doing it on simulations ----
+
+#For that we first select 25000 simulations per model
+
+d_Eby=read.table("../Data/All_sim_Eby.csv",sep=";")%>%
+  filter(., rho_p > 0.01 & !is.na(PLR) & !is.na(PL_expo))%>%
+  sample_n(., 25000)
+d_Eby_feedback=read.table("../Data/All_sim_Eby_feedback.csv",sep=";")%>%
+  filter(., rho_p > 0.01 & !is.na(PLR) & !is.na(PL_expo))%>%
+  sample_n(., 25000)
+d_Kefi=read.table("../Data/All_sim_Kefi.csv",sep=";")%>%
+  filter(., rho_p > 0.01 & !is.na(PLR) & !is.na(PL_expo))%>%
+  sample_n(., 25000)
+d_Schneider=read.table("../Data/All_sim_Schneider.csv",sep=";")%>%
+  filter(., rho_p > 0.01 & !is.na(PLR) & !is.na(PL_expo))%>%
+  sample_n(., 25000)
+
+
+write.table(d_Eby[,-c(3:ncol(d_Eby))],
+            '../Data/Step9_Spatial_resolution/Simu/Parameter_Eby.csv',sep=";",
+            row.names = F)
+write.table(d_Eby_feedback[,-c(3:ncol(d_Eby_feedback))],
+            '../Data/Step9_Spatial_resolution/Simu/Parameter_Eby_feedback.csv',sep=";",
+            row.names = F)
+write.table(d_Kefi[,-c(8:ncol(d_Kefi))],
+            '../Data/Step9_Spatial_resolution/Simu/Parameter_Kefi.csv',sep=";",
+            row.names = F)
+write.table(d_Schneider[,-c(9:ncol(d_Schneider))],
+            '../Data/Step9_Spatial_resolution/Simu/Parameter_Schneider.csv',sep=";",
+            row.names = F)
+
+
+
+
+# Once simulations are made in Julia, we extract and analyse the results
+
+list_folders=list.dirs("../Data/Step9_Spatial_resolution/Simu",recursive = F)
+
+d_sim=tibble()
+
+for (k in list_folders){
+  
+  if (tail(strsplit(k,"/")[[1]],1) %in% c("Eby","Eby_feedback")){
+    n_param=2
+  }else if (tail(strsplit(k,"/")[[1]],1)=="Kefi"){
+    n_param=7
+  }else {
+    n_param=8
+  }
+  
+  list_sim=list.files(k,".csv")
+  
+  d=tibble()
+  for (sim in list_sim){
+    d=rbind(d,read.table(paste0(k,"/",sim),sep=",")[,(n_param+1):(n_param+9)])
+  }
+  
+  colnames(d)=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                "Spectral_ratio","PLR","PL_expo")
+
+  # d=add_column(d,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))
+  d=add_column(d,Pooling=rep(c("1/4","1/3",'1/2'),nrow(d)/3))
+  
+  d_sim=rbind(d_sim,d%>%add_column(., Model=tail(strsplit(k,"/")[[1]],1)))
+}
+
+
+#Doing PCA and coloring by pooling intensity for each model
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+for (model in unique(d_sim$Model)){
+  
+  #simulations alone
+  
+  sumstat_name=colnames(d_sim)[1:9]
+  res.comp=imputePCA(d_sim[which(d_sim$Model==model),which(colnames(d_sim) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_sim%>%
+             filter(., Model==model)%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling),alpha=.3)+
+             scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))+
+             scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Pooling intensity",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+           )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  
+  ggsave(paste0("../Figures/Spatial_resolution/PCA_spatial_resolution_",model,"_model.pdf"),p,width = 11,height = 5)
+  
+  
+  #Simulations and empirical data
+  
+  d_sim_data=rbind(d_sim%>%filter(., Model==model),
+                   d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>%
+                     add_column(., Pooling="Data",Model=NA))
+  sumstat_name=colnames(d_sim_data)[1:9]
+  res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_sim_data%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling),alpha=.3)+
+             scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","gray"))+
+             scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","gray"))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Pooling intensity",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  
+  ggsave(paste0("../Figures/Spatial_resolution/PCA_spatial_resolution_",model,"_model_and_data.pdf"),p,width = 11,height = 5)
+  
+}
+
+
+#Varying each metric along pooling intensity gradient
+
+
+p=d_sim%>%
+  mutate(., Id_sim=rep(1:(nrow(.)/3),each=3))%>%
+  melt(., id.vars=c("Model","Pooling","Id_sim"))%>%
+  group_by(., Model,Pooling,variable)%>%
+  summarise(., .groups = "keep",mean_value=mean(value,na.rm = T))%>%
+  ggplot(.)+
+  geom_line(aes(x=Pooling,y=mean_value,group=interaction(Model),color=Model))+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="Pooling intensity",y="")+
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))+
+  scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))+
+  the_theme
+  
+
+
+landscape=matrix(as.numeric(d_CA$State==1),100,100)
+d=rbind(d,Get_sumstat(pooling(landscape,.25)),
+        Get_sumstat(pooling(landscape,1/3)),Get_sumstat(pooling(landscape,.5)),Get_sumstat(landscape))
+
+
+
+
+# ---------------------- Step XX: Putting pieces together ------------------
+
+
+## >> 1) Pooling all sites and performing ABC ----
+
+# First we pool all sites once to twice depending on their initial resolution
+# We need to decide the pooling rules
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+
+
+for (threshold in c(.3,.5)){
+  
+  d_pooled_data=tibble()
+  
+  for (id in 1:nrow(d_biocom)){
+    
+    site=Get_empirical_site(id)
+    
+    if (d_biocom$Nbpixels[id]>80000){
+      pooled_site=pooling(Get_empirical_site(id),4)>threshold
+    } else {
+      pooled_site=pooling(Get_empirical_site(id),2)>threshold
+    }
+    
+    d_pooled_data=rbind(d_pooled_data,Get_sumstat(pooled_site))
+    print(paste0(id," and ",dim(pooled_site)))
+    
+  }
+  
+  write.table(d_pooled_data%>%add_column(., Site=1:nrow(.)),
+              paste0("../Data/Step8_Solutions_gap/Pooling_pixels/Pooling_all_sites_",threshold,".csv"),sep=";")
+}
+
+
+#We compare the before to after metrics
+d_pooled_data=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooling_all_sites_0.3.csv",sep=";")
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+
+pdf("../Figures/Empirical_data/Pooling/Comparing_pre_post_pooling.pdf",width = 7,height = 8)
+par(mfrow=c(3,3))
+for (i in colnames(d_pooled_data)[-length(colnames(d_pooled_data))]){
+  plot(d_biocom[,i],d_pooled_data[,i],xlab="Before",ylab="After pooling",main=i,col=c(alpha("blue",.3),alpha("red",.3))[as.factor(d_biocom$Nbpixels>80000)])
+  abline(a=0,b=1,lwd=2)
+}
+dev.off()
+
+
+
+#Now that we have pooled empirical data, we first plot the PCA 
+
+d_pooled_data=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooling_all_sites_0.3.csv",sep=";")
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_all=read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/4NN_feedback6.csv"),sep=";")%>%sample_n(., 25000)
+
+d_tot=rbind(d_all[,3:ncol(d_all)]%>%add_column(., Type="Simu"), #to plot the empirical sites above simulations
+            d_pooled_data[,-ncol(d_pooled_data)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)))%>%
+  arrange(., Type)
+
+sumstat_name=colnames(d_tot)[1:(ncol(d_tot)-1)]
+res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_tot%>%
+           mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+           scale_size_manual(values=c(1,1,.5))+
+           scale_color_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+           scale_fill_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+  )
+}
+
+p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                      p2+theme(legend.position = "none"),
+                      p3+theme(legend.position = "none"),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
+ggsave(paste0("../Figures/Empirical_data/Pooling/PCA_coverage_pooling_all_sites.pdf"),p, width=9,height = 4)
+
+
+
+
+
+
+#Doing the same for all different models used
+
+list_sim=c(list.files("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",".csv"),
+           "All_sim_Kefi.csv")
+
+for (sim in list_sim){
+
+
+  d_pooled_data=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Pooling_all_sites_0.3.csv",sep=";")
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  
+  if (sim=="All_sim_Kefi.csv"){
+    d_all=read.table(paste0("../Data/",sim),sep=";")[,-c(1:5)]
+  } else {
+    d_all=read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",sim),sep=";")
+  }
+  
+  
+  
+  if (nrow(d_all)>25000) d_all=sample_n(d_all,25000)
+  
+  d_tot=rbind(d_all[,3:ncol(d_all)]%>%add_column(., Type="Simu"), #to plot the empirical sites above simulations
+              d_pooled_data[,-ncol(d_pooled_data)]%>%add_column(., Type=paste0("z",d_biocom$Regular_berdugo)))%>%
+    arrange(., Type)
+  
+  sumstat_name=colnames(d_tot)[1:(ncol(d_tot)-1)]
+  res.comp=imputePCA(d_tot[,which(colnames(d_tot) %in% sumstat_name)],ncp=3,scale = T) 
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_tot%>%
+             mutate(., Type=recode_factor(Type,"z0"="Empirical sites, irregular","z1"="Empirical sites, regular"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Type,fill=Type,size=Type),alpha=.5)+
+             scale_size_manual(values=c(1,1,.5))+
+             scale_color_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+             scale_fill_manual(values=c("#7B3636","#FD4848",alpha("#C0CEAA",.5)))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
+             ggtitle("")+guides(shape="none")+
+             theme_classic()+theme(legend.position = "bottom")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")  
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.1))
+  ggsave(paste0("../Figures/Empirical_data/Pooling/PCA/PCA_coverage_pooling_",gsub(".csv","",sim),".pdf"),p, width=9,height = 4)
+  
+}
+
+
+
+
+
+# understanding which sites are closer to simulations For that we need to characterize
+# the distribution of psd (mean, sd, etc) for the pooled sites
+d_patches=tibble();threshold=.3
+for (id in 1:nrow(d_biocom)){
+  
+  site=Get_empirical_site(id)
+  if (d_biocom$Nbpixels[id]>80000){
+    pooled_site=pooling(pooling(Get_empirical_site(id),2)>threshold,2)>threshold
+  } else {
+    pooled_site=pooling(Get_empirical_site(id),2)>threshold
+  }
+  psd=sort(patchsizes(pooled_site)) 
+  d_patches=rbind(d_patches,tibble(max_psd=max(psd),mean_psd=mean(psd),sd_psd=sd(psd),Site_ID=id))
+  print(id)
+}
+write.table(d_patches,"../Data/Step8_Solutions_gap/Pooling_pixels/Psd_property_pooled_sites.csv",sep=";")
+
+d_pooled_data=cbind(d_pooled_data,d_patches)
+
+
+centroid_sim=colMeans(res.pca$ind$coord[1:nrow(d_all),])
+
+#getting euclidean distance from centroid for each empirical site
+dist_empirical = sapply((nrow(d_all)+1):(nrow(d_tot)),function(x){
+  return( sqrt(sum((res.pca$ind$coord[x,] - centroid_sim)^2)) )
+})
+
+
+p=ggplot(d_pooled_data%>%
+         mutate(.,Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                max_psd=log(max_psd),mean_psd=log(mean_psd),sd_psd=log(sd_psd))%>%
+         add_column(., Dist_PCA=dist_empirical)%>%
+         melt(., id.vars=c("Site_ID","Site","Dist_PCA")))+
+  geom_point(aes(Dist_PCA,value,color=variable),alpha=.4)+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(legend.position = "none")
+ggsave("../Figures/Empirical_data/Merging_pieces/Understanding_outliers_sites.pdf",p, width=9,height = 7)
+
+
+
+
+
+#and finally perform ABC on each site and we compare the different model version
+
+list_sim=c(list.files("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",".csv"),
+           "All_sim_Eby.csv")
+
+for (sim in list_sim){
+
+  d_pooled_data=read.table(paste0("../Data/Step8_Solutions_gap/Pooling_pixels/Pooling_all_sites_0.3.csv"),sep=";")
+  d_all=read.table(paste0("../Data/Step8_Solutions_gap/Data_Eby_feedbacks/",sim),sep=";")
+  
+  d_cross_sumstat=d_NRMSE_sumstat=tibble()
+  d_biocom=d_pooled_data
+  d_biocom$PL_expo[which(is.na(d_biocom$PL_expo) | d_biocom$PL_expo<0)]=0
+  d_biocom$PLR[which(is.na(d_biocom$PLR))]=0
+  save=d_pooled_data%>%add_column(., p_infered=NA,q_infered=NA)
+  
+  for (site_ID in 1:nrow(d_biocom)){
+    
+    #observed summary statistics in the site
+    observed_sumstat=d_biocom[site_ID,which(colnames(d_biocom) %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                                                                      "Spectral_ratio","PLR","PL_expo"))]
+    
+    if (d_biocom$PL_expo[site_ID] ==0) observed_sumstat=observed_sumstat[-9] #if we cannot fit a PL or tPL, we remove the PL_expo
+    if (d_biocom$PLR[site_ID] ==0) observed_sumstat=observed_sumstat[-8] #if we cannot fit a PL or tPL, we remove the PL_expo
+    
+    matrix_param=d_all[,1:2]
+    matrix_sumstat=d_all[,which(colnames(d_all) %in% names(observed_sumstat))]
+    save_sumstat=matrix_sumstat
+    matrix_sumstat=rbind(matrix_sumstat,observed_sumstat)
+    
+    for (x in 1:ncol(matrix_sumstat)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+    }else {
+      b=boxcox(lm(matrix_sumstat[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #Second we scale
+    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+    
+    #and finally, we perform the first PLS (excluding empirical data)
+    
+    mat_sumstat_pls=matrix_sumstat[-nrow(matrix_sumstat),]
+    observed_sumstat_pls1=matrix_sumstat[nrow(matrix_sumstat),]
+    
+    cross_valid1=abc(target = observed_sumstat_pls1,
+                     param = matrix_param,sumstat = mat_sumstat_pls, #removing the target data
+                     tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,observed_sumstat)
+    
+    
+    #again, first box cox
+    for (x in 1:ncol(mat_sumstat_step1)) if (x %in% which(colnames(matrix_sumstat) %in% c("skewness","moran_I"))){
+      
+      b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+      
+    }else {
+      b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)    
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    mat_sumstat_pls2=mat_sumstat_step1[-nrow(mat_sumstat_step1),]
+    observed_sumstat_pls2=mat_sumstat_step1[nrow(mat_sumstat_step1),]
+    
+    cross_valid2=abc(target = observed_sumstat_pls2,
+                     param = cross_valid1$unadj.values,
+                     sumstat = mat_sumstat_pls2, #removing the target data
+                     tol = 75/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                     logit.bounds = matrix(c(0,1),2,2,byrow = T),
+                     numnet = 10,sizenet = 10) # we only perform simple rejection here as we are not yet interested in the posterior
+    
+    cross_valid2$ss=as.data.frame(cross_valid2$ss)
+    cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),which(colnames(d_all) %in% names(observed_sumstat))] #we keep information with the true values
+    
+    matrix_sumstat=save_sumstat
+    
+    if (any( is.nan(cross_valid2$adj.values[,1]) | is.nan(cross_valid2$adj.values[,2]))){
+      cross_valid2$adj.values = cross_valid2$adj.values[-which(is.nan(cross_valid2$adj.values[,1])
+                                                               | is.nan(cross_valid2$adj.values[,2])),]
+    }      
+    
+    
+    if (d_biocom$PL_expo[site_ID] ==0 & d_biocom$PLR[site_ID] !=0){
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                              add_column(.,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                              add_column(., PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
+    } else if (d_biocom$PL_expo[site_ID] ==0 & d_biocom$PLR[site_ID] ==0){
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                              add_column(.,PLR=NA,PL_expo=NA, Type="Sim",Site=d_biocom$File_ID[site_ID]))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                              add_column(.,PLR=NA, PL_expo=NA,Type="Obs",Site=d_biocom$File_ID[site_ID]))
+    } else {
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%
+                              add_column(.,Type="Sim",Site=d_biocom$File_ID[site_ID]))
+      d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((observed_sumstat))%>%
+                              add_column(., Type="Obs",Site=d_biocom$File_ID[site_ID]))
+    }
+    
+    #We compute the RMSE for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
+      sqrt(sum((cross_valid2$ss[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(cross_valid2$ss) )})
+    
+    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+      sqrt(sum((matrix_sumstat[,x]-as.numeric(observed_sumstat[x]))**2)/nrow(matrix_sumstat) )})
+    NRMSE = RMSE/RMSE_prior
+    names(NRMSE)= colnames(matrix_sumstat)
+    
+    if (d_biocom$PL_expo[site_ID] ==0 & d_biocom$PLR[site_ID]!=0){
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                              add_column(., PL_expo = NA,Site=site_ID))
+    } else if (d_biocom$PLR[site_ID] ==0 & d_biocom$PL_expo[site_ID]==0){
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                              add_column(., PLR = NA,PL_expo = NA,Site=site_ID))
+        
+    } else {
+      d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE))%>%
+                              add_column(.,Site=site_ID))
+    }
+    
+    
+    save$p_infered[site_ID]=mean(cross_valid2$unadj.values[,1])
+    save$q_infered[site_ID]=mean(cross_valid2$unadj.values[,2])
+    
+    save2$p_infered[site_ID]=mean(cross_valid2$unadj.values[,1])
+    save2$q_infered[site_ID]=mean(cross_valid2$unadj.values[,2])
+    
+    print(site_ID)
+    
+  }
+  
+  write.table(d_NRMSE_sumstat,paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/NRMSE_sumstat_all_sites_pooled_",sim),sep=";")
+  write.table(d_cross_sumstat,paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/Cross_valid_sumstat_all_sites_pooled_",sim),sep=";")
+  write.table(save,paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/Posteriors_all_sites_pooled_rejection_",sim),sep=";")
+  write.table(save2,paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/Posteriors_all_sites_pooled_NN_",sim),sep=";")
+
+}
+
+
+  
+list_sim=list.files("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/","NRMSE_sumstat_all_sites_pooled")[-4] #removing 4NNfeedback6 and adding it 
+
+d_NRMSE_sumstat=tibble()
+for (sim in list_sim) d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,read.table(paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/",sim),sep=";")%>%
+                                              add_column(., Sim=gsub("4NN_","",gsub("NRMSE_sumstat_all_sites_pooled_","",gsub(".csv","",sim)))))
+
+
+d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,read.table("../Data/Step8_Solutions_gap/Pooling_pixels/NRMSE_sumstat_all_sites_pooled.csv",sep=";")%>%
+                        add_column(., Sim="feedback6"))
+
+
+
+p=d_NRMSE_sumstat%>%
+  melt(., id.vars=c("Site","Sim"))%>%
+  ggplot(.,aes(x=Sim,y=value))+
+  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=Sim),alpha=.4)+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  labs(x="",y="NRMSE",color="",fill="")+
+  geom_hline(yintercept = 1)+
+  guides(fill="none") +
+  theme(axis.text.x = element_text(angle=60,hjust=1))
+
+
+ggsave(paste0("../Figures/Empirical_data/Merging_pieces/NMRSE_pooling_all_sites.pdf"),p, width=10,height = 8)
+
+
+
+
+
+
+d_cross_sumstat=read.table(paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/Cross_valid_sumstat_all_sites_pooled_4NN_feedback6.csv"),sep=";")
+
+pdf("../Figures/Empirical_data/Merging_pieces/Cross_x_y_pooling_all_sites.pdf",width = 7,height = 7)
+d_sim=as.data.frame(filter(d_cross_sumstat,Type=="Sim"))
+d_obs=as.data.frame(filter(d_cross_sumstat,Type=="Obs"))
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(as.numeric(d_sim[,i]),
+       as.numeric(d_obs[,i]),col=alpha("blue",.3),pch=21,xlab="Sim",ylab="Obs",
+       main=colnames(d_cross_sumstat)[i])
+  abline(a=0,b=1)
+}
+dev.off()
+
+
+
+
+
+
+#first, the differences between the methods
+
+list_sim_NN=list.files("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/","NN_0.5_4NN")
+list_sim_rej=list.files("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/","rejection_0.5")
+d_post_NN=d_post_rej=tibble()
+
+for (sim in 1:length(list_sim_NN)){
+  d_post_NN=rbind(d_post_NN,read.table(paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/",list_sim_NN[sim]),sep=";")%>%
+                                              add_column(., Sim=gsub("Posteriors_all_sites_pooled_NN_4NN_","",gsub(".csv","",list_sim_NN[sim])))
+                  )
+  d_post_rej=rbind(d_post_rej,read.table(paste0("../Data/Step8_Solutions_gap/Pooling_pixels/ABC_all_models/",list_sim_rej[sim]),sep=";")%>%
+                                              add_column(., Sim=gsub("Posteriors_all_sites_pooled_rejection_4NN_","",gsub(".csv","",list_sim_rej[sim]))))
+}
+
+
+p=rbind(d_post_NN%>%add_column(., Method="Neuralnet (non linear regression)"),
+      d_post_rej%>%add_column(., Method="Rejection (no post processing)"))%>%
+  melt(., measure.vars=c("p_infered","q_infered"))%>%
+  ggplot(.,aes(x=Sim,y=value))+
+  geom_line(aes(group=Site),lwd=.2,color=alpha("gray",.3))+
+  geom_violin(aes(fill=Sim),alpha=.4)+
+  stat_summary(fun = "median", geom = "point", size = 3,shape=24,fill="black",color="white")+
+  facet_grid(variable~Method,scales = "free")+
+  the_theme+
+  labs(x="",y="Infered parameter value",color="",fill="")+
+  guides(fill="none") +
+  theme(axis.text.x = element_text(angle=60,hjust=1))
+
+
+ggsave(paste0("../Figures/Empirical_data/Merging_pieces/Comparizon_posteriors_param_models_methods.pdf"),p, width=7,height = 5)
+
+
+
+
+
+
+
+
+
+pdf("../Figures/Empirical_data/Merging_pieces/Comparing_posterior_methods.pdf",width = 8,height = 4)
+par(mfrow=c(1,2))
+plot(posteriors_rej$p_infered,posteriors_NN$p_infered,xlab="Classical rejection",ylab="Non-linear regression post proc.",col=alpha("black",.3),main="p")
+abline(a=0,b=1,col=alpha("blue",.4),lwd=2)
+plot(posteriors_rej$q_infered,posteriors_NN$q_infered,xlab="Classical rejection",ylab="",col=alpha("black",.3),main="q")
+abline(a=0,b=1,col=alpha("blue",.4),lwd=2)
+dev.off()
+
+
+# also, how the parameter posteriors correlate with the summary stats of empirical sites.
+# We, for instance expect higher q values when the landscape has more clustered vegetation
+
+d_patches=read.table("../Data/Step8_Solutions_gap/Pooling_pixels/Psd_property_pooled_sites.csv",sep=";")
+
+p=posteriors_NN%>%
+  add_column(., Mean_psd=log(d_patches$mean_psd),Sd_psd=log(d_patches$sd_psd),Max_psd=log(d_patches$max_psd))%>%
+  mutate(., clustering=log(clustering),Spectral_ratio=log(Spectral_ratio))%>%
+  as.data.frame(.)%>%
+  melt(., id.vars=c("Site","p_infered","q_infered"),
+       value.name="Val_sumstat")%>%
+  rename(., Var_sumstat=variable)%>%
+  melt(.,id.vars=c("Site","Var_sumstat","Val_sumstat"),value.name="Val_param")%>%
+  ggplot(.)+
+  geom_point(aes(x=Val_param,y=Val_sumstat,color=variable),alpha=.3)+
+  facet_grid(Var_sumstat~variable,scales = "free")+
+  the_theme+
+  scale_color_manual(values=c("#B785A7","#94C58E"))+
+  labs(y="Summary statistics value",x="Parameter value") #seems coherent
+
+ggsave("../Figures/Empirical_data/Inference/Correlation_posterior_sumstat.pdf",p,width = 7,height = 12) 
+
+
+
+
+
+
+
+
+
+
+
+#***********************************************************

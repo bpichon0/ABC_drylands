@@ -2,9 +2,17 @@
 
 Contact: Benoît Pichon, **benoit.pichon0@gmail.com**
 
-This folder contains all code necessary to replicate the analysis in the main text and in supplementary. 
-The file **Dryland_ABC_main.jl** contains the code to generate the simulations of both Kefi et al TPB 2007 model and Eby et al., GEB 2017. It uses the functions in **Dryland_ABC_functions.jl**. 
+All the code was made on R (v4.1.0) and Julia (1.7.3).
 
-All inference analyses are made with R using the **ABC_drylands_main.R** script. 
-All the steps necessary to *(i)* perform ABC and optimize the ABC method with the simulations (from both Kefi and Eby models), and in the future *(ii)* compare the simulations and empirical data, *(iii)* perform ABC on empirical data, *(iv)* measure site specific resilience for all sites across the globe. 
+Here is the different steps to reproduce the figures:
 
+
+
+## `Simulations`
+
+The file `Sim_ABC_main.jl` allows to run the simulations made for the different models (Kefi et al., TPB, Schneider et al., 2016 TE, Eby et al., GEB 2017). It uses the fonctions in `Sim_ABC_function.jl`. 
+
+## `Analyses`
+
+To run all analyses made, you can run the R file `ABC_Drylands_main.R`.
+It allows to perform the inference, as well as the different analyses made to understand the role of image resolution.

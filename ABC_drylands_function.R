@@ -5,7 +5,7 @@ library(deSolve);library(rootSolve);library(ggdendro)
 library(FME);library(ggpubr);library(spatialwarnings)
 library(reshape2);library(abc);library(igraph);library(cluster)
 library(FactoMineR) ;library(factoextra);library(pls)
-library(missMDA);library(GGally)
+library(missMDA);library(GGally);library(scales)
 
 
 
@@ -67,7 +67,7 @@ Plot_dynamics=function(d,different_sim=F){
 
 Plot_landscape=function(landscape){
   landscape[landscape>1] = 0
-  image(landscape,xaxt = "n",yaxt ="n",col=rev(c("white","black") ))
+  image(landscape,xaxt = "n",yaxt ="n",col=(c("white","black") ))
 }
 
 
@@ -433,4 +433,57 @@ Get_sumstat=function(landscape){
   
   return(d)
 }
+
+
+
+
+pooling=function(mat, submatrix_size) {
+  
+  pooling_matrix=matrix(nrow = floor(nrow(mat)/submatrix_size), 
+                           ncol = floor(ncol(mat)/submatrix_size), 
+                           dimnames = NULL)
+  
+  for (i in 1:nrow(pooling_matrix)) {
+    for (j in 1:ncol(pooling_matrix)) {
+      start_row=(i-1) * submatrix_size + 1
+      end_row=start_row + submatrix_size - 1
+      start_col=(j-1) * submatrix_size + 1
+      end_col=start_col + submatrix_size - 1
+      
+      pooling_matrix[i, j]=mean(mat[start_row:end_row, start_col:end_col])
+    }
+  }
+  return(pooling_matrix)
+}
+
+
+
+
+
+
+
+inverse_pooling=function(mat, submatrix_size) {
+  n=nrow(mat)
+  m=ncol(mat)
+  new_n=n * submatrix_size
+  new_m=m * submatrix_size
+  new_mat=matrix(0, nrow = new_n, ncol = new_m)
+  
+  for (i in 1:n) {
+    for (j in 1:m) {
+      start_row=(i-1) * submatrix_size + 1
+      end_row=start_row + submatrix_size - 1
+      start_col=(j-1) * submatrix_size + 1
+      end_col=start_col + submatrix_size - 1
+      
+      new_mat[start_row:end_row, start_col:end_col]=kronecker(mat[i,j], matrix(1, nrow = submatrix_size, ncol = submatrix_size))
+    }
+  }
+  
+  return(new_mat)
+}
+
+
+
+
 
