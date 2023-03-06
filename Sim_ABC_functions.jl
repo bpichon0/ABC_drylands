@@ -4,12 +4,12 @@ using StatsBase, RCall, Plots, StatsPlots, Random, LaTeXStrings,
 
 function Get_classical_param()
 
-    r = 0.05
-    d = 0.1
+    r = 0.0001
+    d = 0.2
     f = 0.9
     m = 0.1
     b = 1
-    c = 0.1
+    c = 0.3
     delta = 0.1
     z = 4
     tau_leap = 0.5
@@ -161,7 +161,7 @@ function IBM_drylands(; landscape, param, time, keep_landscape=false, n_snapshot
 end
 
 
-function Get_summary_stat(matrix_landscape)
+function Get_summary_stat(matrix_landscape, ; log_=true)
     R"library(spatialwarnings)"
     #The idea maybe is to compute as much as possible of sumamry statistics.
 
@@ -288,6 +288,10 @@ function Get_summary_stat(matrix_landscape)
 
     end
 
+    if log_
+        mean_spatial_spectral = log(mean_spatial_spectral)
+        mean_clustering = log(mean_clustering)
+    end
 
 
     return (vec([mean_cover, mean_nb_neigh, mean_clustering,
@@ -312,7 +316,7 @@ end
 
 
 
-function select_neighbor(row, col, N, N_neigh)
+function Get_neighbor(row, col, N)
     #Accounts for torus landscape (periodic boundaries)
 
     i, j = copy(row), copy(col)
@@ -342,63 +346,29 @@ function select_neighbor(row, col, N, N_neigh)
         left = j - 1
     end
 
-    test = rand()
+    coordinate_n = zeros(4, 2)
+    coordinate_n[1, :] = [i right]
+    coordinate_n[2, :] = [i left]
+    coordinate_n[3, :] = [top j]
+    coordinate_n[4, :] = [bottom j]
 
-    col_neigh = j
-    row_neigh = i
+    return convert(Array{Int64}, coordinate_n)
+end
 
-    if N_neigh == 4
 
-        if test <= 0.25
-            row_neigh = top
-        elseif test <= 0.5
-            row_neigh = bottom
-        elseif test <= 0.75
-            col_neigh = left
-        else
-            col_neigh = right
-        end
-
-    else
-        if test <= 1 / 8 #top one
-            row_neigh = top
-        elseif test <= 2 / 8 #bottom one
-            row_neigh = bottom
-        elseif test <= 3 / 8 #left one 
-            col_neigh = left
-        elseif test <= 4 / 8 #right one
-            col_neigh = right
-        elseif test <= 5 / 8 #upper left
-            col_neigh = left
-            row_neigh = top
-        elseif test <= 6 / 8 #bottom left
-            col_neigh = left
-            row_neigh = bottom
-        elseif test <= 7 / 8 #upper right
-            col_neigh = right
-            row_neigh = top
-        else                 # bottom left
-            col_neigh = right
-            row_neigh = bottom
-        end
-    end
-
-    return row_neigh, col_neigh
-
+function Select_neighbors(neighbors)
+    return convert(Array{Int64}, neighbors[shuffle(1:end), :][1, :])
 end
 
 
 
 
-
-
-
-function select_neighbor_pair2(coordinate_neighbors, Intensity_feedback)
+function Select_neighbor_pair(coordinate_neighbors, Intensity_feedback)
     return convert(Array{Int64}, coordinate_neighbors[shuffle(1:end), :][1:Intensity_feedback, :])
 end
 
 
-function Get_coordinate(row, col, row_n, col_n, N, N_neigh)
+function Get_coordinate_pair(row, col, row_n, col_n, N)
     i, j = copy(row), copy(col)
     i_n, j_n = copy(row_n), copy(col_n)
 
@@ -454,56 +424,25 @@ function Get_coordinate(row, col, row_n, col_n, N, N_neigh)
     end
 
 
-    if N_neigh == 4
 
-        coordinate_n = zeros(8, 2)
-        coordinate_n[1, :] = [i right]
-        coordinate_n[2, :] = [i left]
-        coordinate_n[3, :] = [top j]
-        coordinate_n[4, :] = [bottom j]
-        coordinate_n[5, :] = [i_n rightn]
-        coordinate_n[6, :] = [i_n leftn]
-        coordinate_n[7, :] = [topn j_n]
-        coordinate_n[8, :] = [bottomn j_n]
+    coordinate_n = zeros(8, 2)
+    coordinate_n[1, :] = [i right]
+    coordinate_n[2, :] = [i left]
+    coordinate_n[3, :] = [top j]
+    coordinate_n[4, :] = [bottom j]
+    coordinate_n[5, :] = [i_n rightn]
+    coordinate_n[6, :] = [i_n leftn]
+    coordinate_n[7, :] = [topn j_n]
+    coordinate_n[8, :] = [bottomn j_n]
 
-        #and filter the ones corresponding to focal site and its selected neighbor
-        coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
-                                                coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
+    #and filter the ones corresponding to focal site and its selected neighbor
+    coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
+                                            coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
 
-    else
-
-        coordinate_n = zeros(16, 2)
-        coordinate_n[1, :] = [i right]
-        coordinate_n[2, :] = [i left]
-        coordinate_n[3, :] = [top j]
-        coordinate_n[4, :] = [bottom j]
-        coordinate_n[5, :] = [bottom right]
-        coordinate_n[6, :] = [bottom left]
-        coordinate_n[7, :] = [top right]
-        coordinate_n[8, :] = [top left]
-        coordinate_n[9, :] = [i_n rightn]
-        coordinate_n[10, :] = [i_n leftn]
-        coordinate_n[11, :] = [topn j_n]
-        coordinate_n[12, :] = [bottomn j_n]
-        coordinate_n[13, :] = [bottomn rightn]
-        coordinate_n[14, :] = [bottomn leftn]
-        coordinate_n[15, :] = [topn rightn]
-        coordinate_n[16, :] = [topn leftn]
-
-        #and filter the ones corresponding to focal site and its selected neighbor
-        coordinate_n = coordinate_n[Not(findall(coordinate_n[:, 1] .== i .&& coordinate_n[:, 2] .== j .||
-                                                coordinate_n[:, 1] .== i_n .&& coordinate_n[:, 2] .== j_n)), :]
-        final_coord = unique(coordinate_n, dims=1) #selecting the uniques sites
-
-    end
 end
 
 
-
-
-
-
-function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snapshot=25, burning_phase=400, n_time_bw_snap=50, Type_neighbors=4, intensity_feedback=1)
+function IBM_Eby_model(; landscape, param, time_t, mortality_neigh=false, keep_landscape=false, n_snapshot=25, burning_phase=400, n_time_bw_snap=50, intensity_feedback=1, plot=false)
 
     if keep_landscape
         all_landscape_snap = zeros(size(landscape)[1], size(landscape)[1], n_snapshot)
@@ -512,7 +451,6 @@ function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snaps
 
     p_param = param[1]
     q_param = param[2]
-
     #If we keep all snapshots we determine the minimum time for having n_snapshot after a burning_phase and with n_time_bw_snap time step between each
 
     if keep_landscape
@@ -521,54 +459,143 @@ function IBM_Eby_model(; landscape, param, time_t, keep_landscape=false, n_snaps
     d2 = zeros(time_t, 2) #Allocating
     d2[1, :] = vec([sum(landscape) / size(landscape)[1]^2, 1 - sum(landscape) / size(landscape)[1]^2])
 
-    @inbounds for t in 1:time_t
 
-        #for each time step, we perform N**2 (N the dimension of the landscape) iterations to ensure that all sites get change on average 1 time per time step  
-        @inbounds for focal_i in eachindex(1:size(landscape)[1]), focal_j in eachindex(1:size(landscape)[1])
+    if mortality_neigh #context dependant mortality
+        g0 = param[3]
 
-            if landscape[focal_i, focal_j] == 1 #if vegetation otherwise do nothing
 
-                neigh = select_neighbor(focal_i, focal_j, size(landscape)[1], Type_neighbors)
+        @inbounds for t in 1:time_t
 
-                if landscape[neigh[1], neigh[2]] == 0 #if neighbor is unoccupied
-                    if rand() <= p_param #then there is reproduction in a neighbor
-                        landscape[neigh[1], neigh[2]] = 1
-                    else #else focal individual dies
-                        landscape[focal_i, focal_j] = 0
-                    end
+            #for each time step, we perform N**2 (N the dimension of the landscape) iterations to ensure that all sites get change on average 1 time per time step  
+            @inbounds for focal_i in eachindex(1:size(landscape)[1]), focal_j in eachindex(1:size(landscape)[1])
 
-                else #neighbor is occupied
-                    if rand() <= q_param #facilitation from the neighbor
-                        coord_neigh = Get_coordinate(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1], Type_neighbors)
-                        neighbors = select_neighbor_pair2(coord_neigh, intensity_feedback) #that is changed to an occupied cell
-                        for i in eachindex(neighbors[:, 1])
-                            landscape[neighbors[i, 1], neighbors[i, 2]] = 1
+
+                if landscape[focal_i, focal_j] == 1 #if vegetation otherwise do nothing
+
+                    neighbors = Get_neighbor(focal_i, focal_j, size(landscape)[1])
+                    neigh = Select_neighbors(neighbors)
+
+                    if landscape[neigh[1], neigh[2]] == 0 #if neighbor is unoccupied
+                        rand1 = rand()
+                        if rand1 <= p_param #then there is reproduction in a neighbor
+                            landscape[neigh[1], neigh[2]] = 1
+                        elseif rand1 < g0 * (1 - (sum([landscape[neighbors[k, 1], neighbors[k, 2]] for k in 1:size(neighbors)[2]]) / 4))
+                            #landscape[focal_i, focal_j] = 0
                         end
 
-                    else
-                        landscape[focal_i, focal_j] = 0
+                    else #neighbor is occupied
+                        rand2 = rand()
+                        if rand2 <= q_param #facilitation from the neighbor
+
+                            coord_neigh = Get_coordinate_pair(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1])
+
+                            neighbors_pair = Select_neighbor_pair(coord_neigh, intensity_feedback) #that is changed to an occupied cell
+
+                            for i in eachindex(neighbors_pair[:, 1])
+                                landscape[neighbors_pair[i, 1], neighbors_pair[i, 2]] = 1
+                            end
+
+                        else
+
+                            #  landscape[focal_i, focal_j] = 0
+                        end
                     end
-                end
-            end #end loop for a focal cell
-
-        end #loop on interactions
-
-        d2[t, 1] = sum(landscape) / length(landscape)
 
 
-        if keep_landscape && t > burning_phase && t % ((time_t - burning_phase) / n_snapshot) == 0 #for each time for which there is a snapshot, we save the landscape
-            all_landscape_snap[:, :, nsave] = landscape
-            nsave += 1
+                end #end loop for a focal cell
+
+            end #loop on interactions
+
+            @rput landscape
+            R"neigh_1= simecol::neighbors(x =landscape,state = 1, wdist =  matrix( c(0, 1, 0,1, 0, 1, 0, 1, 0), nrow = 3),bounds = 1)"
+            @rget neigh_1
+
+            rnum = reshape(rand(length(landscape)), Int64(sqrt(length(landscape))), Int64(sqrt(length(landscape))))
+            # one random number between 0 and 1 for each cell
+
+            landscape[findall((landscape .== 1) .& (rnum .<= g0 .* (1 .- neigh_1 / 4)))] .= 0
+
+            d2[t, 1] = sum(landscape) / length(landscape)
+
+
+            if keep_landscape && t > burning_phase && t % ((time_t - burning_phase) / n_snapshot) == 0 #for each time for which there is a snapshot, we save the landscape
+                all_landscape_snap[:, :, nsave] = landscape
+                nsave += 1
+            end
+
+
+
         end
 
+    else
 
 
+        @inbounds for t in 1:time_t
+
+            #for each time step, we perform N**2 (N the dimension of the landscape) iterations to ensure that all sites get change on average 1 time per time step  
+            @inbounds for focal_i in eachindex(1:size(landscape)[1]), focal_j in eachindex(1:size(landscape)[1])
+
+                if landscape[focal_i, focal_j] == 1 #if vegetation otherwise do nothing
+
+                    neighbors = Get_neighbor(focal_i, focal_j, size(landscape)[1])
+                    neigh = Select_neighbors(neighbors)
+
+
+                    if landscape[neigh[1], neigh[2]] == 0 #if neighbor is unoccupied
+
+                        if rand() <= p_param #then there is reproduction in a neighbor
+
+                            landscape[neigh[1], neigh[2]] = 1
+
+                        else #else focal individual dies
+
+                            landscape[focal_i, focal_j] = 0
+
+                        end
+
+                    else #neighbor is occupied
+                        if rand() <= q_param #facilitation from the neighbor
+
+                            coord_neigh = Get_coordinate_pair(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1])
+                            neighbor_pair = Select_neighbor_pair(coord_neigh, intensity_feedback) #that is changed to an occupied cell
+
+                            for i in eachindex(neighbor_pair[:, 1])
+                                landscape[neighbor_pair[i, 1], neighbor_pair[i, 2]] = 1
+                            end
+
+                        else
+                            landscape[focal_i, focal_j] = 0
+                        end
+                    end
+                end #end loop for a focal cell
+
+            end #loop on interactions
+
+            d2[t, 1] = sum(landscape) / length(landscape)
+
+
+            if keep_landscape && t > burning_phase && t % ((time_t - burning_phase) / n_snapshot) == 0 #for each time for which there is a snapshot, we save the landscape
+                all_landscape_snap[:, :, nsave] = landscape
+                nsave += 1
+            end
+
+
+
+        end
     end
 
     d2[:, 2] = 1 .- d2[:, 1]
 
     if !keep_landscape
         all_landscape_snap = landscape
+    end
+
+    if plot
+        if keep_landscape
+            display(Plot_landscape(all_landscape_snap[:, :, size(all_landscape_snap)[3]], false))
+        else
+            display(Plot_landscape(all_landscape_snap, false))
+        end
     end
 
 
@@ -590,14 +617,14 @@ end
 
 function Get_classical_param_Schneider()
 
-    r = 0.05
-    d = 0.1
+    r = 0.0001
+    d = 0.2
     f = 0.9
-    m = 0.1
-    b = 1
-    c = 0.1
+    m = 0.05
+    b = 0.3
+    c = 0.3
     delta = 0.1
-    g0 = 0.5
+    g0 = 0.2
     z = 4
     tau_leap = 0.5
 
@@ -708,7 +735,7 @@ end
 
 
 
-function pooling(mat, submatrix_size)
+function pooling(mat, submatrix_size) #decreasing resolution
 
     pooling_matrix = zeros(convert(Int64, floor(size(mat)[1] / submatrix_size)),
         convert(Int64, floor(size(mat)[1] / submatrix_size)))
@@ -729,7 +756,7 @@ end
 
 
 
-function inverse_pooling(mat, submatrix_size)
+function inverse_pooling(mat, submatrix_size) #increasing resolution
     n = size(mat, 1)
     m = size(mat, 2)
     new_n = submatrix_size * n

@@ -5,8 +5,12 @@ library(deSolve);library(rootSolve);library(ggdendro)
 library(FME);library(ggpubr);library(spatialwarnings)
 library(reshape2);library(abc);library(igraph);library(cluster)
 library(FactoMineR) ;library(factoextra);library(pls)
-library(missMDA);library(GGally);library(scales)
+library(missMDA);library(GGally);library(scales);library(magick)
+library(png);library(EBImage);library(imager)
+library(lme4);library(car);library(diptest);library(raster);library(ape)
 
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
@@ -16,6 +20,7 @@ the_theme=theme_classic()+theme(legend.position = "bottom",
                                 legend.text = element_text(size = 10),text = element_text(family = "NewCenturySchoolbook"))
 
 
+`%!in%` = Negate(`%in%`)
 
 logit=function(x){return(log(x/(1-x)))}
 
@@ -27,16 +32,13 @@ get_upper_tri=function(mat){
   return(mat)
 }
 
-
 distance=function(sim_data, obs_data) { 
   sum(apply(sim_data - obs_data, 2, function(x) {x^2})) 
 }
 
-
 normalize=function(x){
   ((x-min(x))/(max(x)-min(x)) - 0.5 ) *2
 }
-
 
 fourneighbors = function(landscape, state = 1, bounds = 1) {
   
@@ -53,173 +55,25 @@ fourneighbors = function(landscape, state = 1, bounds = 1) {
   
 }
 
-
 Plot_dynamics=function(d,different_sim=F){
   
   d$Time=1:nrow(d)
   
   d_melt=melt(d,id.vars=c("Time"))
   print(ggplot(d_melt%>%mutate(.,variable=recode_factor(variable,"Rho_V"="Vegetation","Rho_F"="Fertile","Rho_D"="Degraded")))+
-    geom_line(aes(x=Time,y=value,color=variable),lwd=1)+scale_color_manual(values=c("#9DD696","#D2C48F","#777777"))+
-    labs(x="Time steps",y="Fraction",color="")+the_theme)
+          geom_line(aes(x=Time,y=value,color=variable),lwd=1)+scale_color_manual(values=c("#9DD696","#D2C48F","#777777"))+
+          labs(x="Time steps",y="Fraction",color="")+the_theme)
   
 }
 
-Plot_landscape=function(landscape){
+Plot_landscape=function(landscape,txt="",col_img="black"){
   landscape[landscape>1] = 0
-  image(landscape,xaxt = "n",yaxt ="n",col=(c("white","black") ))
+  if (txt==""){
+    image(t(apply(landscape,2,rev)),xaxt = "n",yaxt ="n",col=(c("white",col_img) ))
+  } else {
+    image(t(apply(landscape,2,rev)),xaxt = "n",yaxt ="n",col=(c("white",col_img) ),main=txt)
+  }
 }
-
-
-
-
-
-
-
-
-
-# Patches & landscape structure ----
-
-#From Schneider et al., 2016 TE
-Get_patches = function(landscape, state) {
-  
-  if (state=="+"){
-    landscape[landscape %in% c(1,2)] ="+"
-  }
-  
-  pattern = landscape
-  pattern = pattern %in% state #keeping the state of interest
-  map = rep(NA, times = length(landscape))
-  old = rep(99, times = length(landscape)) #to compare
-  
-  while(!identical(old[pattern], map[pattern])) { 
-    
-    old = map
-    count = as.integer(1)
-    
-    for(i in which(pattern)) { #for each cell of interest
-      
-      neighbors = map[x_with_border][x_to_evaluate[i]+interact] #get its neighbors
-      if(all(is.na(neighbors)) ) { 
-        map[i] = count #then no patch -> = 1
-      } else {
-        map[i] = min(neighbors, na.rm = TRUE) 
-      }
-      count = count +1
-    }
-    
-  }
-  
-  map = as.factor(map)
-  patchvec = as.vector(sapply(levels(map), function(i) length(which(map == i) ) )) 
-  
-  out = vector()
-  if(length(patchvec) > 0) out = sort(patchvec) else out = NA
-  return(out)
-  
-} 
-
-
-mapping = function(width, height, boundary = "periodic", i_matrix = matrix(c(0,1,0,1,NA,1,0,1,0), ncol = 3, byrow = TRUE)) {
-  
-  X = matrix(as.integer(1:(width*height)), ncol = width, byrow =TRUE)
-  X = cbind(X[,width], X, X[,1] )  
-  X = rbind(X[height,], X, X[1,] ) 
-  x_with_border = as.integer(t(X))
-  
-  assign("x_with_border", as.integer(t(X))  , envir = .GlobalEnv )
-  
-  assign("x_to_evaluate", sort(matrix(1:prod(dim(X)), ncol = dim(X)[2], byrow =TRUE)[-c(1, dim(X)[1]), -c(1,dim(X)[2])]  )	, envir = .GlobalEnv )
-  
-  
-  I = i_matrix	
-  
-  neighbours_in_I = which(is.finite(abs(I)/abs(I)), arr.in = TRUE)
-  
-  relrow = neighbours_in_I[,1]-which(is.na(I), arr.ind = TRUE)[1]
-  relcol = neighbours_in_I[,2]-which(is.na(I), arr.ind = TRUE)[2]
-  
-  assign("interact", relrow * dim(X)[2] + relcol, envir = .GlobalEnv )
-  
-}
-
-count  = function(x, neighbor) {
-  
-  neighbors = numeric(length = prod(x$dim))
-  x_logical_with_border = (x$cells %in% neighbor)[x_with_border]
-  for(k in interact) {
-    neighbors = neighbors + x_logical_with_border[x_to_evaluate+k]
-  }
-  return(neighbors)  
-}
-
-
-
-Get_frequency_number_patches=function(landscape){
-  
-  if (is.matrix(landscape)){
-    landscape=as.vector(landscape)
-  }
-  
-  d_patch=tibble()
-  for (i in c(1)){ 
-    d_patch=rbind(d_patch,tibble(patch_size=as.numeric(Get_patches(landscape,i)))%>% add_column(., Species=i))
-  }
-
-  d_freq_patch=d_size=tibble()
-  for (k in unique(d_patch$Species)){  #for each species and for total vegetation
-    size_patches_k=filter(d_patch,Species==k)$patch_size
-    cumbins=sort(unique(size_patches_k)) 
-    d_freq_patch=rbind(d_freq_patch,tibble(Number=as.numeric(sapply(cumbins, function(k) length(which(size_patches_k >= k)) )),
-                                           Frequency = as.numeric(sapply(cumbins, function(k) length(which(size_patches_k >= k))/length(size_patches_k) )),
-                                           Size=cumbins,
-                                           Species=k))
-    
-    d_size=rbind(d_size,tibble(Max_size=max(cumbins),
-                               Species=k))
-    
-  }
-  
-  return(list(Patches_size=d_patch,Patches_frequency=d_freq_patch,Max_size=d_size))
-  
-}
-
-
-
-# fitting Power Laws
-
-
-
-fitpoly =  function(data , indices, modelout = FALSE) {
-  model = lm(log(p) ~  - 1 + log(size) + I(log(size)^2), data = data[indices,] )
-  if(modelout) {return(model)} else {return(coefficients(model)[2])} 
-} 
-fitlm =  function(data , indices, modelout = FALSE) {
-  model =lm(log(p) ~  - 1 + log(size), data = data[indices,] )
-  if(modelout) {return(model)} else {return(coefficients(model)[2])} 
-} 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 Get_params=function(delta,b,c,m,d,r,f,z){
   
@@ -244,7 +98,6 @@ Get_initial_lattice=function(frac=c(.8,.1,.1),size=25){
   return(matrix(sample(1:3,replace = T,size=size*size,prob = frac),ncol=size,nrow=size))
 }
 
-
 fourneighbors = function(landscape, state = 1, bounds = 1) {
   
   neighborhood = matrix(
@@ -259,9 +112,6 @@ fourneighbors = function(landscape, state = 1, bounds = 1) {
     bounds = bounds)
   
 }
-
-
-#for (k in 1:length(params))assign(names(params)[k],params[[k]])
 
 CA_Kefi = function(init, params) {
   
@@ -310,7 +160,6 @@ CA_Kefi = function(init, params) {
   })
   
 }
-
 
 Run_CA_kefi=function(time=seq(1,1000,1),params,ini,plot=F){
   
@@ -366,12 +215,26 @@ Plot_dynamics=function(d,different_sim=F,simple=F){
   
 }
 
-
-Plot_empirical=function(id){
-  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  image(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))),col=c("white","black"),axes=F)
+Plot_empirical=function(id,true_landscape=F){
+  
+  if (true_landscape & is.character(id)){
+    
+    img1=readPNG(paste0("../Data/Data_Biocom/png_img/",id))
+    
+    grid::grid.raster(img1)
+    
+  }else {
+    if (is.numeric(id)){
+      d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+      image(t(apply(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))),2,rev)),col=c("white","black"),axes=F)
+      
+    }else {
+      d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+      image(t(apply(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[which(d_biocom$File_ID==gsub(".png","",id))],".txt"))),2,rev)),col=c("white","black"),axes=F)
+    }
+    
+  }
 } 
-
 
 Plot_hist_simu_obs=function(simu, obs){
   par(mfrow=c(3,3))
@@ -397,15 +260,14 @@ Get_path_empirical_raster=function(id){
   tiff(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"), compression = "lzw")
   
   image(land,col=c("white","black"),xaxs="i",yaxs="i")
-
+  
   dev.off()    
   
   
   return(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"))
 }
 
-
-Get_sumstat=function(landscape){
+Get_sumstat=function(landscape,log_=T){
   
   cover = sum(landscape) / (dim(landscape)[1]**2)
   
@@ -425,23 +287,23 @@ Get_sumstat=function(landscape){
     alpha_exp=NA        
   } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]} #i.e., when there is no good fit, return NA
   
-  
+  if (log_){
+    mean_clustering=log(mean_clustering)
+    spectral_ratio=log(spectral_ratio)
+  }
   d=tibble(rho_p=cover,
-         nb_neigh=mean_nb_neigh,clustering=mean_clustering,
-         skewness=spatial_ews[2],variance=spatial_ews[1],moran_I=spatial_ews[3],
-         Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp)
+           nb_neigh=mean_nb_neigh,clustering=mean_clustering,
+           skewness=spatial_ews[2],variance=spatial_ews[1],moran_I=spatial_ews[3],
+           Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp)
   
   return(d)
 }
 
-
-
-
 pooling=function(mat, submatrix_size) {
   
   pooling_matrix=matrix(nrow = floor(nrow(mat)/submatrix_size), 
-                           ncol = floor(ncol(mat)/submatrix_size), 
-                           dimnames = NULL)
+                        ncol = floor(ncol(mat)/submatrix_size), 
+                        dimnames = NULL)
   
   for (i in 1:nrow(pooling_matrix)) {
     for (j in 1:ncol(pooling_matrix)) {
@@ -455,12 +317,6 @@ pooling=function(mat, submatrix_size) {
   }
   return(pooling_matrix)
 }
-
-
-
-
-
-
 
 inverse_pooling=function(mat, submatrix_size) {
   n=nrow(mat)
@@ -483,7 +339,455 @@ inverse_pooling=function(mat, submatrix_size) {
   return(new_mat)
 }
 
+Plot_leveraged_landscape=function(id,res=200){
+  landscape=Get_empirical_site(id)
+  landscape_pooled=pooling(landscape,nrow(landscape)/res)
+  par(mfrow=c(1,2))
+  Plot_landscape(landscape,paste0("Resolution = ",nrow(landscape),"²"))
+  Plot_landscape(landscape_pooled,paste0("Resolution = ",nrow(landscape_pooled),"²"))
+  par(mfrow=c(1,1))
+}
+
+Plot_distrib_patches=function(mat){
+  print(ggplot(tibble(psd=patchsizes(mat==1)))+
+          geom_histogram(aes(x=psd),fill=alpha("blue",.3),color="blue")+
+          theme_classic()+
+          labs(x="Size of patches",y="Count"))
+}
+
+Filtering_small_patches=function(mat,cutoff=30){
+  
+  raster_mat=raster::raster(mat)
+  
+  mat_clump=clump(raster_mat) #Get an id for each patch
+  mat_clump_veg=as.matrix(mat_clump) #transforming into a matrix of number, each number = patch
+  mat_clump_veg[is.na(mat_clump_veg)]=0
+  
+  table_id_patch=table(as.numeric(mat_clump_veg))
+  
+  for (i in 1:length(table_id_patch)){ #for each patch
+    
+    if (table_id_patch[i]<cutoff){
+      mat_clump_veg[mat_clump_veg==as.numeric(names(table_id_patch)[i])]=0
+    }
+  }
+  
+  mat_clump_veg[mat_clump_veg>1]=1
+  return (mat_clump_veg)
+}
+
+
+Centroid_patches=function(mat){
+  
+  d=tibble()
+  
+  raster_mat=raster::raster(mat)
+  
+  mat_clump=clump(raster_mat) #Get an id for each patch
+  mat_clump_veg=as.matrix(mat_clump) #transforming into a matrix of number, each number = patch
+  mat_clump_veg[is.na(mat_clump_veg)]=0
+  
+  table_id_patch=table(as.numeric(mat_clump_veg))[-1] #we only take vegetation, no bare soil
+  
+  for (i in 2:length(table_id_patch)){ #for each patch, we find the centroid and its size
+    
+    d=rbind(d,tibble(Size=length(which(as.numeric(mat_clump_veg)==as.numeric(names(table_id_patch)[i]))),ID=i,
+                     centroid_x=mean(which(mat_clump_veg==as.numeric(names(table_id_patch)[i]),arr.ind = T)[,2]),
+                     centroid_y=mean(which(mat_clump_veg==as.numeric(names(table_id_patch)[i]),arr.ind = T)[,1]),
+                     window=nrow(mat)))
+  }
+  
+  return (d)
+}
 
 
 
 
+Analyse_image=function(img_id){
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  
+  if (any(paste0(ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<100,
+                        ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[img_id]),paste0("0",d_biocom$File_ID[img_id])),
+                        d_biocom$File_ID[img_id]
+                 )
+                 ,".png") %in% list.files(paste0("../Data/Data_Biocom/png_img/")))){
+    img1=readPNG(paste0("../Data/Data_Biocom/png_img/",
+                        ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<100,
+                               ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[img_id]),paste0("0",d_biocom$File_ID[img_id])),
+                               d_biocom$File_ID[img_id]
+                               )
+                        ,".png"))
+    
+    grid::grid.raster(img1)
+    
+    
+    plot_i=readline("Do we need to divide the data ?") 
+    
+    if(plot_i=="plot"){
+      Plot_empirical(img_id)
+      plot_i=readline("Do we need to divide the data ?") 
+      dev.off(dev.list()["RStudioGD"])
+      
+    }
+    
+    if (plot_i %in% c("no","non","No","Non","n")){
+      
+      plot_j=readline("Herbs or shrubs ?") 
+      
+      return(plot_j)
+      
+    }else if(plot_i=="stop"){
+      break
+    }else { #multiple functional groups
+      
+      
+      img1_tab = data.frame(expand.grid(x = seq.int(nrow(img1)),
+                                        y = seq.int(ncol(img1))),
+                            as.data.frame(matrix(img1, ncol = 3)))
+      names(img1_tab) = c('x', 'y', 'red', 'green', 'blue')
+      
+      
+      
+      df = gather(img1_tab, channel, value, red, green, blue)
+      df[ ,'channel'] = factor(df[ ,'channel'], levels = c("red", "green", "blue"),
+                               ordered = TRUE)
+      
+      
+      
+      
+      
+      #classifying vegetation (2 types) vs bare soil
+      
+      km = kmeans(na.omit(img1_tab[ ,c( 'green','blue',"red")]),
+                  centers = 3) #3 groups
+      
+      img1_tab[ ,'clust'] = NA
+      img1_tab[!is.na(img1_tab[ ,'red']), 'clust'] = km[['cluster']]
+      
+      img1_tab[ ,'clust'] = with(img1_tab, as.integer(reorder(as.factor(clust), -green)))
+      
+      
+      print(ggplot(img1_tab) +
+              geom_raster(aes(x = y, y = x,
+                              fill = as.factor(clust))) +
+              coord_fixed() +
+              theme_minimal() +
+              scale_fill_manual(name = "Vegetation",
+                                values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
+              scale_y_reverse())
+      
+      plot_k=readline("Which vegetation needs to be more clustered ? \n (show or again for seing empirical data") 
+      
+      if (plot_k %in% c("again","show")){
+        grid::grid.raster(img1)
+        
+        print(ggplot(img1_tab) +
+                geom_raster(aes(x = y, y = x,
+                                fill = as.factor(clust))) +
+                coord_fixed() +
+                theme_minimal() +
+                scale_fill_manual(name = "Vegetation",
+                                  values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
+                scale_y_reverse())
+        
+        plot_k=readline("Which vegetation needs to be more clustered ? \n (show or again for seing empirical data") 
+        
+      }
+      
+      
+      if(plot_k=="stop"){
+        break
+      }else{
+        
+        
+        clust_filt = with(img1_tab,
+                          gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
+                                       nrow = max(x), ncol = max(y)),
+                                sigma = .5)) > .1
+        
+        img1_tab[,'clust_filt'] = img1_tab[,"clust"]
+        
+        img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
+        
+        print(ggplot(img1_tab) +
+                geom_raster(aes(x = y, y = x,
+                                fill = as.factor(clust_filt))) +
+                coord_fixed() +
+                theme_minimal() +
+                scale_fill_manual(name = "Vegetation",
+                                  values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
+                scale_y_reverse())
+        
+        plot_l=readline("Good enought ? (high or low or else)") 
+        
+        index_low=index_high=1
+        while(plot_l %in% c("high","low","more","less")){
+          
+          sig=.5
+          if (plot_l %in% c("high","less")){
+            
+            clust_filt = with(img1_tab,
+                              gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
+                                           nrow = max(x), ncol = max(y)),
+                                    sigma = sig)) > 0.1*index_high
+            
+            img1_tab[,'clust_filt'] = img1_tab[,"clust"]
+            
+            img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
+            print(ggplot(img1_tab) +
+                    geom_raster(aes(x = y, y = x,
+                                    fill = as.factor(clust_filt))) +
+                    coord_fixed() +
+                    theme_minimal() +
+                    scale_fill_manual(name = "Vegetation",
+                                      values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
+                    scale_y_reverse())
+            
+            index_high=index_high+1
+            
+            
+          }else if(plot_l=="stop"){
+            break
+          } else{
+            
+            clust_filt = with(img1_tab,
+                              gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
+                                           nrow = max(x), ncol = max(y)),
+                                    sigma = sig)) > 0.1/index_low
+            
+            img1_tab[,'clust_filt'] = img1_tab[,"clust"]
+            
+            img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
+            
+            print(ggplot(img1_tab) +
+                    geom_raster(aes(x = y, y = x,
+                                    fill = as.factor(clust_filt))) +
+                    coord_fixed() +
+                    theme_minimal() +
+                    scale_fill_manual(name = "Vegetation",
+                                      values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
+                    scale_y_reverse())
+            
+            
+            index_low=index_low+1
+            
+          }
+          
+          if (index_low >2 || index_high>2){
+            sig=sig+.5
+            index_low=1
+            index_high=1
+          }
+          
+          plot_l=readline("Good enought ? (high or low or else)") 
+          
+          
+          
+        }
+        
+        matrix_2=matrix(as.numeric(img1_tab[,'clust_filt']==2),nrow=sqrt(nrow(img1_tab)),ncol=sqrt(nrow(img1_tab)))
+        matrix_3=matrix(as.numeric(img1_tab[,'clust_filt']==3),nrow=sqrt(nrow(img1_tab)),ncol=sqrt(nrow(img1_tab)))
+        
+        write.table(matrix_2,paste0("../Data/Data_Biocom/type_landscape/landscape_type1_",d_biocom$File_ID[img_id],".csv"),sep=";")
+        write.table(matrix_3,paste0("../Data/Data_Biocom/type_landscape/landscape_type2_",d_biocom$File_ID[img_id],".csv"),sep=";")
+        
+        return("Coexistence")
+        
+      }
+      
+    }
+  }else {
+    return(NA)
+  }
+    
+}
+
+
+ABC_empirical=function(id,model="Eby_feedback"){
+  
+  #Classic Eby model
+  
+  d_Eby=read.table(paste0("../Data/All_sim_",model,".csv"),sep=";")%>%
+    filter(., rho_p > 0.05 & !is.na(PLR) & !is.na(PL_expo))
+  d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
+               Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+               PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+    filter(., rho_p>0.05,Model==model,Pooling=="1")
+  
+  d2=tibble()
+  Plot_empirical(id)
+  target=Get_sumstat(pooling(Get_empirical_site(id),1)>.5)
+  
+  target[is.na(target)]=0
+  
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+  if (length(target)==8){
+    d2=rbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=rbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  
+  target=Get_sumstat(pooling(Get_empirical_site(id),2)>.5)
+  target[is.na(target)]=0
+  
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+  if (length(target)==8){
+    d2=cbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=cbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  #Eby model with *2 scaling
+  
+  
+  
+  d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
+               Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+               PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+    filter(., rho_p>0.05,Model==model,Pooling=="1/2")
+  
+  target=Get_sumstat(pooling(Get_empirical_site(id),1)>.5)
+  target[is.na(target)]=0
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+  if (length(target)==8){
+    d2=cbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=cbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  
+  target=Get_sumstat(pooling(Get_empirical_site(id),2)>.5)
+  target[is.na(target)]=0
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+
+  if (length(target)==8){
+    d2=cbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=cbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  
+  #Eby model with *3 scaling
+  
+  
+  d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
+               Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+               PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+    filter(., rho_p>0.05,Model==model,Pooling=="1/3")
+  
+  target=Get_sumstat(pooling(Get_empirical_site(id),1)>.5)
+  target[is.na(target)]=0
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+  if (length(target)==8){
+    d2=cbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=cbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  
+  target=Get_sumstat(pooling(Get_empirical_site(id),2)>.5)
+  target[is.na(target)]=0
+  
+  if (any(which(target==0))){
+    id_0=which(target==0)
+    target=target[-id_0]
+    all_sim=d_sim[,c(1:9)[-id_0]]
+  }else {
+    all_sim=d_sim[,c(1:9)]
+  }
+  
+  test=abc(target=target,
+           param = matrix(data = NA,nrow = nrow(all_sim),2),sumstat = all_sim,
+           tol = 50/nrow(all_sim),method="rejection")
+  
+  if (length(target)==8){
+    d2=cbind(d2,  rbind(tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))),c(NA,NA)))
+  }else {
+    d2=cbind(d2,  tibble(obs=as.numeric(target),sim=as.numeric(colMeans(test$ss,na.rm = T))))
+  }
+  
+  colnames(d2)=c("Obs_1_Eby_1_OBS","Obs_1_Eby_1_SIM","Obs_2_Eby_1_OBS","Obs_2_Eby_1_SIM","Obs_1_Eby_.5_OBS","Obs_1_Eby_.5_SIM",
+              "Obs_2_Eby_.5_OBS","Obs_2_Eby_.5_SIM","Obs_1_Eby_.3_OBS","Obs_3_Eby_.3_SIM","Obs_2_Eby_.3_OBS","Obs_2_Eby_.3_SIM")
+  
+  na_df=as.data.frame(matrix(NA,3,12))
+  colnames(na_df)=colnames(d2)
+  d2=rbind(d2,na_df)
+  
+  
+  return(d2)
+  
+}
+
+Plot_png=function(mat_id){
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  
+  img_1=readPNG(paste0("../Data/Data_Biocom/png_img/",
+                       ifelse(as.numeric(strsplit(d_biocom$File_ID[mat_id],"-")[[1]][1])<100,
+                              ifelse(as.numeric(strsplit(d_biocom$File_ID[mat_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[mat_id]),paste0("0",d_biocom$File_ID[mat_id])),
+                              d_biocom$File_ID[mat_id]
+                       ),".png"))
+  grid::grid.raster(img_1)
+}
