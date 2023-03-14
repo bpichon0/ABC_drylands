@@ -1,6 +1,6 @@
 using StatsBase, RCall, Plots, StatsPlots, Random, LaTeXStrings,
     BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames,
-    LatinHypercubeSampling, JLD, DelimitedFiles
+    LatinHypercubeSampling, JLD, DelimitedFiles, RData
 
 function Get_classical_param()
 
@@ -56,12 +56,8 @@ function Plot_dynamics_Eby(d)
 end
 
 
-function Plot_landscape(landscape, with_fertile)
-    if with_fertile
-        landscape[findall((landscape .== 0))] .= 1
-    else
-        landscape[findall((landscape .== 0))] .= -1
-    end
+function Plot_landscape(landscape)
+    landscape[findall((landscape .== -1))] .= 0
     colGRAD = cgrad([colorant"white", colorant"black"])
     heatmap(landscape, yflip=true, fill=true, c=colGRAD)
 end
@@ -775,4 +771,17 @@ function inverse_pooling(mat, submatrix_size) #increasing resolution
     end
 
     return new_mat
+end
+
+
+
+function expand_grid(; iters...)
+    var_names = collect(keys(iters))
+    var_itr = [1:length(x) for x in iters.data]
+    var_ix = vcat([collect(x)' for x in Iterators.product(var_itr...)]...)
+    out = DataFrame()
+    for i = 1:length(var_names)
+        out[:,var_names[i]] = collect(iters[i])[var_ix[:,i]]
+    end
+    return out
 end

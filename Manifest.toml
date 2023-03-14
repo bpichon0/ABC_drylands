@@ -1060,6 +1060,12 @@ version = "0.4.5"
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[deps.Mocking]]
+deps = ["ExprTools"]
+git-tree-sha1 = "748f6e1e4de814b101911e64cc12d83a6af66782"
+uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
+version = "0.7.2"
+
 [[deps.ModelingToolkit]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DiffEqJump", "DiffRules", "Distributed", "DocStringExtensions", "GeneralizedGenerated", "IfElse", "LabelledArrays", "Latexify", "Libdl", "LightGraphs", "LinearAlgebra", "MacroTools", "NaNMath", "RecursiveArrayTools", "Requires", "SafeTestsets", "SparseArrays", "SpecialFunctions", "StaticArrays", "SymbolicUtils", "TreeViews", "UnPack", "Unitful"]
 git-tree-sha1 = "a2777851fd21be36882ddafe5b5e2036cdc14636"
@@ -1324,6 +1330,12 @@ deps = ["CategoricalArrays", "Conda", "DataFrames", "DataStructures", "Dates", "
 git-tree-sha1 = "2c0ffd39860c9a48259a0f57214ced2024ab63bc"
 uuid = "6f49c342-dc21-5d91-9882-a32aef131414"
 version = "0.13.14"
+
+[[deps.RData]]
+deps = ["CategoricalArrays", "CodecZlib", "DataFrames", "Dates", "FileIO", "Requires", "TimeZones", "Unicode"]
+git-tree-sha1 = "19e47a495dfb7240eb44dc6971d660f7e4244a72"
+uuid = "df47a6cb-8c03-5eed-afd8-b6050d6c41da"
+version = "0.8.3"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1658,6 +1670,12 @@ deps = ["OffsetArrays"]
 git-tree-sha1 = "5683455224ba92ef59db72d10690690f4a8dc297"
 uuid = "06e1c1a7-607b-532d-9fad-de7d9aa2abac"
 version = "0.3.1"
+
+[[deps.TimeZones]]
+deps = ["Dates", "Future", "LazyArtifacts", "Mocking", "Pkg", "Printf", "RecipesBase", "Serialization", "Unicode"]
+git-tree-sha1 = "a5688ffdbd849a98503c6650effe79fe89a41252"
+uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
+version = "1.5.9"
 
 [[deps.TimerOutputs]]
 deps = ["ExprTools", "Printf"]

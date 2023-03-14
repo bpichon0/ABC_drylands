@@ -3,7 +3,6 @@ source("./ABC_drylands_function.R")
 
 
 
-
 # ---------------------- Step 1: Testing with the Eby model  ----
 
 #***********************************************************
@@ -3690,7 +3689,7 @@ ggsave("../Figures/Empirical_data/Pooling/Change_in_PCA_space_double_pooling.pdf
 # ---------------------- Step 5: Increasing/decreasing spatial resolution artificially ----
 
 
-## 1) >> Doing it on empirical data ----
+## >> 1) Doing it on empirical data ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 
@@ -3874,7 +3873,7 @@ ggsave("../Figures/Spatial_resolution/Model/Explicit_change_sumstat_aridity_data
 
 
 
-## 2) >> Doing it on simulations ----
+## >> 2) Doing it on simulations ----
 
 #For that we first select 25000 simulations per model
 
@@ -3957,9 +3956,11 @@ for (sim in d_simu2){
 colnames(d)=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
               "Spectral_ratio","PLR","PL_expo")
 
-d=add_column(d,Pooling=rep(c("1"),nrow(d)))%>%
-  add_column(., Model="Schneider")%>%
-  filter(., rho_p > 0.03)
+d=d%>%
+  filter(., rho_p > 0.03)%>%
+  add_column(.,Pooling=rep(c("1","1/2","1/3"),nrow(.)/3))%>%
+  add_column(., Model="Schneider")
+  
 
 d_simu=rbind(d_simu,d)
 
@@ -4116,9 +4117,73 @@ for (model in unique(d_sim$Model)){
   ggsave(paste0("../Figures/Spatial_resolution/Model/PCA_spatial_resolution_",model,"_model_and_data_COVER.pdf"),p,width = 11,height = 5)
   
   
+  # if the model is Schneider we plot the PCA with the specific parameters giving aggregation
+  
+  if (model=="Schneider"){
+    
+    d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+    d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models_with_Schn_aggre.csv",sep=";"),
+                 Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                 PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+      filter(., rho_p>0.03)%>%
+      arrange(.,Model)
+    
+    for (i in 1:(nrow(d_sim)/4)){
+      d_sim$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d_sim$PL_expo[(4*(i-1)+4)]
+    }
+    
+    d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
+    
+    d_sim_data=rbind(d_sim%>%filter(., Model==model),
+                     d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
+                       add_column(., Pooling="Data",Model=NA)%>%
+                       mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
+    
+    sumstat_name=colnames(d_sim_data)[1:9]
+    res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+    
+    if ("completeObs" %in% names(res.comp)){
+      res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+    }else {
+      res.pca=PCA(res.comp, ncp = 3,  graph=F)
+    }
+    
+    axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+    
+    for (i in 1:3){
+      assign(paste0("p",i),
+             d_sim_data%>%
+               mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
+               add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+               ggplot(.) +
+               geom_hline(yintercept = 0, lty = 2) +
+               geom_vline(xintercept = 0, lty = 2) +
+               geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling),alpha=.5)+
+               scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","black"))+
+               scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","black"))+
+               labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                    y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
+               ggtitle("")+guides(shape="none")+
+               theme_classic()+theme(legend.position = "bottom")+
+               guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+      )
+    }
+    
+    p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                          p2+theme(legend.position = "none"),
+                          p3+theme(legend.position = "none"),
+                          ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+                nrow=2,heights = c(1,.1))
+    
+    ggsave(paste0("../Figures/Spatial_resolution/Model/PCA_spatial_resolution_",model,"_Aggregation.pdf"),p,width = 11,height = 5)
+    
+    
+    
+    
+  }
+
   
   # Finally, we compare the density of simulations versus data
-  
   
   d_sim_data=rbind(d_sim%>%filter(., Model==model,Pooling != "1"),
                    d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
@@ -4126,13 +4191,11 @@ for (model in unique(d_sim$Model)){
                      mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))%>%
     arrange(., Model)
   
-  
   assign(paste0("p",index),ggplot(d_sim_data%>%melt(., id.vars=c("Pooling","Model")))+
     geom_density(aes(x=value,fill=Model),alpha=.3)+
     facet_wrap(.~variable,scales = "free")+
     theme_classic()+theme(legend.position = "bottom")+
     scale_fill_manual(values=c("blue","forestgreen"),labels=c("Sim","Emp")))
-  
   
   index=index+1
 }
@@ -4224,12 +4287,7 @@ for (sim in list_sim){
   colnames(d_sim)=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
                     "Spectral_ratio","PLR","PL_expo","driver","Pooling")
   
-  # print(ggplot(d_sim%>%melt(., id.vars=c("Pooling","driver"))%>%filter(., variable %!in% c("rho_p","nb_neigh","clustering")))+
-  #   geom_point(aes(x=driver,y=value,color=as.character(Pooling)))+
-  #   labs(x="Driver",y="")+
-  #   facet_wrap(.~variable,scales="free")+
-  #   the_theme)
-    
+
   dat_melt=melt(d_sim, id.vars=c("Pooling","driver"))
   
   for (pool in unique(dat_melt$Pooling)){
@@ -4377,7 +4435,116 @@ d_sim%>%
 
 
 
-## 3) >> Which are the outsiders in the PCA ? ----
+## >> 3) How points changes with p, q and trajectories in spatial resolution space ----
+
+
+n_param=2
+list_sim=list.files("../Data/Step9_Spatial_resolution/Simu/Eby_feedback",".csv")
+
+d=tibble()
+for (sim in list_sim){
+  d=rbind(d,read.table(paste0("../Data/Step9_Spatial_resolution/Simu/Eby_feedback/",sim),sep=",")[c(3:11,1:2)])
+}
+
+colnames(d)=c("rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+              "Spectral_ratio","PLR","PL_expo","p","q")
+
+d=add_column(d,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))%>%
+  add_column(., Model="Eby_feedback")%>%
+  filter(., rho_p > 0.03)
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_sim=mutate(d,
+             Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+             PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+  filter(., rho_p>0.03)%>%
+  arrange(.,Model)
+
+for (i in 1:(nrow(d_sim)/4)){
+  d_sim$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d_sim$PL_expo[(4*(i-1)+4)]
+}
+
+#d_sim$PL_expo[is.na(d_sim$PL_expo)]=0
+d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
+index=1
+
+
+d_sim_data=rbind(d_sim,
+                 d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
+                   add_column(., p=NA,q=NA, Pooling="Data",Model=NA)%>%
+                   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
+
+sumstat_name=colnames(d_sim_data)[1:9]
+res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+
+if ("completeObs" %in% names(res.comp)){
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+}else {
+  res.pca=PCA(res.comp, ncp = 3,  graph=F)
+}
+
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_sim_data%>%
+           mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = p,fill=q),alpha=.5)+
+           scale_color_viridis_c(option = "D")+
+           scale_fill_viridis_c(option = "D")+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+  )
+}
+
+p_1=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                      p2+theme(legend.position = "none"),
+                      p3+theme(legend.position = "none"),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
+
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_sim_data%>%
+           mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = q,fill=q),alpha=.5)+
+           scale_color_viridis_c(option = "D")+
+           scale_fill_viridis_c(option = "D")+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+  )
+}
+
+p_2=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                      p2+theme(legend.position = "none"),
+                      p3+theme(legend.position = "none"),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
+
+ggsave(paste0("../Figures/Spatial_resolution/Model/PCA_spatial_resolution_Eby_feedback_model_and_data_P_Q.pdf"),
+       ggarrange(p_1,p_2,nrow=2),width = 11,height = 10)
+
+
+
+
+
+## >> 4) Which are the outsiders in the PCA ? ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
   filter(., Nbpixels<80000)
@@ -4424,7 +4591,7 @@ ggplot(d_biocom%>%mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(cl
 
 
 
-## 4) >> Example change fit PL exponent with resolution ----
+## >> 5) Example change fit PL exponent with resolution ----
 
 
 id=86
@@ -4470,7 +4637,7 @@ for (img_id in list.files("../Data/Data_Biocom/png_img/")){
 
 
 
-## 1) >> Classification herb vs shrubs ----
+## >> 1) Classification herb vs shrubs ----
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 
@@ -4482,9 +4649,6 @@ for (i in 1:345){
   
   write.table(d,"../Data/Data_Biocom/type_vege.csv",sep=";")
 }
-
-
-
 
 for (mod in c("Schneider","Eby_feedback")){
   
@@ -4555,99 +4719,6 @@ for (mod in c("Schneider","Eby_feedback")){
 
 
 
-d_sim_data=rbind(d_sim%>%mutate(., Model=NA, Pooling=NA),
-                 d_biocom[,17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
-                   add_column(., Pooling="Data",Model=log(d_biocom$Nbpixels))%>%
-                   filter(d_biocom$Nbpixels<80000)%>%
-                   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
-
-sumstat_name=colnames(d_sim_data)[1:9]
-res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
-
-if ("completeObs" %in% names(res.comp)){
-  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
-}else {
-  res.pca=PCA(res.comp, ncp = 3,  graph=F)
-}
-
-axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
-
-for (i in 1:3){
-  assign(paste0("p",i),
-         d_sim_data%>%
-           mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
-           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
-           ggplot(.) +
-           geom_hline(yintercept = 0, lty = 2) +
-           geom_vline(xintercept = 0, lty = 2) +
-           geom_point(aes(x = PC1, y = PC2, color = Model,fill=Model))+
-           scale_color_viridis_c(alpha = 1,na.value = alpha("gray",.3))+
-           scale_fill_viridis_c(alpha = 1,na.value = alpha("gray",.3))+
-           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="# Pixels",fill="")+
-           ggtitle("")+guides(shape="none")+
-           theme_classic()+theme(legend.position = "bottom")+
-           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
-  )
-}
-
-p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
-                      p2+theme(legend.position = "none"),
-                      p3+theme(legend.position = "none"),
-                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
-            nrow=2,heights = c(1,.2))
-
-ggsave(paste0("../Figures/Plant_type/PCA_NB_pixels.pdf"),p,width = 11,height = 6)
-
-
-
-
-
-d_sim_data=rbind(d_sim%>%mutate(., Model=NA, Pooling=NA),
-                 d_biocom[,17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
-                   add_column(., Pooling="Data",Model=log(d_biocom$clustering))%>%
-                   filter(d_biocom$Nbpixels<80000)%>%
-                   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
-
-sumstat_name=colnames(d_sim_data)[1:9]
-res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
-
-if ("completeObs" %in% names(res.comp)){
-  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
-}else {
-  res.pca=PCA(res.comp, ncp = 3,  graph=F)
-}
-
-axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
-
-for (i in 1:3){
-  assign(paste0("p",i),
-         d_sim_data%>%
-           mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
-           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
-           ggplot(.) +
-           geom_hline(yintercept = 0, lty = 2) +
-           geom_vline(xintercept = 0, lty = 2) +
-           geom_point(aes(x = PC1, y = PC2, color = Model,fill=Model))+
-           scale_color_viridis_c(alpha = 1,na.value = alpha("gray",.3))+
-           scale_fill_viridis_c(alpha = 1,na.value = alpha("gray",.3))+
-           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Clustering",fill="")+
-           ggtitle("")+guides(shape="none")+
-           theme_classic()+theme(legend.position = "bottom")+
-           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
-  )
-}
-
-p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
-                      p2+theme(legend.position = "none"),
-                      p3+theme(legend.position = "none"),
-                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
-            nrow=2,heights = c(1,.2))
-
-ggsave(paste0("../Figures/Plant_type/PCA_clustering.pdf"),p,width = 11,height = 6)
-
-
 
 
 
@@ -4698,7 +4769,86 @@ ggsave(paste0("../Figures/Plant_type/PCA_nb_neighbors.pdf"),p,width = 11,height 
 
 
 
-## 2) >> Statistics on shrubs -----
+
+#doing the same with berdugo classification
+d_berdugo=read.table("../Data/Step7_Empirical_data/Patterns/Classif_berdugo.csv",sep=";")
+
+  
+for (mod in c("Schneider","Eby_feedback")){
+  
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+
+  
+  d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
+               Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+               PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+    filter(., rho_p>0.03,Model==mod)
+  
+  for (i in 1:(nrow(d_sim)/4)){
+    d_sim$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d_sim$PL_expo[(4*(i-1)+4)]
+  }
+  
+  d=read.table("../Data/Data_Biocom/type_vege.csv",sep=";")
+  
+  d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
+  
+  d_sim_data=rbind(d_sim,
+                   d_biocom[,17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
+                     add_column(., Pooling="Data",Model=sapply(1:nrow(d_biocom),function(x){
+                       return(d_berdugo$VEG[which(d_berdugo$plotn==d_biocom$Plot_n[x])])
+                     }))%>%
+                     filter(., d_biocom$Nbpixels<80000)%>%
+                     mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
+  
+  sumstat_name=colnames(d_sim_data)[1:9]
+  res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+  
+  if ("completeObs" %in% names(res.comp)){
+    res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+  }else {
+    res.pca=PCA(res.comp, ncp = 3,  graph=F)
+  }
+  
+  axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+  
+  
+  
+  for (i in 1:3){
+    assign(paste0("p",i),
+           d_sim_data%>%
+             mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
+             add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+             ggplot(.) +
+             geom_hline(yintercept = 0, lty = 2) +
+             geom_vline(xintercept = 0, lty = 2) +
+             geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling,shape=Model,size=Model),alpha=.5)+
+             scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","black"))+
+             scale_fill_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","black"))+
+             scale_size_manual(values=c(.5,2,2,2,2))+
+             labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                  y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
+             ggtitle("")+
+             theme_classic()+theme(legend.position = "bottom",legend.box = "vertical")+
+             guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none",
+                    shape = guide_legend(override.aes = list(size = 5)))
+    )
+  }
+  
+  p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                        p2+theme(legend.position = "none"),
+                        p3+theme(legend.position = "none"),
+                        ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+              nrow=2,heights = c(1,.2))
+  
+  ggsave(paste0("../Figures/Plant_type/PCA_shrub_herb_coex_",mod,"2.pdf"),p,width = 11,height = 6)
+  
+}
+
+
+
+
+
+## >> 2) Statistics on shrubs -----
 library(spatstat)
 
 list_landscape=list.files("../Data/Data_Biocom/type_landscape/",pattern = "type2") #we keep shrubs
@@ -4709,9 +4859,9 @@ d=tibble()
 for (i in 1:length(list_landscape)){
   
   mat=as.matrix(read.table(paste0("../Data/Data_Biocom/type_landscape/",list_landscape[i]),sep=";"))
-  # Plot_landscape(mat)
+  #Plot_landscape(mat)
   mat_filter=Filtering_small_patches(mat,cutoff = 40)
-  # Plot_landscape(mat_filter)
+  Plot_landscape(mat_filter)
   d2=Centroid_patches(mat_filter) #getting the centroïd and size of each patch
   d=rbind(d,d2%>%add_column(., Id_landscape=gsub(".csv","",strsplit(list_landscape[i],"_")[[1]][3]))) 
   
@@ -4739,24 +4889,7 @@ dev.off()
 
 # ---------------------- Step 7: Testing ABC with the observation parameter: can we retrieve parameters despite the scale of observation ----
 
-## 0) >> Aggregating the simulations ----
-
-list_sim=list.files("../Data/Step10_ABC_scale/Sim",pattern = ".csv")
-d=tibble()
-
-for (sim in list_sim){
-
-  d2=read.table(paste0("../Data/Step10_ABC_scale/Sim/",sim),sep=",")
-  colnames(d2)= c("p","q","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-                  "Spectral_ratio","PLR","PL_expo")
-  d=rbind(d,filter(d2,rho_p != 0)%>%
-            add_column(.,Pooling=rep(c("x2","x3"),nrow(.)/2)))
-}
-write.table(d,"../Data/Step10_ABC_scale/All_sim_Eby.csv",sep=";")
-
-
-
-## 1) >> ABC with multiple scale of observation ----
+## >> 1) ABC with multiple scale of observation ----
 
 d_simu=tibble()
 list_sim=list.files("../Data/Step9_Spatial_resolution/Simu/Eby_feedback",".csv")
@@ -4884,7 +5017,7 @@ plot(x=filter(x_y_param,Method=="NeuralNet",Type=="Sim")[,2],xlab="Sim",ylab="Ob
 abline(a=0,b=1)
 
 
-## 2) >> ABC with only x2, x3, x4 as scale of observation (separately) ----
+## >> 2) ABC with only x2, x3, x4 as scale of observation (separately) ----
 
 d_simu=tibble()
 list_sim=list.files("../Data/Step9_Spatial_resolution/Simu/Eby_feedback",".csv")
@@ -5027,127 +5160,8 @@ p2=ggplot(d_RMSE_param%>%melt(., id.vars=c("Site_ID","Method","Pooling"))%>%
 ggsave("../Figures/Spatial_resolution/ABC_scale/ABC_param_Eby_feedback.pdf",p2,width = 7,height = 6)
 
 
-## 3) >> Quantifying the robustness of inference across scales of observation ----
-# 
-# d_simu=tibble()
-# list_sim=list.files("../Data/Step9_Spatial_resolution/Simu/Eby_feedback",".csv")
-# n_param=2
-# 
-# d=tibble()
-# for (sim in list_sim){
-#   d=rbind(d,read.table(paste0("../Data/Step9_Spatial_resolution/Simu/Eby_feedback","/",sim),sep=",")[,1:(n_param+9)])
-# }
-# colnames(d)=c("p","q","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-#               "Spectral_ratio","PLR","PL_expo")
-# 
-# for (i in 1:(nrow(d)/4)){
-#   d$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d$PL_expo[(4*(i-1)+4)]
-# }
-# 
-# set.seed(123)
-# 
-# list_virtual=d%>%add_column(.,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))%>%
-#   mutate(., ID_row=1:nrow(.))%>%
-#   filter(., rho_p != 0,Pooling !="1")%>%
-#   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
-#          PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
-#   filter(., rho_p>0.03)%>%
-#   sample_n(., 100)
-# 
-# d_RMSE_param=x_y_param=d_RMSE_stat=tibble()
-# 
-# for (scale_obs in c("1/2","1/3","1/4","all")){
-#   
-#   for (sample_id in 1:nrow(list_virtual)){ #we use the same landscape to compare what we are inferring
-#     
-#     if (scale_obs=="all"){scale_obs=c("1/2","1/3","1/4")}
-#     
-#     d_sim=add_column(d,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))%>%
-#       add_column(., Model="Eby_feedback",ID_row=1:nrow(.))%>%
-#       filter(., rho_p != 0)%>%
-#       filter(., Pooling %in% scale_obs)%>%
-#       mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
-#              PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
-#       filter(., rho_p>0.03)
-#     
-#     
-#     target=list_virtual[sample_id,3:11]
-#     target_param=list_virtual[sample_id,1:2]
-#       
-#     if (any(which(d_sim$ID_row==list_virtual$ID_row[sample_id]))){ #in case virtual data is in the simulation df, we remove it
-#       d_sim=d_sim[-which(d_sim$ID_row==list_virtual$ID_row[sample_id]),]
-#     }
-#     
-#     
-#     if (any(is.na(target))){
-#       which_na=which(is.na(target))
-#       abc_sim=abc(target=target[-which_na],
-#                   param = d_sim[,1:2],
-#                   sumstat = d_sim[,c(3:11)[-which_na]],
-#                   tol = 50/nrow(d_sim),method="rejection")
-#     } else {
-#       abc_sim=abc(target=target,
-#                   param = d_sim[,1:2],
-#                   sumstat = d_sim[,3:11],
-#                   tol = 50/nrow(d_sim),method="rejection")
-#     }
-#     
-# 
-#     if (length(scale_obs)==3){scale_obs="all"}
-#     
-#     x_y_param=rbind(x_y_param,list_virtual[sample_id,1:2]%>%
-#                       add_column(., Site_ID=sample_id,Method="Rejection",Pooling=scale_obs,Type="Obs"))
-#     x_y_param=rbind(x_y_param,as_tibble(t(colMeans(abc_sim$unadj.values)))%>%
-#                       add_column(., Site_ID=sample_id,Method="Rejection",Pooling=scale_obs,Type="Sim"))
-#     
-#     if (any(is.na(target))){
-#       
-#       which_na=which(is.na(target))
-#       abc_sim=abc(target=target[-which_na],
-#                   param = d_sim[,1:2],sumstat = d_sim[,c(3:11)[-which_na]],
-#                   tol = 50/nrow(d_sim),method="neuralnet",transf = rep("logit",2),
-#                   logit.bounds = matrix(c(0,1),2,2,byrow = T),
-#                   numnet = 10,sizenet = 10)
-#       
-#     }else {
-#       abc_sim=abc(target=target,
-#                   param = d_sim[,1:2],sumstat = d_sim[,3:11],
-#                   tol = 50/nrow(d_sim),method="neuralnet",transf = rep("logit",2),
-#                   logit.bounds = matrix(c(0,1),2,2,byrow = T),
-#                   numnet = 10,sizenet = 10)
-#     }
-#     
-# 
-#     x_y_param=rbind(x_y_param,list_virtual[sample_id,1:2]%>%
-#                       add_column(., Site_ID=sample_id,Method="NeuralNet",Pooling=scale_obs,Type="Obs"))
-#     x_y_param=rbind(x_y_param,as_tibble(t(colMeans(abc_sim$adj.values)))%>%
-#                       add_column(., Site_ID=sample_id,Method="NeuralNet",Pooling=scale_obs,Type="Sim"))
-#     
-#   }
-# }
-# 
-# write.table(x_y_param,"../Data/Step10_ABC_scale/Quality_inference_scale.csv",sep=";")
-# 
-# 
-# 
-# x_y_param=read.table("../Data/Step10_ABC_scale/Quality_inference_scale.csv",sep=";")
-# 
-# ggplot(x_y_param%>%melt(., measure.vars=c("p","q"))%>%
-#          filter(., Method=="NeuralNet"))+
-#   geom_line(aes(x=Pooling,y=value,group=Site_ID),color="gray")+
-#   the_theme+
-#   facet_wrap(.~variable)
-# 
-# par(mfrow=c(3,3))
-# for (i in unique(x_y_param$Method)){
-#   for (j in unique(x_y_param$Pooling)){
-#     plot(x=filter(x_y_param,Method==i,Type=="Sim",Pooling==j)[,1],xlab="Sim",ylab="Obs",main="Rejection, p",
-#          y=filter(x_y_param,Method==i,Type=="Obs",Pooling==j)[,1],col="gray")
-#     abline(a=0,b=1)
-#   }
-# }
+## >> 3) Comparing the inference for similar landscapes but observed at different scales ----
 
-## 4) >> Comparing the inference for similar landscapes but observed at different scales ----
 
 d_simu=tibble()
 list_sim=list.files("../Data/Step9_Spatial_resolution/Simu/Eby_feedback",".csv")
@@ -5161,13 +5175,15 @@ for (sim in list_sim){
 colnames(d)=c("p","q","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
               "Spectral_ratio","PLR","PL_expo")
 
-d_sim=add_column(d,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))%>%
+d_sim=add_column(d,Pooling=rep(c(4,3,2,1),nrow(d)/4))%>%
   add_column(., Model="Eby_feedback",ID_sim=rep(1:(nrow(.)/4),each=4))%>%
   filter(., rho_p != 0)%>%
-  filter(., Pooling !="1")%>%
+  filter(., Pooling !=1)%>%
   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
          PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
   filter(., rho_p>0.03)
+
+d_sim=d_sim[,c(12,1:2,3:11,13:ncol(d_sim))]
 
 set.seed(123)
 list_sample=sample(unique(d_sim$ID_sim),100) #for each of these 100 parameter sets, we need to verify whether we infer the same parameters of not
@@ -5175,31 +5191,31 @@ d_RMSE_param=x_y_param=tibble()
 
 for (sample_id in list_sample){
   
-  for (scale_obs in c("1/4","1/3","1/2")){
+  for (scale_obs in c(4,3,2)){ #we include the scale of observation as a parameter of the model
     
     target=d_sim%>%filter(., ID_sim==sample_id,Pooling==scale_obs)%>%
-      dplyr::select(., -Pooling,-Model,-ID_sim)
+      dplyr::select(., -Model,-ID_sim)
     
     all_sim=d_sim[-which(d_sim$Pooling==scale_obs & d_sim$ID_sim==sample_id),]%>%
-                   dplyr::select(., -Pooling,-Model,-ID_sim)
+      dplyr::select(., -Model,-ID_sim)
     
     if (any(is.na(target))){
       
       which_na=which(is.na(target))
-      abc_sim=abc(target=target[-which_na,3:11],
-                  param = all_sim[,1:2],sumstat = all_sim[,c(3:11)[-which_na]],
+      abc_sim=abc(target=target[-which_na,4:12],
+                  param = all_sim[,1:3],sumstat = all_sim[,c(4:12)[-which_na]],
                   tol = 50/nrow(all_sim),method="rejection")
       
     }else {
-      abc_sim=abc(target=target[,3:11],
-                  param = all_sim[,1:2],sumstat = all_sim[,3:11],
+      abc_sim=abc(target=target[,4:12],
+                  param = all_sim[,1:3],sumstat = all_sim[,4:12],
                   tol = 50/nrow(all_sim),method="rejection")
     }
     
     RMSE = sapply(1:ncol(abc_sim$unadj.values),function(x){
       sqrt(sum((abc_sim$unadj.values[,x]-target[,x])**2)/nrow(abc_sim$unadj.values) )})
     
-    RMSE_prior=sapply(1:2,function(x){
+    RMSE_prior=sapply(1:3,function(x){
       sqrt(sum(((all_sim[,x]-target[,x])**2)/nrow(all_sim) ))})
     
     NMRSE=RMSE/RMSE_prior
@@ -5210,31 +5226,31 @@ for (sample_id in list_sample){
     x_y_param=rbind(x_y_param,data.frame((t(colMeans(abc_sim$unadj.values))))%>%
                       add_column(., Site_ID=which(list_sample == sample_id),Method="Rejection",Type="Sim",Pooling=scale_obs))
     
-    x_y_param=rbind(x_y_param,as.data.frame(target[,1:2])%>%
+    x_y_param=rbind(x_y_param,as.data.frame(target[,1:3])%>%
                       add_column(., Site_ID=which(list_sample == sample_id),Method="Rejection",Type="Obs",Pooling=scale_obs))
     
     
     if (any(is.na(target))){
       
       which_na=which(is.na(target))
-      abc_sim=abc(target=target[-which_na,3:11],
-                  param = all_sim[,1:2],sumstat = all_sim[,c(3:11)[-which_na]],
-                  tol = 50/nrow(all_sim),method="neuralnet",transf = rep("logit",2),
-                  logit.bounds = matrix(c(0,1),2,2,byrow = T),
+      abc_sim=abc(target=target[-which_na,4:12],
+                  param = all_sim[,1:3],sumstat = all_sim[,c(3:11)[-which_na]],
+                  tol = 50/nrow(all_sim),method="neuralnet",transf = c("none",rep("logit",2)),
+                  logit.bounds = matrix(c(0,1),3,2,byrow = T),
                   numnet = 10,sizenet = 10)
       
     }else {
-      abc_sim=abc(target=target[,3:11],
-                  param = all_sim[,1:2],sumstat = all_sim[,3:11],
-                  tol = 50/nrow(all_sim),method="neuralnet",transf = rep("logit",2),
-                  logit.bounds = matrix(c(0,1),2,2,byrow = T),
+      abc_sim=abc(target=target[,4:12],
+                  param = all_sim[,1:3],sumstat = all_sim[,4:12],
+                  tol = 50/nrow(all_sim),method="neuralnet",transf = c("none",rep("logit",2)),
+                  logit.bounds = matrix(c(0,1),3,2,byrow = T),
                   numnet = 10,sizenet = 10)
     }
     
     RMSE = sapply(1:ncol(abc_sim$unadj.values),function(x){
       sqrt(sum((abc_sim$unadj.values[,x]-target[,x])**2)/nrow(abc_sim$unadj.values) )})
     
-    RMSE_prior=sapply(1:2,function(x){
+    RMSE_prior=sapply(1:3,function(x){
       sqrt(sum(((all_sim[,x]-target[,x])**2)/nrow(all_sim) ))})
     
     NMRSE=RMSE/RMSE_prior
@@ -5245,15 +5261,18 @@ for (sample_id in list_sample){
     x_y_param=rbind(x_y_param,data.frame(t(colMeans(abc_sim$adj.values)))%>%
                       add_column(., Site_ID=which(list_sample == sample_id),Method="NeuralNet",Type="Sim",Pooling=scale_obs))
     
-    x_y_param=rbind(x_y_param,target[,1:2]%>%
+    x_y_param=rbind(x_y_param,target[,1:3]%>%
                       add_column(., Site_ID=which(list_sample == sample_id),Method="NeuralNet",Type="Obs",Pooling=scale_obs))
   }
 }
 
+
+
+
 #write.table(d_RMSE_param,"../Data/Step10_ABC_scale/Retrieving_parameters_different_resolution_RMSE_param.csv",sep=";")
 #write.table(x_y_param,"../Data/Step10_ABC_scale/Retrieving_parameters_different_resolution_x_y.csv",sep=";")
 
-p1=ggplot(d_RMSE_param%>%
+p1=ggplot(d_RMSE_param[,-1]%>% #we remove the scale of observation
            melt(., id.vars=c("Site_ID","Method","Pooling")))+
   geom_jitter(aes(x=Pooling,y=value,color=Pooling),alpha=.5,size=.5,position = position_jitter(height = 0,width = .1))+
   facet_wrap(Method~variable,labeller = label_bquote(cols = Parameter==.(as.character(variable))))+
@@ -5264,7 +5283,7 @@ p1=ggplot(d_RMSE_param%>%
 
 
 
-p2=ggplot(x_y_param%>%
+p2=ggplot(x_y_param[,-1]%>% #we remove the scale of observation
            melt(., id.vars=c("Site_ID","Method","Pooling","Type"))%>%
          filter(., Type=="Sim"))+
   geom_line(aes(x=Pooling,y=value,group=Site_ID),alpha=.5,lwd=.5,color="gray")+
@@ -5288,19 +5307,21 @@ ggsave("../Figures/ABC_scale/Consistency_inference_param_scale.pdf",
 # ---------------------- Step 8: Trying to infer the stability of empirical sites ------------------
 
 
+## >> 1) Inference ----
 
-for (model in c("Kefi","Eby_feedback","Eby","Schneider")){
+for (model in c("Eby_feedback","Kefi","Eby","Schneider")){
   
   
   n_param=ifelse(model %in% c("Eby","Eby_feedback"),2,ifelse(model=="Kefi",7,8))
   
   
-  d_simu=tibble()
-  list_sim=list.files(paste0("../Data/Step9_Spatial_resolution/Simu/",model),".csv")
+  list_sim=list.files(paste0("../Data/Step9_Spatial_resolution/Simu/",model),
+                      ".csv")
   
   d=tibble()
   for (sim in list_sim){
-    d=rbind(d,read.table(paste0("../Data/Step9_Spatial_resolution/Simu/",model,"/",sim),sep=",")[,1:(n_param+9)])
+    d=rbind(d,read.table(paste0("../Data/Step9_Spatial_resolution/Simu/",model,
+                                "/",sim),sep=",")[,1:(n_param+9)])
   }
   
   if (model %in% c("Eby","Eby_feedback")){
@@ -5314,12 +5335,50 @@ for (model in c("Kefi","Eby_feedback","Eby","Schneider")){
                   "Spectral_ratio","PLR","PL_expo")
   }
   
-  d_sim=add_column(d,Pooling=rep(c("1/4","1/3",'1/2',"1"),nrow(d)/4))%>%
-    add_column(., Model=model)%>%
+  
+  d_sim=add_column(d,Pooling=rep(c(4,3,2,1),nrow(d)/4))%>%
     filter(., rho_p != 0)%>%
     mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
            PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
     filter(., rho_p>0.03)
+  
+  d_sim=d_sim[,c(1:n_param,n_param+9+1,(n_param+1):(n_param+9))] 
+  
+  save=d_sim
+  if (model=="Schneider"){
+    
+    n_param=3
+    
+    list_sim=list.files(paste0("../Data/Step9_Spatial_resolution/Simu/Schneider_Aggregated/"),
+                        ".csv")
+    
+    d=tibble()
+    for (sim in list_sim){
+      d=rbind(d,read.table(paste0("../Data/Step9_Spatial_resolution/Simu/Schneider_Aggregated",
+                                  "/",sim),sep=",")[,1:(n_param+9)])
+    }
+    
+    d=cbind(r=.0001,d[,1],f=.9,d[,2],d[,3],c=.3,delta=.1,g0=.2,d[,4:ncol(d)])
+    
+    colnames(d)=c("r","d","f","m","b","c","delta","g0","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+                  "Spectral_ratio","PLR","PL_expo")
+    
+    d_sim=d%>%filter(., rho_p>0.03)%>%
+      add_column(.,Pooling=rep(c(3,2,1),nrow(.)/3))%>%
+      mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+             PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))
+    
+    n_param=8
+    
+    d_sim=d_sim[,c(1:n_param,n_param+9+1,(n_param+1):(n_param+9))] 
+    
+    
+    
+    
+    d_sim=rbind(save,d_sim)
+  }
+  
+  
   
   
   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
@@ -5327,11 +5386,17 @@ for (model in c("Kefi","Eby_feedback","Eby","Schneider")){
   
   d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
   
+  d_param_infer_NN=array(0,c(50,nrow(d_biocom),3))
+  d_param_infer_rej=array(0,c(50,nrow(d_biocom),3))
+  d_param_infer_loc=array(0,c(50,nrow(d_biocom),3))
   
   
-  d_param_infer=x_y_stat=tibble()
   
-  for (empirical_id in 1:nrow(d_biocom)){
+  x_y_stat=tibble()
+  
+  for (empirical_id in 1:345){
+    
+    
     
     target=d_biocom[empirical_id,17:25]
     
@@ -5339,59 +5404,57 @@ for (model in c("Kefi","Eby_feedback","Eby","Schneider")){
       
       which_na=which(is.na(target))
       abc_sim=abc(target=target[-which_na],
-                  param = d_sim[,1:n_param],sumstat = d_sim[,c((n_param+1):(n_param+9))[-which_na]],
+                  param = d_sim[,1:(n_param+1)],sumstat = d_sim[,c((n_param+2):(n_param+10))[-which_na]],
                   tol = 50/nrow(d_sim),method="rejection")
       
+      x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                       add_column(., PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Obs"))
+      
       x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(abc_sim$ss)))%>%
-                       add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="Rejection",Type="Sim"))
-      
-      x_y_stat=rbind(x_y_stat,target%>%
-                       add_column(., Site_ID=empirical_id,Method="Rejection",Type="Obs"))
-      
-      
-      
+                       add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Sim"))
       
     }else {
       abc_sim=abc(target=target,
-                  param = d_sim[,1:n_param],sumstat = d_sim[,c((n_param+1):(n_param+9))],
+                  param = d_sim[,1:(n_param+1)],sumstat = d_sim[,c((n_param+2):(n_param+10))],
                   tol = 50/nrow(d_sim),method="rejection")
       
       x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(abc_sim$ss)))%>%
-                       add_column(., Site_ID=empirical_id,Method="Rejection",Type="Sim"))
+                       add_column(., Site_ID=empirical_id,Method="rejection",Type="Sim"))
       
       x_y_stat=rbind(x_y_stat,target%>%
-                       add_column(., Site_ID=empirical_id,Method="Rejection",Type="Obs"))
+                       add_column(., Site_ID=empirical_id,Method="rejection",Type="Obs"))
       
     }
     
     
-    d_param_infer=rbind(d_param_infer,as_tibble(t(colMeans(abc_sim$unadj.values)))%>%
-                          add_column(., Site_ID=empirical_id,Method="Rejection"))
+    d_param_infer_rej[,empirical_id,1]=abc_sim$unadj.values[,1] # we keep the whole distribution for p
+    d_param_infer_rej[,empirical_id,2]=abc_sim$unadj.values[,2] # for q
+    d_param_infer_rej[,empirical_id,3]=abc_sim$unadj.values[,3] # for the scale of observation
     
     
-    
+    target=d_biocom[empirical_id,17:25]
     
     if (any(is.na(target))){
       
       which_na=which(is.na(target))
       abc_sim=abc(target=target[-which_na],
-                  param = d_sim[,1:n_param],sumstat = d_sim[,c((n_param+1):(n_param+9))[-which_na]],
-                  tol = 50/nrow(d_sim),method="neuralnet",transf = rep("logit",n_param),
-                  logit.bounds = matrix(c(0,1),n_param,2,byrow = T),
+                  param = d_sim[,1:(n_param+1)],sumstat = d_sim[,c((n_param+2):(n_param+10))[-which_na]],
+                  tol = 50/nrow(d_sim),method="neuralnet",transf = c(rep("logit",n_param),"none"),
+                  logit.bounds = matrix(c(0,1),n_param+1,2,byrow = T),
                   numnet = 10,sizenet = 10)
+      
+      x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                       add_column(.,PL_expo=NA,  Site_ID=empirical_id,Method="NeuralNet",Type="Obs"))
       
       
       x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(abc_sim$ss)))%>%
                        add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="NeuralNet",Type="Sim"))
       
-      x_y_stat=rbind(x_y_stat,target%>%
-                       add_column(., Site_ID=empirical_id,Method="NeuralNet",Type="Obs"))
-      
     }else {
       abc_sim=abc(target=target,
-                  param = d_sim[,1:n_param],sumstat = d_sim[,c((n_param+1):(n_param+9))],
-                  tol = 50/nrow(d_sim),method="neuralnet",transf = rep("logit",n_param),
-                  logit.bounds = matrix(c(0,1),n_param,2,byrow = T),
+                  param = d_sim[,1:(n_param+1)],sumstat = d_sim[,c((n_param+2):(n_param+10))],
+                  tol = 50/nrow(d_sim),method="neuralnet",transf = c(rep("logit",n_param),"none"),
+                  logit.bounds = matrix(c(0,1),n_param+1,2,byrow = T),
                   numnet = 10,sizenet = 10)
       
       x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(abc_sim$ss)))%>%
@@ -5402,27 +5465,29 @@ for (model in c("Kefi","Eby_feedback","Eby","Schneider")){
       
     }
     
-    d_param_infer=rbind(d_param_infer,as_tibble(t(colMeans(abc_sim$unadj.values)))%>%
-                          add_column(., Site_ID=empirical_id,Method="NeuralNet"))
+    
+    d_param_infer_NN[,empirical_id,1]=abc_sim$adj.values[,1] # we keep the whole distribution for p
+    d_param_infer_NN[,empirical_id,2]=abc_sim$adj.values[,2] # for q
+    d_param_infer_NN[,empirical_id,3]=abc_sim$adj.values[,3] # for the scale of observation
     
     
     
   }
   
-  write.table(d_param_infer,paste0("../Data/Step11_Inferrence/Inferred_param_sites_",model,".csv"),sep=";")
+  write_rds(d_param_infer_NN,paste0("../Data/Step11_Inferrence/Inferred_param_sites_",model,"_NN.rds"))
+  write_rds(d_param_infer_rej,paste0("../Data/Step11_Inferrence/Inferred_param_sites_",model,"_Rej.rds"))
   write.table(x_y_stat,paste0("../Data/Step11_Inferrence/x_y_obs_sim_stat_",model,".csv"),sep=";")
   
   
-  pdf(paste0("../Figures/ABC_scale/obs_sim_all_models/obs_sim_sumstat_empirical_",model,".pdf"),width = 7,height = 7)
-  par(mfrow=c(3,3))
-  for (i in 1:9){
-    plot(x=filter(x_y_stat,Type=="Sim",Method=="Rejection")[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
-         y=filter(x_y_stat,Type=="Obs",Method=="Rejection")[,i],col="gray")
-    abline(a=0,b=1)
-  }
-  dev.off()
-  
 }
+
+
+
+
+
+
+
+
 
 
 
@@ -5432,23 +5497,22 @@ x_y_stat=read.table("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv
 pdf("../Figures/ABC_scale/obs_sim_sumstat_empirical_all.pdf",width = 7,height = 7)
 par(mfrow=c(3,3))
 for (i in 1:9){
-      plot(x=filter(x_y_stat,Type=="Sim",Method=="Rejection")[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
-           y=filter(x_y_stat,Type=="Obs",Method=="Rejection")[,i],col="gray")
+      plot(x=filter(x_y_stat,Type=="Sim")[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
+           y=filter(x_y_stat,Type=="Obs")[,i],col="gray")
       abline(a=0,b=1)
 }
 dev.off()
 
-x_y_stat=read.table("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv",sep=";")
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))
 
 pdf("../Figures/ABC_scale/obs_sim_sumstat_empirical_low_res.pdf",width = 7,height = 7)
 par(mfrow=c(3,3))
 for (i in 1:9){
-  d_sim=filter(x_y_stat,Type=="Sim",Method=="Rejection")%>%
-    filter(.,d_biocom$Nbpixels<80000)
-  d_obs=filter(x_y_stat,Type=="Obs",Method=="Rejection")%>%
-    filter(.,d_biocom$Nbpixels<80000)
+  d_sim=filter(x_y_stat,Type=="Sim")%>%
+    filter(.,Site_ID %in% which(d_biocom$Nbpixels<80000))
+  d_obs=filter(x_y_stat,Type=="Obs")%>%
+    filter(.,Site_ID %in% which(d_biocom$Nbpixels<80000))
   plot(x=d_sim[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
        y=d_obs[,i],col="gray")
   abline(a=0,b=1)
@@ -5457,8 +5521,482 @@ dev.off()
 
 
 
+## Comparing the posterior of each site for both methods of post-processing 
+
+d_param_infer_NN=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackNN.rds")
+d_param_infer_rej=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackrej.rds")
+
+pdf("../Figures/ABC_scale/Posterior_check/Distrib_parameters_post_proc_methods_ABC.pdf",width = 7,height = 4)
+par(mfrow=c(1,2))
+for (i in 1:nrow(d_biocom)){
+  
+  # hist(d_param_infer_NN[,i,1],main="p, neuralnet",col=alpha("purple",.3))
+  # abline(v=mean(d_param_infer_NN[,i,1]),col="blue",lwd=2)
+  # mtext(paste0("mean = ",round(mean(d_param_infer_NN[,i,1]),2),",   median = ",round(median(d_param_infer_NN[,i,1]),2)))
+  # 
+  # hist(d_param_infer_NN[,i,2],main="q, neuralnet",col=alpha("purple",.3))
+  # abline(v=mean(d_param_infer_NN[,i,2]),col="purple",lwd=2)
+  # mtext(paste0("mean = ",round(mean(d_param_infer_NN[,i,2]),2),",   median = ",round(median(d_param_infer_NN[,i,2]),2)))
+  
+  
+  hist(d_param_infer_rej[,i,1],main="p, rejection",col=alpha("blue",.3))
+  abline(v=mean(d_param_infer_rej[,i,1]),col="blue",lwd=2)
+  mtext(paste0("mean = ",round(mean(d_param_infer_rej[,i,1]),2),",   median = ",round(median(d_param_infer_rej[,i,1]),2)))
+  
+  hist(d_param_infer_rej[,i,2],main="q, rejection",col=alpha("blue",.3))
+  abline(v=mean(d_param_infer_rej[,i,2]),col="purple",lwd=2)
+  mtext(paste0("mean = ",round(mean(d_param_infer_rej[,i,1]),2),",   median = ",round(median(d_param_infer_rej[,i,1]),2)))
+}
+dev.off()
+
+
+
+# correlation between the error x-y and the range of parameter posterior
+
+d_param_infer_NN=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackNN.rds")
+d_param_infer_rej=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackrej.rds")
+x_y_stat=read.table("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv",sep=";")
+
+
+for (i in c("rejection","NeuralNet")){
+  
+  x_y_stat_fil=filter(x_y_stat,Method==i)
+  sum_dist_obs=sapply(1:(nrow(x_y_stat_fil)/2),function(x){
+    return(mean(as.numeric(abs(x_y_stat_fil[((x-1)*2+1),1:9]-x_y_stat_fil[2*x,1:9])),na.rm=T))
+  })
+  
+  if(i=="NeuralNet"){d_param=d_param_infer_NN
+  }else {d_param=d_param_infer_rej}
+  
+  range_p=apply(d_param[,,1],2,function(x){return(range(x)[2]-range(x)[1])})
+  range_q=apply(d_param[,,2],2,function(x){return(range(x)[2]-range(x)[1])})
+  
+  plot(sum_dist_obs,(range_p))
+  plot(sum_dist_obs,(range_q))
+  
+  
+}
 
 
 
 
 
+
+
+## >> 2) Understanding problem PLR ----
+
+ggplot(d_biocom%>%
+         add_column(., Type=sapply(1:345, function(x){
+           return(ifelse(x %in% which(d_biocom$PLR<quantile(d_biocom$PLR,.05)),"Low PLR","Others"))}))%>%
+         mutate(., max_psd=log(max_psd),sd_psd=log(sd_psd),mean_psd=log(mean_psd))%>%
+         melt(., measure.vars=colnames(d_biocom)[14:25]))+
+  geom_density(aes(x=value,fill=Type),alpha=.3)+
+  theme_classic()+
+  facet_wrap(.~variable,scales="free")
+
+
+x_y_stat=read.table("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv",sep=";")%>%
+  filter(., Method=="NeuralNet")
+
+d=tibble()
+for (i in 1:(nrow(x_y_stat)/2)){
+  d=rbind(d,(x_y_stat[(i-1)*2+1,1:9]-x_y_stat[i*2,1:9])%>%add_column(., Site_ID=x_y_stat$Site_ID[2*i]))
+}
+
+
+pdf("../Figures/ABC_scale/Far_close_sites_PLR_data.pdf",width = 7,height = 6)
+image(matrix(1))
+mtext("Far sites")
+for (i in which(d$PLR>quantile(d$PLR,.95))){Plot_empirical(i)}
+image(matrix(1))
+mtext("Close sites")
+for (i in which(d$PLR<quantile(d$PLR,.05))){Plot_empirical(i)}
+image(matrix(1))
+dev.off()
+
+
+
+## >> 3) Posterior predictive check ----
+
+
+d_param_infer_NN=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackNN.rds")
+d_param_infer_rej=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackrej.rds")
+
+#We sample again for some specific sites and compare two things: the summary stat distribution & the data
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
+             Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+             PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+  filter(., rho_p>0.03)%>%
+  arrange(.,Model)
+
+for (i in 1:(nrow(d_sim)/4)){
+  d_sim$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d_sim$PL_expo[(4*(i-1)+4)]
+}
+
+d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
+d_sim_data=rbind(d_sim%>%filter(., Model=="Eby_feedback"),
+                 d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
+                   add_column(., Pooling="Data",Model=NA)%>%
+                   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
+
+sumstat_name=colnames(d_sim_data)[1:9]
+res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+
+if ("completeObs" %in% names(res.comp)){
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+}else {
+  res.pca=PCA(res.comp, ncp = 3,  graph=F)
+}
+
+pca_emp=res.pca$ind$coord[which(is.na(d_sim_data$Model)),]
+
+#we sample sites that are not too far from the distribution center
+set.seed(123)
+sampled_sites=sample(c(1:198),50)
+
+
+
+x_y_stat=read.table("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv",sep=";")
+
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(x=filter(x_y_stat,Type=="Sim",Site_ID %in% sampled_sites)[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
+       y=filter(x_y_stat,Type=="Obs",Site_ID %in% sampled_sites)[,i],col="black",lwd=3)
+  abline(a=0,b=1)
+}
+
+
+
+
+d_param_infer_NN=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackNN.rds")
+d_param_infer_rej=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackrej.rds")
+
+write.table((d_param_infer_NN[,,1]),
+            "../Data/Step11_Inferrence/Model_comparizon/Posterior_pred_check_NN_p.csv",sep=";",row.names = F,col.names = F)
+write.table((d_param_infer_NN[,,2]),
+            "../Data/Step11_Inferrence/Model_comparizon/Posterior_pred_check_NN_q.csv",sep=";",row.names = F,col.names = F)
+write.table((d_param_infer_rej[,,1]),
+            "../Data/Step11_Inferrence/Model_comparizon/Posterior_pred_check_rej_p.csv",sep=";",row.names = F,col.names = F)
+write.table((d_param_infer_rej[,,2]),
+            "../Data/Step11_Inferrence/Model_comparizon/Posterior_pred_check_rej_q.csv",sep=";",row.names = F,col.names = F)
+write.table((d_param_infer_rej[,,3]),
+            "../Data/Step11_Inferrence/Model_comparizon/Posterior_pred_check_rej_scale.csv",sep=";",row.names = F,col.names = F)
+
+
+
+
+# Comparing simulations from the posterior to true values
+
+d=tibble(name=list.files("../Data/Step11_Inferrence/Post_pred_check/Site_post_check",".csv"))%>%
+  add_column(., id=sapply(1:nrow(.),function(x){
+    return(as.numeric(strsplit(.$name[x],"_")[[1]][2]))}))%>%
+  arrange(., id)
+
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
+  mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))
+
+
+pdf("../Figures/ABC_scale/Posterior_check/Sumstat_sim_from_posterior.pdf",width = 7,height = 7)
+for (i in 1:(nrow(d)/2)){
+  
+  # d_NN=read.table(paste0("../Data/Step11_Inferrence/Post_pred_check/Site_post_check/",d$name[(i-1)*2+1]),sep=",")%>%
+  #   filter(V3 !=0)
+  # 
+  # colnames(d_NN)[3:11] = colnames(d_biocom)[17:25] 
+  # 
+  # if (all(d_NN[,3] < .9) & nrow(d_NN) !=0){
+  #   par(mfrow=c(3,3),mar=rep(2,4))
+  #   which_na=which(c(is.na(d_biocom[unique(d_NN[,1]),17:25])))
+  #   for (k in 3:11){
+  #     d_NN[is.na(d_NN[,k]),k]=mean(d_NN[,k],na.rm=T)
+  #     hist(d_NN[,k],main=paste0(colnames(d_NN)[k],", ",unique(d_NN[,1])),xlab="",ylab="",col=alpha("green",.3),
+  #          xlim=c(min(d_NN[,k],d_biocom[unique(d_NN[,1]),colnames(d_NN)[k]]),
+  #                 max(d_NN[,k],d_biocom[unique(d_NN[,1]),colnames(d_NN)[k]])))
+  #     abline(v = d_biocom[unique(d_NN[,1]),colnames(d_NN)[k]],col="red",lwd=3)
+  #   } 
+  # }else{
+  #   par(mfrow=c(3,3),mar=rep(2,4))
+  #   for (k in 3:11){image(matrix(1,1,1),col="white")}
+  # }  
+  
+  d_rej=read.table(paste0("../Data/Step11_Inferrence/Post_pred_check/Site_post_check/",d$name[2*i]),sep=",")%>%
+    filter(V3 !=0)
+  
+  colnames(d_rej)[3:11] = colnames(d_biocom)[17:25] 
+  
+  if (all(d_rej[,3] < .9) & nrow(d_rej) !=0){
+    par(mfrow=c(3,3),mar=rep(2,4))
+    for (k in 3:11){
+      d_rej[is.na(d_rej[,k]),k]=mean(d_rej[,k],na.rm=T)
+      hist(d_rej[,k],main=paste0(colnames(d_rej)[k],", ",unique(d_rej[,1])),xlab="",ylab="",col=alpha("blue",.3),
+           xlim=c(min(d_rej[,k],d_biocom[unique(d_rej[,1]),colnames(d_rej)[k]]),
+                  max(d_rej[,k],d_biocom[unique(d_rej[,1]),colnames(d_rej)[k]])))
+      abline(v = d_biocom[unique(d_rej[,1]),colnames(d_rej)[k]],col="red",lwd=3)
+    } 
+  } else{
+    par(mfrow=c(3,3),mar=rep(2,4))
+    for (k in 3:11){image(matrix(1,1,1),col="white")}
+  }
+}
+
+dev.off()
+
+
+
+#Plotting X-Y obs, sim from simulations simulated from the posterior parameter distribution of each site.
+
+d=tibble(name=list.files("../Data/Step11_Inferrence/Post_pred_check/Site_post_check",".csv"))%>%
+  add_column(., id=sapply(1:nrow(.),function(x){
+    return(as.numeric(strsplit(.$name[x],"_")[[1]][2]))}))%>%
+  arrange(., id)
+
+d2=data.frame()
+for (i in 1:(nrow(d)/2)){
+  
+  
+  d_rej=read.table(paste0("../Data/Step11_Inferrence/Post_pred_check/Site_post_check/",d$name[2*i]),sep=",")%>%
+    filter(V3 !=0)
+  
+  colnames(d_rej)[3:11] = colnames(d_biocom)[17:25]
+  
+  if (nrow(d_rej) !=0){
+    d2=rbind(d2,as.data.frame(t(colMeans(d_rej[,-c(1,2)])))%>%add_column(., Site=unique(d_rej$V1)))
+  }
+}
+
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(x=d2[,i],xlab="Sim",ylab="Obs",main=colnames(d2)[i],
+       y=d_biocom[,16+i],col="gray")
+  abline(a=0,b=1,col=alpha("pink",.5))
+}
+
+
+
+
+
+
+# ---------------------- Step 9: Model comparison for 50 different sites (2 models: Schneider & Eby_feedback) ----
+
+## >> 1) Identifiability of models & finding best models per site ----
+
+#First we see whether these models can be distinguished !
+
+d_sim=read.table("../Data/Step9_Spatial_resolution/All_sims_models_with_Schn_aggre.csv",sep=";")%>%
+  mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))%>%
+  filter(., Model %in% c("Eby_feedback","Schneider"))
+
+d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")%>%
+  mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering))#%>%
+  # filter(., Nbpixels<80000)
+
+d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
+
+# disting_model=cv4postpr(d_sim$Model, d_sim[,1:9], nval=100, tol=50/nrow(d_sim), method="mnlogistic")
+summary(disting_model) #working well, more than 95% of good classification
+
+
+
+d=tibble()
+for (i in 1:nrow(d_biocom)){
+  
+  target=d_biocom[i,17:25]
+  
+  if (any(is.na(target))){
+    which_na=which(is.na(target))
+    classif_model=(postpr(target[-which_na], d_sim$Model, d_sim[,c(1:9)[-which_na]], tol=.001, method="mnlogistic"))
+  }else {
+    classif_model=(postpr(target, d_sim$Model, d_sim[,c(1:9)], tol=.001, method="mnlogistic"))
+  }
+
+  d=rbind(d,tibble(Model=names(classif_model$pred)[which(classif_model$pred == max(classif_model$pred))],
+                   Prob=classif_model$pred[which(classif_model$pred == max(classif_model$pred))],
+                   Site_ID=i))
+  
+}
+# write.table(d,"../Data/Step11_Inferrence/Model_comparizon/Best_model_per_site.csv",sep=";")
+
+#testing the goodness of fit
+
+gfit_schn=gfit(target=d_biocom[7,17:25], sumstat=d_sim[which(d_sim$Model=="Schneider"),c(1:9)],
+          statistic=mean, nb.replicate=100)
+
+gfit_eby=gfit(target=d_biocom[7,17:25], sumstat=d_sim[which(d_sim$Model=="Eby_feedback"),c(1:9)],
+          statistic=mean, nb.replicate=100)
+
+par(mfrow=c(1,2))
+hist(gfit_schn$dist.sim)
+abline(v=gfit_schn$dist.obs,col="red",lwd=3)
+hist(gfit_eby$dist.sim)
+abline(v=gfit_eby$dist.obs,col="red",lwd=3)
+
+
+# PCA colored by the type of model  
+
+d=read.table("../Data/Step11_Inferrence/Model_comparizon/Best_model_per_site.csv",sep=";")
+
+d_sim_data=rbind(d_sim%>%add_column(.,Vege=d_sim$Model),
+                 d_biocom[,17:ncol(d_biocom)]%>% 
+                   add_column(., Pooling="Data",Model=NA,Vege=paste0(d$Model,"_OBS")))%>%
+  arrange(., Vege)
+
+sumstat_name=colnames(d_sim_data)[1:9]
+res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+
+if ("completeObs" %in% names(res.comp)){
+  res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
+}else {
+  res.pca=PCA(res.comp, ncp = 3,  graph=F)
+}
+
+axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
+
+for (i in 1:3){
+  assign(paste0("p",i),
+         d_sim_data%>%
+           add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
+          # filter(., Vege !="Schneider")%>%
+           ggplot(.) +
+           geom_hline(yintercept = 0, lty = 2) +
+           geom_vline(xintercept = 0, lty = 2) +
+           geom_point(aes(x = PC1, y = PC2, color = Vege,fill=Vege,size=Vege))+
+           scale_color_manual(values=c(alpha("#D0EF8E",.5),"#3939C5",alpha("#EFBDA3",.5),"#BD64E6"))+
+           scale_fill_manual(values=c(alpha("#D0EF8E",.5),"#3939C5",alpha("#EFBDA3",.5),"#BD64E6"))+
+           scale_size_manual(values=c(.4,1.5,.4,1.5))+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Vegetation cover",fill="")+
+           ggtitle("")+guides(shape="none")+
+           theme_classic()+theme(legend.position = "bottom")+
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+  )
+}
+
+p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
+                      p2+theme(legend.position = "none"),
+                      p3+theme(legend.position = "none"),
+                      ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
+            nrow=2,heights = c(1,.1))
+
+ggsave(paste0("../Figures/ABC_scale/Model_comparizon/PCA_model_and_data_model_comparizon.pdf"),p,width = 11,height = 5)
+
+
+
+
+
+
+
+## >> 2) Comparing Schneider and Eby covering of simulations ----
+
+x_y_stat_Schneider=read.table(paste0("../Data/Step11_Inferrence/x_y_obs_sim_stat_Schneider.csv"),sep=";")%>%
+  filter(., Method=="NeuralNet")
+x_y_stat_Eby=read.table(paste0("../Data/Step11_Inferrence/x_y_obs_sim_stat_Eby_feedback.csv"),sep=";")%>%
+  filter(., Method=="NeuralNet")
+d=read.table("../Data/Step11_Inferrence/Model_comparizon/Best_model_per_site.csv",sep=";")
+
+d2=rbind(x_y_stat_Eby[which(x_y_stat_Eby$Site_ID %in% which(d$Model=="Schneider")),],
+        x_y_stat_Eby[which(x_y_stat_Eby$Site_ID %in% which(d$Model=="Eby_feedback")),])
+
+
+pdf("../Figures/ABC_scale/Model_comparizon/x_y_model_classification_site_models.pdf",width = 7,height = 7)
+par(mfrow=c(3,3))
+for (i in 1:9){
+  plot(x=filter(d2,Type=="Sim")[,i],xlab="Sim",ylab="Obs",main=colnames(d2)[i],
+       y=filter(d2,Type=="Obs")[,i],col="gray")
+  abline(a=0,b=1)
+}
+dev.off()
+
+
+#Only the sites that have been linked to the Schneider model
+
+d2=x_y_stat_Eby[which(x_y_stat_Eby$Site_ID %in% which(d$Model=="Schneider")),]
+d3=rbind(x_y_stat_Schneider[which(x_y_stat_Schneider$Site_ID %in% which(d$Model=="Schneider")),])
+
+pdf("../Figures/ABC_scale/Model_comparizon/Comparing_Eby_Schneider_sites.pdf",width = 7,height = 7)
+par(mfrow=c(3,3),mar=rep(4,4))
+for (i in 1:9){
+  plot(x=filter(d2,Type=="Sim")[,i],xlab="Sim",ylab="Obs",main=colnames(d2)[i],
+       y=filter(d2,Type=="Obs")[,i],col=alpha("green",1),lwd=2)
+  points(x=filter(d3,Type=="Sim")[,i],xlab="Sim",ylab="Obs",main=colnames(d3)[i],
+       y=filter(d3,Type=="Obs")[,i],col=alpha("blue",1),lwd=2)
+  abline(a=0,b=1)
+  
+ if (i==4){legend(legend=c("Schneider","Eby"),x="topleft",col=c("blue","green"),lwd=2)}
+}
+dev.off()
+
+
+
+# What are the characteristics of these sites ?
+
+p=ggplot(d_biocom%>%add_column(., Closest_model=d$Model)%>%
+           mutate(., max_psd=log(max_psd)  ,mean_psd=log(mean_psd),sd_psd=log(sd_psd))%>%
+         melt(., measure.vars=colnames(d_biocom)[c(11,14:25)]) )+
+  geom_density(aes(x=value,fill=Closest_model),alpha=.7)+
+  the_theme+
+  facet_wrap(.~variable,scales="free")+
+  scale_fill_manual(values=c("#C28ADC","#BFDC8A"))+
+  labs(x="Value",y="",fill="Best model")
+
+ggsave("../Figures/ABC_scale/Model_comparizon/Density_sumstat_sites_best_models.pdf",width = 8,height = 7)  
+
+
+
+
+# ---------------------- Step 10: Tipping points, hysteresis ----
+
+#d=read.table("../Data/Step12_Prediction/Space_cover_param.csv",sep=";")
+
+#fictive date
+space_param=expand.grid(p=seq(0,1,.005),q=seq(0,1,.005))
+space_param$Cover=space_param$p
+space_param$Cover[which(space_param$Cover<space_param$q)]=0
+
+d_param_infer_rej=readRDS("../Data/Step11_Inferrence/Inferred_param_sites_Eby_feedbackrej.rds")
+
+d_tipping=tibble()
+for (site_id in 1:ncol(d_param_infer_rej)){
+  
+  p_site=mean(d_param_infer_rej[,site_id,1])
+  q_site=mean(d_param_infer_rej[,site_id,2])
+  close_p=unique(space_param$p[which(abs(space_param$p - p_site) == min(abs(space_param$p - p_site)))])
+  close_q=unique(space_param$q[which(abs(space_param$q - q_site) == min(abs(space_param$q - q_site)))])
+
+  dist_tipping=abs(diff(range(space_param$p[which(space_param$q==close_q & space_param$Cover!=0)])))
+  
+  d_tipping=rbind(d_tipping,tibble(Site=site_id,Tipping=dist_tipping,
+                                   Lat=d_biocom$Lattitude[site_id],
+                                   Long=d_biocom$Longitude[site_id],
+                                   Aridity=d_biocom$Aridity[site_id],
+                                   Sand=d_biocom$Sand[site_id],
+                                   MF=d_biocom$MF[site_id]))
+}
+
+
+
+
+world=map_data("world")
+p1=ggplot() +
+  geom_map(
+    data = world, map = world,
+    aes(long, lat, map_id = region),fill="gray"
+  ) +
+  geom_point(data=d_biocom,aes(Longitude,Lattitude,color=Aridity))+
+  theme_classic()+
+  scale_color_gradientn(colours = colorRampPalette(c("#A96D2A","#18906E"))(10))+
+  labs(y="Lattitude",x="Longitude")+
+  theme(legend.position = "bottom")
+
+p2=ggplot() +
+  geom_map(
+    data = world, map = world,
+    aes(long, lat, map_id = region),fill="gray"
+  ) +
+  geom_point(data=d_biocom,aes(Longitude,Lattitude,color=d_tipping$Tipping))+
+  theme_classic()+
+  scale_color_viridis_c()+
+  labs(y="Lattitude",x="Longitude")+
+  theme(legend.position = "bottom")

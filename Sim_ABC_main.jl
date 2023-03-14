@@ -2,18 +2,6 @@ include("./Sim_ABC_functions.jl")
 
 
 
-param = Get_classical_param_Schneider()
-param[10] = 0.5
-param[4] = 0.0001
-param[5] = 0.43
-ini_land = Get_initial_lattice(size_mat=100)
-@time d, land = IBM_drylands_Schneider(landscape=copy(ini_land),
-    param=copy(param), time=1500, keep_landscape=true)
-Plot_landscape(land, false)
-Plot_dynamics(d)
-
-@time [Get_summary_stat(inverse_pooling(land[:, :, k], 2))[1] for k in 1:size(land)[3]]
-
 
 
 
@@ -643,3 +631,478 @@ end
 
 
 #endregion
+#region, Step 5: Posterior predictive check
+
+
+post_p_NN = convert(Matrix, CSV.read("../Data/Step11_Inferrence/Post_pred_check/Posterior_pred_check_NN_1.csv",
+    DataFrame, delim=";", header=false))
+post_q_NN = convert(Matrix, CSV.read("../Data/Step11_Inferrence/Post_pred_check/Posterior_pred_check_NN_2.csv",
+    DataFrame, delim=";", header=false))
+
+
+post_p_rej = convert(Matrix, CSV.read("../Data/Step11_Inferrence/Post_pred_check/Posterior_pred_check_rej_1.csv",
+    DataFrame, delim=";", header=false))
+post_q_rej = convert(Matrix, CSV.read("../Data/Step11_Inferrence/Post_pred_check/Posterior_pred_check_rej_2.csv",
+    DataFrame, delim=";", header=false))
+
+
+name_pdf = "../Figures/ABC_scale/Posterior_check/Posterior_pred_check_post.pdf"
+@rput name_pdf
+R"pdf(name_pdf,width=8,height=8)"
+@rput post_p_NN
+@rput post_q_NN
+@rput post_p_rej
+@rput post_q_rej
+
+
+for i in 1:size(post_q_rej)[2]
+
+    R"par(mfrow=c(2,2))"
+
+    #histogram of posterior
+    @rput i
+    R"hist(post_p_NN[,i])"
+    R"hist(post_p_rej[,i])"
+    R"hist(post_q_NN[,i])"
+    R"hist(post_q_rej[,i])"
+end
+R"dev.off()"
+
+sampled_sites = convert(Matrix, CSV.read("../Data/Step11_Inferrence/Post_pred_check/Sampled_sites.csv",
+    DataFrame, delim=";", header=false))
+
+
+
+name_pdf = "../Figures/ABC_scale/Posterior_check/Posterior_pred_check_landscapes.pdf"
+@rput name_pdf
+R"pdf(name_pdf,width=6,height=15)"
+
+for i in 1:size(post_q_rej)[2]
+
+    R"par(mfrow=c(5,2))"
+
+    #observed vegetation
+    land_emp = Get_empirical_site(sampled_sites[i])
+    @rput land_emp
+    color_land = ["white", "black"]
+    @rput color_land
+    R"image(land_emp,col=color_land)"
+    R"image(land_emp,col=color_land)"
+
+    #NeuralNet
+    param = Get_classical_param_Eby()
+    param[1] = median(post_p_NN[:, i])
+    param[2] = median(post_q_NN[:, i])
+    fraction_cover = [0.8, 0.2]
+    size_landscape = 75
+    ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+        keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    #Loclinear
+    param = Get_classical_param_Eby()
+    param[1] = median(post_p_rej[:, i])
+    param[2] = median(post_q_rej[:, i])
+    fraction_cover = [0.8, 0.2]
+    size_landscape = 75
+    ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    d2, land2 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+        keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    for k in 1:4:15
+        landscape = copy(land1[:, :, k])
+        @rput landscape
+        color_land = ["white", "black"]
+        @rput color_land
+        R"image(landscape,col=color_land)"
+
+        landscape = copy(land2[:, :, k])
+        @rput landscape
+        color_land = ["white", "black"]
+        @rput color_land
+        R"image(landscape,col=color_land)"
+    end
+
+    # R"par(mfrow=c(5,2))"
+
+    # #observed vegetation
+    # land_emp = Get_empirical_site(sampled_sites[i])
+    # @rput land_emp
+    # color_land = ["white", "black"]
+    # @rput color_land
+    # R"image(land_emp,col=color_land)"
+    # R"image(land_emp,col=color_land)"
+
+    # #NeuralNet
+    # param = Get_classical_param_Eby()
+    # param[1] = min(post_p_NN[:, i])
+    # param[2] = min(post_q_NN[:, i])
+    # fraction_cover = [0.8, 0.2]
+    # size_landscape = 75
+    # ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    # d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+    #     keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    # #Loclinear
+    # param = Get_classical_param_Eby()
+    # param[1] = min(post_p_rej[:, i])
+    # param[2] = min(post_q_rej[:, i])
+    # fraction_cover = [0.8, 0.2]
+    # size_landscape = 75
+    # ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    # d2, land2 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+    #     keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    # for k in 1:4:15
+    #     landscape = copy(land1[:, :, k])
+    #     @rput landscape
+    #     color_land = ["white", "black"]
+    #     @rput color_land
+    #     R"image(landscape,col=color_land)"
+
+    #     landscape = copy(land2[:, :, k])
+    #     @rput landscape
+    #     color_land = ["white", "black"]
+    #     @rput color_land
+    #     R"image(landscape,col=color_land)"
+    # end
+
+
+    # R"par(mfrow=c(5,2))"
+
+    # #observed vegetation
+    # land_emp = Get_empirical_site(sampled_sites[i])
+    # @rput land_emp
+    # color_land = ["white", "black"]
+    # @rput color_land
+    # R"image(land_emp,col=color_land)"
+    # R"image(land_emp,col=color_land)"
+
+    # #NeuralNet
+    # param = Get_classical_param_Eby()
+    # param[1] = max(post_p_NN[:, i])
+    # param[2] = max(post_q_NN[:, i])
+    # fraction_cover = [0.8, 0.2]
+    # size_landscape = 75
+    # ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    # d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+    #     keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    # #Loclinear
+    # param = Get_classical_param_Eby()
+    # param[1] = max(post_p_rej[:, i])
+    # param[2] = max(post_q_rej[:, i])
+    # fraction_cover = [0.8, 0.2]
+    # size_landscape = 75
+    # ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+    # d2, land2 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+    #     keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+    # for k in 1:4:15
+    #     landscape = copy(land1[:, :, k])
+    #     @rput landscape
+    #     color_land = ["white", "black"]
+    #     @rput color_land
+    #     R"image(landscape,col=color_land)"
+
+    #     landscape = copy(land2[:, :, k])
+    #     @rput landscape
+    #     color_land = ["white", "black"]
+    #     @rput color_land
+    #     R"image(landscape,col=color_land)"
+    # end
+
+    # print(i)
+end
+
+R"dev.off()"
+
+
+
+
+#endregion
+#region, Step 6: PPC and resampling from posterior parameters
+
+
+
+
+
+
+using Distributed
+
+
+
+addprocs(15, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Random, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+end
+
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+
+
+
+
+
+@everywhere function Performing_pred_post_check(id)
+
+    n_sample = 20
+
+    post_p_NN = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_NN_p.csv",
+        DataFrame, delim=";", header=false))
+    post_q_NN = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_NN_q.csv",
+        DataFrame, delim=";", header=false))
+
+
+    post_p_rej = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_p.csv",
+        DataFrame, delim=";", header=false))
+    post_q_rej = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_q.csv",
+        DataFrame, delim=";", header=false))
+
+    post_scale = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_scale.csv",
+        DataFrame, delim=";", header=false))
+
+    post_pred_NN = zeros(n_sample, 11)
+    post_pred_rej = zeros(n_sample, 11)
+
+    i = copy(id)
+
+    scale_mat = post_scale[:, i]
+    best_scale = collect(keys(countmap(scale_mat)))[findmax(collect(values(countmap(scale_mat))))[2]]
+
+    for sample_id in 1:n_sample
+
+        #NeuralNet
+        param = Get_classical_param_Eby()
+        sample_1 = sample(1:50)
+        param[1] = post_p_NN[sample_1, i]
+        param[2] = post_q_NN[sample_1, i]
+        fraction_cover = [0.8, 0.2]
+        size_landscape = 75
+        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+        d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+        if any([length(findall(land1[:, :, l] .== 1)) for l in 1:size(land1)[3]] .== 0)
+            post_pred_NN[sample_id, 3:11] = zeros(9)
+        else
+            if best_scale > 1
+                land_pooled = zeros(Int(best_scale) * size(land1)[1], Int(best_scale) * size(land1)[2], size(land1)[3])
+            else
+                land_pooled = copy(land1) #no change
+            end
+
+            for third_sim in 1:size(land1)[3] #we pool all saved landscapes 
+                if best_scale > 1
+                    land_pooled[:, :, third_sim] = inverse_pooling(land1[:, :, third_sim], Int(best_scale)) #increasing resolution
+                end
+            end
+
+            if best_scale > 1
+                post_pred_NN[(sample_id), 3:11] = Get_summary_stat(land_pooled, xmin_fit=Int(best_scale)^2)
+            else
+                post_pred_NN[(sample_id), 3:11] = Get_summary_stat(land_pooled, xmin_fit=1)
+            end
+        end
+
+        post_pred_NN[(sample_id), 1:2] .= [i, sample_id]
+
+        #rejection
+        param = Get_classical_param_Eby()
+        sample_2 = sample(1:50)
+        param[1] = post_p_rej[sample_2, i]
+        param[2] = post_q_rej[sample_2, i]
+        fraction_cover = [0.8, 0.2]
+        size_landscape = 75
+        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+        d2, land2 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+
+        if any([length(findall(land2[:, :, l] .== 1)) for l in 1:size(land2)[3]] .== 0)
+            post_pred_rej[sample_id, 3:11] = zeros(9)
+        else
+            if best_scale > 1
+                land_pooled = zeros(Int(best_scale) * size(land2)[1], Int(best_scale) * size(land2)[2], size(land2)[3])
+            else
+                land_pooled = copy(land2) #no change
+            end
+
+            for third_sim in 1:size(land2)[3] #we pool all saved landscapes 
+                if best_scale > 1
+                    land_pooled[:, :, third_sim] = inverse_pooling(land2[:, :, third_sim], Int(best_scale)) #increasing resolution
+                end
+            end
+
+            if best_scale > 1
+                post_pred_rej[sample_id, 3:11] = Get_summary_stat(land_pooled, xmin_fit=Int(best_scale)^2)
+            else
+                post_pred_rej[sample_id, 3:11] = Get_summary_stat(land_pooled, xmin_fit=1)
+            end
+        end
+        post_pred_rej[sample_id, 1:2] .= [i, sample_id]
+
+    end
+
+
+    CSV.write("./Data/Posterior_pred_check/Sim_per_site/Site_" * repr(i) * "_NN.csv", Tables.table(post_pred_NN), writeheader=false)
+    CSV.write("./Data/Posterior_pred_check/Sim_per_site/Site_" * repr(i) * "_rej.csv", Tables.table(post_pred_rej), writeheader=false)
+    print(i)
+
+end
+
+pmap(Performing_pred_post_check, 1:345)
+
+
+
+
+
+
+
+@everywhere function Visual_post_pred_check(id)
+
+    post_p_NN = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_NN_p.csv",
+        DataFrame, delim=";", header=false))
+    post_q_NN = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_NN_q.csv",
+        DataFrame, delim=";", header=false))
+
+
+    post_p_rej = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_p.csv",
+        DataFrame, delim=";", header=false))
+    post_q_rej = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_q.csv",
+        DataFrame, delim=";", header=false))
+
+    post_scale = convert(Matrix, CSV.read("./Data/Posterior_pred_check/Posterior_pred_check_rej_scale.csv",
+        DataFrame, delim=";", header=false))
+
+
+    name_pdf = "./Data/Posterior_pred_check/Visual/Posterior_pred_check_landscapes" * repr(id) * ".pdf"
+    @rput name_pdf
+    R"pdf(name_pdf,width=6,height=15)"
+
+
+    for i in ((id-1)*23+1):(23*id)
+
+        R"par(mfrow=c(5,2))"
+
+        #observed vegetation
+        land_emp = Get_empirical_site(i)
+        @rput land_emp
+        color_land = ["white", "black"]
+        @rput color_land
+        R"image(land_emp,col=color_land)"
+        R"image(land_emp,col=color_land)"
+
+        #NeuralNet
+        param = Get_classical_param_Eby()
+        param[1] = median(post_p_NN[:, i])
+        param[2] = median(post_q_NN[:, i])
+        fraction_cover = [0.8, 0.2]
+        size_landscape = 75
+        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+        d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+        #Loclinear
+        param = Get_classical_param_Eby()
+        param[1] = median(post_p_rej[:, i])
+        param[2] = median(post_q_rej[:, i])
+        fraction_cover = [0.8, 0.2]
+        size_landscape = 75
+        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+        d2, land2 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+        for k in 1:4:15
+            landscape = copy(land1[:, :, k])
+            @rput landscape
+            color_land = ["white", "black"]
+            @rput color_land
+            R"image(landscape,col=color_land)"
+
+            landscape = copy(land2[:, :, k])
+            @rput landscape
+            color_land = ["white", "black"]
+            @rput color_land
+            R"image(landscape,col=color_land)"
+        end
+
+    end
+
+    R"dev.off()"
+
+
+end
+
+pmap(Visual_post_pred_check, 1:15)
+
+#endregion  
+#region, Step 7: Computing the distance to a tipping point and the hysteresis size
+
+#To avoid doing that for many sites, we map the cover in (p,q) space
+
+
+
+using Distributed
+
+addprocs(15, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Random, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+end
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+
+@everywhere function Compute_cover_space(id)
+    n_keep = 100
+    grain = 0.01
+    p_seq = 0:grain:1
+    q_seq = 0:grain:1
+    all_sim_param = expand_grid(p=p_seq, q=q_seq)
+    deleterows!(all_sim_param, 1)
+    all_sim_param = all_sim_param[((id-1)*n_keep+1):(id*n_keep), :]
+
+    Keeping_data = zeros(2 * size(all_sim_param)[1], 4)
+    Keeping_data[:, 1:2] .= vcat(all_sim_param, all_sim_param)
+
+    index = 1
+    for traj in ["Degradation", "Restoration"]
+
+        for k in 1:size(all_sim_param)[1]
+
+            mean_cover = rand()
+            param = Get_classical_param_Eby()
+            param[1] = all_sim_param[k, 1]
+            param[2] = all_sim_param[k, 2]
+            if traj == "Degradation"
+                fraction_cover = [0.8, 0.2]
+            else
+                fraction_cover = [0.1, 0.9]
+            end
+            size_landscape = 150
+            ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+
+            d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+                keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+
+            mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
+
+            Keeping_data[index, 3] = mean_cover
+            Keeping_data[index, 4] = ifelse(traj == "Degradation", 1, 2)
+
+            index += 1
+        end
+    end
+    CSV.write("./Data/Inferrence/Sim_space_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+end
+
+
+pmap(Compute_cover_space, 1:102)
+
+
+test = Compute_cover_space(1)

@@ -55,6 +55,12 @@ fourneighbors = function(landscape, state = 1, bounds = 1) {
   
 }
 
+
+Plot_psd=function(id,best=F){
+  print(spatialwarnings::plot_distr(spatialwarnings::patchdistr_sews(Get_empirical_site(id)>0),best_only = best))
+}
+
+
 Plot_dynamics=function(d,different_sim=F){
   
   d$Time=1:nrow(d)
@@ -217,6 +223,8 @@ Plot_dynamics=function(d,different_sim=F,simple=F){
 
 Plot_empirical=function(id,true_landscape=F){
   
+  par(mfrow=c(1,1))
+  
   if (true_landscape & is.character(id)){
     
     img1=readPNG(paste0("../Data/Data_Biocom/png_img/",id))
@@ -376,7 +384,6 @@ Filtering_small_patches=function(mat,cutoff=30){
   return (mat_clump_veg)
 }
 
-
 Centroid_patches=function(mat){
   
   d=tibble()
@@ -399,9 +406,6 @@ Centroid_patches=function(mat){
   
   return (d)
 }
-
-
-
 
 Analyse_image=function(img_id){
   
@@ -603,17 +607,22 @@ Analyse_image=function(img_id){
     
 }
 
-
 ABC_empirical=function(id,model="Eby_feedback"){
   
   #Classic Eby model
   
-  d_Eby=read.table(paste0("../Data/All_sim_",model,".csv"),sep=";")%>%
-    filter(., rho_p > 0.05 & !is.na(PLR) & !is.na(PL_expo))
   d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
                Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
                PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
     filter(., rho_p>0.05,Model==model,Pooling=="1")
+  
+  if (model=="Schneider_aggregation"){
+    d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models_with_Schn_aggre.csv",sep=";"),
+                 Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                 PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+      filter(., rho_p>0.05,Model==model,Pooling=="1")
+    
+  }
   
   d2=tibble()
   Plot_empirical(id)
@@ -672,6 +681,16 @@ ABC_empirical=function(id,model="Eby_feedback"){
                PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
     filter(., rho_p>0.05,Model==model,Pooling=="1/2")
   
+  
+  if (model=="Schneider_aggregation"){
+    d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models_with_Schn_aggre.csv",sep=";"),
+                 Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                 PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+      filter(., rho_p>0.05,Model==model,Pooling=="1/2")
+    
+  }
+  
+  
   target=Get_sumstat(pooling(Get_empirical_site(id),1)>.5)
   target[is.na(target)]=0
   
@@ -724,6 +743,17 @@ ABC_empirical=function(id,model="Eby_feedback"){
                Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
                PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
     filter(., rho_p>0.05,Model==model,Pooling=="1/3")
+  
+  
+  if (model=="Schneider_aggregation"){
+    d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models_with_Schn_aggre.csv",sep=";"),
+                 Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
+                 PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
+      filter(., rho_p>0.05,Model==model,Pooling=="1/3")
+    
+  }
+  
+  
   
   target=Get_sumstat(pooling(Get_empirical_site(id),1)>.5)
   target[is.na(target)]=0
