@@ -8,12 +8,14 @@ include("./Sim_ABC_functions.jl")
 
 #region, Step 1: Simulating of the pseudo-data (from the model)
 
-addprocs(2, exeflags="--project=$(Base.active_project())")
+using Distributed
+
+n_proc=10
+addprocs(10, exeflags="--project=$(Base.active_project())")
 
 @everywhere begin
     using StatsBase, RCall, Plots, StatsPlots, Random, DifferentialEquations, LaTeXStrings
     using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
-    using LatinHypercubeSampling, JLD
 end
 
 @everywhere include("./Drylands_ABC_functions.jl")
@@ -48,7 +50,7 @@ end
         end
     end
 
-    CSV.write("./Data/Simulations/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+    CSV.write("../Data/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
 end
 
 pmap(Run_sim_model_EWS, 1:1000)
@@ -87,7 +89,7 @@ using Distributed
 
 
 
-addprocs(1, exeflags="--project=$(Base.active_project())")
+addprocs(15, exeflags="--project=$(Base.active_project())")
 
 @everywhere begin
     using StatsBase, RCall, Random, LaTeXStrings
@@ -1105,4 +1107,6 @@ end
 pmap(Compute_cover_space, 1:102)
 
 
-test = Compute_cover_space(1)
+
+
+#endregion

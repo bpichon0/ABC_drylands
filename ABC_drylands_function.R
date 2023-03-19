@@ -8,7 +8,7 @@ library(FactoMineR) ;library(factoextra);library(pls)
 library(missMDA);library(GGally);library(scales);library(magick)
 library(png);library(EBImage);library(imager)
 library(lme4);library(car);library(diptest);library(raster);library(ape)
-
+library(abctools)
 
 d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
 
@@ -19,6 +19,13 @@ the_theme=theme_classic()+theme(legend.position = "bottom",
                                 strip.text.x = element_text(size = 10, face = "italic"),
                                 legend.text = element_text(size = 10),text = element_text(family = "NewCenturySchoolbook"))
 
+my_pal=function(n){
+  if (n%%2 ==0){
+    return(c(brewer_pal(palette = "BrBG")(n)))
+  }else{
+    return(c(brewer_pal(palette = "BrBG")(n)[1:round(n/2)],"gray",brewer_pal(palette = "BrBG")(n)[(round(n/2)+2):n]))
+  }
+}
 
 `%!in%` = Negate(`%in%`)
 
@@ -821,3 +828,39 @@ Plot_png=function(mat_id){
                        ),".png"))
   grid::grid.raster(img_1)
 }
+
+
+Boxcox_and_scale=function(d){
+  
+  
+  which_neg=unlist(sapply(1:ncol(d),function(x){
+    if(any(d[,x] < 0,na.rm = T)){
+      return(x)
+    }}))
+  
+  
+  for (x in 1:ncol(d)) if (x %in% which_neg){
+    
+    b=boxcox(lm(d[,x]+abs(min(d[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      d[,x] = (exp(d[,x]*(lambda_x)) -1)/(lambda_x)
+    }
+    
+  }else {
+    b=boxcox(lm(d[,x] ~ 1),plotit = F,eps = .05)    
+    lambda_x=b$x[which.max(b$y)]
+    if (lambda_x !=0){ #to avoid errors
+      d[,x] = (d[,x]^(lambda_x) -1)/(lambda_x)
+    }
+  }
+  
+  
+  #Second we scale
+  for (x in 1:ncol(d)) d[,x] = (d[,x]-mean(d[,x],na.rm = T))/sd(d[,x],na.rm = T)
+  
+  return(d)
+}
+
+
+

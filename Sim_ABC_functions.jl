@@ -157,7 +157,7 @@ function IBM_drylands(; landscape, param, time, keep_landscape=false, n_snapshot
 end
 
 
-function Get_summary_stat(matrix_landscape, ; log_=true)
+function Get_summary_stat(matrix_landscape, ; log_=true, compute_psd=true)
     R"library(spatialwarnings)"
     #The idea maybe is to compute as much as possible of sumamry statistics.
 
@@ -177,6 +177,12 @@ function Get_summary_stat(matrix_landscape, ; log_=true)
         spatial_spectral = vec(missings(Float64, size(matrix_landscape)[3], 1))
         PLR_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
         alpha_vec = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        cv_psd = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        median_psd = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        mean_psd = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        sd_psd = vec(missings(Float64, size(matrix_landscape)[3], 1))
+        frac_max_psd = vec(missings(Float64, size(matrix_landscape)[3], 1))
+
 
         for k in 1:size(matrix_landscape)[3]
 
@@ -210,17 +216,38 @@ function Get_summary_stat(matrix_landscape, ; log_=true)
             @rget spectral_ratio
             spatial_spectral[k] = spectral_ratio
 
-            R"psd=spatialwarnings::patchdistr_sews(landscape)"
-            R"max_patchsize=max(psd$psd_obs)"
-            R"PLR=spatialwarnings::raw_plrange(landscape)"
-            R"if (nrow(psd$psd_type)==1){ 
-                alpha_exp=NA        
-            } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]}" #i.e., when there is no good fit, return NA
-            @rget PLR
-            @rget alpha_exp
+            if compute_psd
 
-            PLR_vec[k] = PLR
-            alpha_vec[k] = alpha_exp
+                R"psd=spatialwarnings::patchdistr_sews(landscape)"
+                R"PLR=spatialwarnings::raw_plrange(landscape)"
+                R"if (nrow(psd$psd_type)==1){ 
+                    alpha_exp=NA        
+                } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]}" #i.e., when there is no good fit, return NA
+                R"psd_obs=psd$psd_obs"
+                @rget PLR
+                @rget alpha_exp
+                @rget psd_obs
+
+                PLR_vec[k] = ifelse(PLR === missing, 0, PLR)
+                alpha_vec[k] = ifelse(alpha_exp === missing, 0, alpha_exp)
+
+                cv_psd[k] = std(psd_obs) / mean(psd_obs)
+                median_psd[k] = median(psd_obs)
+                mean_psd[k] = mean(psd_obs)
+                sd_psd[k] = std(psd_obs)
+                frac_max_psd[k] = log(maximum(psd_obs) / size(landscape)[1]^2)
+
+
+            else
+                PLR_vec[k] = 0
+                alpha_vec[k] = 0
+                cv_psd[k] = 0
+                median_psd[k] = 0
+                mean_psd[k] = 0
+                sd_psd[k] = 0
+                frac_max_psd[k] = 0
+
+            end
 
         end
 
@@ -233,6 +260,11 @@ function Get_summary_stat(matrix_landscape, ; log_=true)
         mean_PLR = mean(collect(skipmissing(PLR_vec)))
         mean_alpha = mean(collect(skipmissing(alpha_vec)))
 
+        mean_cv_psd = mean(cv_psd)
+        mean_median_psd = mean(median_psd)
+        mean_mean_psd = mean(mean_psd)
+        mean_sd_psd = mean(sd_psd)
+        mean_frac_max_psd = mean(frac_max_psd)
 
 
     else  # only 1 landscape
@@ -270,17 +302,36 @@ function Get_summary_stat(matrix_landscape, ; log_=true)
         @rget spectral_ratio
         mean_spatial_spectral = spectral_ratio
 
-        R"psd=spatialwarnings::patchdistr_sews(landscape)"
-        R"max_patchsize=max(psd$psd_obs)"
-        R"PLR=spatialwarnings::raw_plrange(landscape)"
-        R"if (nrow(psd$psd_type)==1){ 
-            alpha_exp=NA        
-        } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]}" #i.e., when there is no good fit, return NA
-        @rget PLR
-        @rget alpha_exp
+        if compute_psd
 
-        mean_PLR = ifelse(PLR === missing, 0, PLR)
-        mean_alpha = ifelse(alpha_exp === missing, 0, alpha_exp)
+            R"psd=spatialwarnings::patchdistr_sews(landscape)"
+            R"PLR=spatialwarnings::raw_plrange(landscape)"
+            R"if (nrow(psd$psd_type)==1){ 
+                alpha_exp=NA        
+            } else {alpha_exp = psd$psd_type$plexpo[which(psd$psd_type$best==T)]}" #i.e., when there is no good fit, return NA
+            @rget PLR
+            @rget alpha_exp
+            @rget psd_obs
+
+            mean_PLR = ifelse(PLR === missing, 0, PLR)
+            mean_alpha = ifelse(alpha_exp === missing, 0, alpha_exp)
+
+            mean_cv_psd = std(psd_obs) / mean(psd_obs)
+            mean_median_psd = median(psd_obs)
+            mean_mean_psd = mean(psd_obs)
+            mean_sd_psd = std(psd_obs)
+            mean_frac_max_psd = log(maximum(psd_obs) / size(landscape)[1]^2)
+
+
+        else
+            mean_PLR = 0
+            mean_alpha = 0
+            mean_cv_psd = 0
+            mean_median_psd = 0
+            mean_mean_psd = 0
+            mean_sd_psd = 0
+            mean_frac_max_psd = 0
+        end
 
     end
 
@@ -292,7 +343,9 @@ function Get_summary_stat(matrix_landscape, ; log_=true)
 
     return (vec([mean_cover, mean_nb_neigh, mean_clustering,
         mean_spatial_skew, mean_spatial_var, mean_spatial_corr,
-        mean_spatial_spectral, mean_PLR, mean_alpha]))
+        mean_spatial_spectral, mean_PLR, mean_alpha,
+        mean_cv_psd, mean_median_psd, mean_mean_psd,
+        mean_sd_psd, mean_frac_max_psd]))
 
 end
 
@@ -475,25 +528,20 @@ function IBM_Eby_model(; landscape, param, time_t, mortality_neigh=false, keep_l
                         rand1 = rand()
                         if rand1 <= p_param #then there is reproduction in a neighbor
                             landscape[neigh[1], neigh[2]] = 1
-                        elseif rand1 < g0 * (1 - (sum([landscape[neighbors[k, 1], neighbors[k, 2]] for k in 1:size(neighbors)[2]]) / 4))
-                            #landscape[focal_i, focal_j] = 0
+                        else
+                            landscape[focal_i, focal_j] = 0
                         end
 
                     else #neighbor is occupied
                         rand2 = rand()
-                        if rand2 <= q_param #facilitation from the neighbor
-
+                        if rand1 <= q_param #facilitation from the neighbor
                             coord_neigh = Get_coordinate_pair(focal_i, focal_j, neigh[1], neigh[2], size(landscape)[1])
-
                             neighbors_pair = Select_neighbor_pair(coord_neigh, intensity_feedback) #that is changed to an occupied cell
-
                             for i in eachindex(neighbors_pair[:, 1])
                                 landscape[neighbors_pair[i, 1], neighbors_pair[i, 2]] = 1
                             end
-
-                        else
-
-                            #  landscape[focal_i, focal_j] = 0
+                        elseif rand2 <= 1 - p_param
+                            landscape[focal_i, focal_j] = 0
                         end
                     end
 
@@ -781,7 +829,7 @@ function expand_grid(; iters...)
     var_ix = vcat([collect(x)' for x in Iterators.product(var_itr...)]...)
     out = DataFrame()
     for i = 1:length(var_names)
-        out[:,var_names[i]] = collect(iters[i])[var_ix[:,i]]
+        out[:, var_names[i]] = collect(iters[i])[var_ix[:, i]]
     end
     return out
 end
