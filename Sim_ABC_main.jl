@@ -1,16 +1,11 @@
 include("./Sim_ABC_functions.jl")
 
 
-
-
-
-
-
 #region, Step 1: Simulating of the pseudo-data (from the model)
 
 using Distributed
 
-n_proc=10
+n_proc = 10
 addprocs(10, exeflags="--project=$(Base.active_project())")
 
 @everywhere begin
@@ -1044,7 +1039,6 @@ pmap(Visual_post_pred_check, 1:15)
 #endregion  
 #region, Step 7: Computing the distance to a tipping point and the hysteresis size
 
-#To avoid doing that for many sites, we map the cover in (p,q) space
 
 
 
@@ -1061,46 +1055,47 @@ end
 
 
 @everywhere function Compute_cover_space(id)
-    n_keep = 100
-    grain = 0.01
-    p_seq = 0:grain:1
-    q_seq = 0:grain:1
-    all_sim_param = expand_grid(p=p_seq, q=q_seq)
-    deleterows!(all_sim_param, 1)
-    all_sim_param = all_sim_param[((id-1)*n_keep+1):(id*n_keep), :]
 
-    Keeping_data = zeros(2 * size(all_sim_param)[1], 4)
-    Keeping_data[:, 1:2] .= vcat(all_sim_param, all_sim_param)
+    Param_site = Matrix{Float64}(CSV.read("../Data_new/Inferrence/Posterior_modes_each_sites.csv", DataFrame, header=1, delim=';')[id, :])
 
-    index = 1
+    Keeping_data = zeros(2000, 5)
+
     for traj in ["Degradation", "Restoration"]
 
-        for k in 1:size(all_sim_param)[1]
+        param = Get_classical_param_Eby()
+        param[1] = Param_site[id, 3]
+        param[2] = Param_site[id, 6]
+        Keeping_data[:, 1:2] .= param
 
-            mean_cover = rand()
-            param = Get_classical_param_Eby()
-            param[1] = all_sim_param[k, 1]
-            param[2] = all_sim_param[k, 2]
-            if traj == "Degradation"
-                fraction_cover = [0.8, 0.2]
-            else
-                fraction_cover = [0.1, 0.9]
-            end
-            size_landscape = 150
-            ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+        if traj == "Degradation"
+            fraction_cover = [0.8, 0.2]
+        else
+            fraction_cover = [0.1, 0.9]
+        end
+
+        size_landscape = 150
+        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+
+        index = 1
+        while param[1] != 0
 
             d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
                 keep_landscape=true, burning_phase=1500, intensity_feedback=6)
 
             mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
 
-            Keeping_data[index, 3] = mean_cover
+            Keeping_data[index, 3] = ifelse(any([length(findall(land1[:, :, k] .== 1)) == 0 for k in 1:size(land1)[3]]), 0, mean_cover)
             Keeping_data[index, 4] = ifelse(traj == "Degradation", 1, 2)
 
             index += 1
+            param[1] -= 1 / 2000 #step size
+            if param[1] < 0
+                param[1] = 0
+            end
         end
+
     end
-    CSV.write("./Data/Inferrence/Sim_space_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+    CSV.write("./Data/Inferrence/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
 end
 
 

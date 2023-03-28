@@ -78,7 +78,7 @@ all_sim=expand.grid(N1=c(1000,3000),
 
 d=tibble()
 for (i in 1:nrow(all_sim)){
-  d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Pre_post/RMSE_param_",all_sim$Preproc[i],"_",all_sim$postproc[i],"_optim_lambda_",
+  d=rbind(d,read.table(paste0("../Data_new/NRMSE/RMSE_param_",all_sim$Preproc[i],"_",all_sim$postproc[i],"_optim_lambda_",
                               all_sim$lambda[i],"_N1_",all_sim$N1[i],".csv"),sep=";")%>%
             add_column(., N1=all_sim$N1[i],optim_lambda=all_sim$lambda[i],Post=all_sim$postproc[i],Pre=all_sim$Preproc[i]))
 }
@@ -90,11 +90,11 @@ mean_rmse=d%>%
   mutate(., Pre=recode_factor(Pre,"None"="No BoxCox","BoxCox"="Box-Cox"))%>%
   add_column(., Treatment=paste0(.$Pre," & \n ",.$Post))%>%
   group_by(.,variable,N1,optim_lambda,Post,Pre,Treatment)%>%
-  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  rename(., "Parameter"="variable")
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
+  dplyr::rename(., Parameter=variable)
 
 p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
-           rename(., "Parameter"="variable")%>%
+           dplyr::rename(., "Parameter"="variable")%>%
            mutate(., Post=recode_factor(Post,"loclinear"="Linear regression","neuralnet"="Non-linear regression"))%>%
            mutate(., Pre=recode_factor(Pre,"None"="No BoxCox","BoxCox"="Box-Cox"))%>%
            add_column(., Treatment=paste0(.$Pre," & \n ",.$Post)))+
@@ -105,12 +105,13 @@ p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
   labs(x="",y="NRMSE",color="")+
   facet_grid(N1~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter)),rows=N[1]==.(N1)))+
   the_theme+
-  ylim(0,.5)+
+  
   theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 3)))+
-  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898AA4","#E4C035"))
+  scale_color_manual(values=c("#C46FC5","#80BD5C"))+
+  theme(legend.position = "none")
 
-ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf"),p,width = 6,height = 5)
+ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf"),p,width = 6,height = 7)
 
 
 
@@ -122,9 +123,9 @@ ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf
 
 
 
-d=rbind(read.table(paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_preprocessing_PLS_10_Nnet_10.csv"),sep=";")%>%
+d=rbind(read.table(paste0("../Data_new/NRMSE/RMSE_hidden_preprocessing_PLS_10_Nnet_10.csv"),sep=";")%>%
           add_column(., PLS="Yes"),
-        read.table(paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_preprocessing_NoPLS_10_Nnet_10.csv"),sep=";")%>%
+        read.table(paste0("../Data_new/NRMSE/RMSE_hidden_preprocessing_NoPLS_10_Nnet_10.csv"),sep=";")%>%
           add_column(., PLS="No"))
 
 
@@ -133,11 +134,11 @@ mean_rmse=d%>%
   melt(., id.vars=c("PLS"))%>%
   group_by(.,variable,PLS)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  rename(., "Parameter"="variable")
+  dplyr::rename(., "Parameter"="variable")
 
 
 p=ggplot(d%>%melt(., id.vars=c("PLS"))%>%
-           rename(., "Parameter"="variable"))+
+           dplyr::rename(., "Parameter"="variable"))+
   geom_jitter(aes(x=PLS,y=value,color=as.factor(PLS)),
               position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
   geom_point(data=mean_rmse,aes(x=PLS,y=mean_rmse),
@@ -145,7 +146,7 @@ p=ggplot(d%>%melt(., id.vars=c("PLS"))%>%
   labs(x="Using PLS during pre-processing",y="NRMSE",color="")+
   facet_grid(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
   the_theme+
-  ylim(0,.5)+
+  
   theme(strip.text.x = element_text(size=10),legend.position = "none")+
   scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))
 
@@ -162,11 +163,10 @@ ggsave(paste0("../Figures/Final_figs/SI/Optimization_PLS.pdf"),p,width = 6,heigh
 
 
 all_sim=expand.grid(rep_network=seq(10,30,by=10),N_hidden=seq(5,25,by=5))
-
 d=tibble()
 
 for (i in 1:nrow(all_sim)){
-  d=rbind(d,read.table(paste0("../Data/Step6_Optimizing_inferrence/Neural_net/RMSE_hidden_preprocessing_NoPLS_",
+  d=rbind(d,read.table(paste0("../Data_new/NRMSE/RMSE_hidden_preprocessing_NoPLS_",
                               all_sim$N_hidden[i],"_Nnet_",all_sim$rep_network[i],".csv"),sep=";")%>%
             add_column(., N_hidden=all_sim$N_hidden[i],N_rep_net=all_sim$rep_network[i]))
 }
@@ -176,12 +176,12 @@ mean_rmse=d%>%
   melt(., id.vars=c("N_hidden","N_rep_net"))%>%
   group_by(.,variable,N_rep_net,N_hidden)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value))%>%
-  rename(., "Parameter"="variable")%>%
+  dplyr::rename(., "Parameter"="variable")%>%
   mutate(., N_hidden=as.character(N_hidden))
 
 
 p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
-           rename(., "Parameter"="variable")%>%
+           dplyr::rename(., "Parameter"="variable")%>%
            mutate(., N_hidden=as.character(N_hidden)))+
   geom_jitter(aes(x=factor(N_hidden,level=c("5","10",'15',"20",'25')),y=value,color=as.factor(N_hidden)),
               position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
@@ -190,13 +190,94 @@ p=ggplot(d%>%melt(., id.vars=c("N_hidden","N_rep_net"))%>%
   labs(x="Number hidden neurons",y="NRMSE",color="")+
   facet_grid(Parameter~N_rep_net,labeller = label_bquote(rows="Parameter"==.(as.character(Parameter)),cols="# evaluation NN"==.(N_rep_net)))+
   the_theme+
-  ylim(0,.5)+
   theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 2)))+
   scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"),breaks=c('5', '10', '15',"20","25"))
 
 ggsave(paste0("../Figures/Final_figs/SI/Optimization_NN.pdf"),
        p,width = 7,height = 4)
+
+
+
+
+
+
+### Number of simulations kept ----
+
+d=tibble()
+list_f=list.files("../Data_new/NRMSE/","NA")
+for (k in list_f){
+  d=rbind(d,read.table(paste0("../Data_new/NRMSE/",k),sep=";")%>%
+            add_column(., Nkept=as.numeric(gsub(".csv","",strsplit(k,"_")[[1]][3]))))
+}
+
+
+
+mean_rmse=d%>%
+  melt(., id.vars=c("Nkept"))%>%
+  group_by(.,variable,Nkept)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
+  dplyr::rename(., Parameter=variable)
+
+p=ggplot(d%>%melt(., id.vars=c("Nkept"))%>%dplyr::rename(., Parameter=variable))+
+  geom_jitter(aes(x=Nkept,y=value,color=Parameter),
+              position = position_jitterdodge(jitter.width = 10,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=Nkept,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="Number of simulations kept",y="NRMSE",color="")+
+  facet_grid(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
+  the_theme+
+  
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  scale_color_manual(values=c("#C46FC5","#80BD5C"))+
+  theme(legend.position = "none")
+
+
+ggsave(paste0("../Figures/Final_figs/SI/N_sim_kept.pdf"),p,width = 7,height = 4)
+
+
+
+### Best summary statistics ----
+
+
+d=tibble()
+list_f=list.files("../Data_new/Best_sumstat")
+all_name=c("All","No PLR","No Exponent p.l.","No PLR & \n Exponent p.l.","No CV PSD","No Frac. max",
+           "No CV PSD & \n Frac. max","No CV PSD & \n Exponent p.l. ","No CV PSD, PLR & \n Exponent p.l.")
+
+for (i in 1:length(list_f)){
+  d=rbind(d,read.table(paste0("../Data_new/Best_sumstat/",list_f[i]),sep=";")%>%
+            add_column(.,Name=all_name[i]))
+}
+
+mean_rmse=d%>%
+  melt(., id.vars=c("Name"))%>%
+  group_by(.,variable,Name)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
+  dplyr::rename(., Parameter=variable)
+
+p=ggplot(d%>%
+           melt(., id.vars=c("Name")))+
+  geom_jitter(aes(x=Name,y=value,color=interaction(Name)),
+              position = position_jitterdodge(jitter.width = 0.5,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=Name,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="",y="NRMSE",color="")+
+  facet_wrap(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
+  the_theme+
+  
+  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  #scale_color_manual(values=my_pal(9))+
+  scale_color_manual(values=colorRampPalette(colors=c("#C46FC5","#80BD5C"))(9))+
+  theme(legend.position = "none")+
+  ylim(0,.2)
+
+ggsave(paste0("../Figures/Final_figs/SI/Combination_sumstats.pdf"),p,width = 9,height = 6)
+
+
+
 
 
 
@@ -238,7 +319,7 @@ ggsave(paste0("../Figures/Final_figs/SI/Change_metrics_spatial_resolution_model.
 
 ### Robustness inference with spatial resolution ----
 
-d_RMSE_param=read.table("../Data_new/Retrieving_parameters_different_resolution_RMSE_param.csv",sep=";")
+d_RMSE_param=read.table("../Data_new/Scale_obs_indentifiability/Retrieving_parameters_different_resolution_RMSE_param.csv",sep=";")
 p1=ggplot(d_RMSE_param%>% #we remove the scale of observation
             mutate(., Scale_obs=as.character(Scale_obs))%>%
             filter(., Method=="NeuralNet")%>%
@@ -257,7 +338,7 @@ p1=ggplot(d_RMSE_param%>% #we remove the scale of observation
 ggsave("../Figures/Final_figs/SI/NMRSE_consistency_inference_param_scale.pdf",p1,width = 6,height = 3)
 
 
-x_y_param=read.table("../Data_new/Retrieving_parameters_different_resolution_x_y.csv",sep=";")
+x_y_param=read.table("../Data_new/Scale_obs_indentifiability/Retrieving_parameters_different_resolution_x_y.csv",sep=";")
 p2=ggplot(x_y_param%>% #we remove the scale of observation
             filter(., Method=="NeuralNet")%>%
             melt(., id.vars=c("Site_ID","Method","Scale_obs","Type"))%>%
@@ -269,10 +350,10 @@ p2=ggplot(x_y_param%>% #we remove the scale of observation
   the_theme+
   guides(Method="none")
 
-ggsave("../Figures/Final_figs/SI/Parameters_consistency_inference_param_scale.pdf",p2,width = 7,height = 4)
+ggsave("../Figures/Final_figs/SI/Consistency_inference_param_scale.pdf",p2,width = 7,height = 4)
 
-## >> 3) Characteristics data & comparison with model ----
-### Resolution, densities in empirical data ----
+## >> 3) Resolution, densities & characteristics of empirical data ----
+
 
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
@@ -305,8 +386,23 @@ p=ggplot(d_biocom%>%
 
 ggsave("../Figures/Final_figs/SI/Density_empirical_type_patterns.pdf",p+theme(strip.background.x = element_blank()),width = 9,height = 6)
 
+# Distribution of empirical data, map, aridity and sand cover
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
-### Comparison data-model : PCA and densities ----
+world_map <- map_data("world")
+p=ggplot(NULL) +
+  geom_polygon(data=world_map, aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_point(data=d_biocom,aes(x=Longitude,y=Lattitude,color=Aridity),size=3)+
+  the_theme+
+  scale_color_gradientn(colors = my_pal(4))+
+  labs(x="Longitude",y="Lattitue")
+
+ggsave("../Figures/Final_figs/SI/Map_empirical_sites.pdf",p,width = 6,height = 4)
+
+
+## >> 4) Comparison data-model : PCA and densities ----
+
 
 # Density data & model
 stat_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
@@ -421,28 +517,220 @@ p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
 ggsave(paste0("../Figures/Final_figs/PCA_scale_observation_model_data.pdf"),p,width = 11,height = 5)
 
 
-## >> 4) Inference ----
-
-x_y_stat=read.table("../Data_new/x_y_obs_sim_stat.csv",sep=";")
+## >> 5) ABC-Posteriors ----
 
 
+# NMRSE for the different combination of summary statistics
 
-par(mfrow=c(4,3),mar=rep(2,4))
-for (i in 1:11){
-  plot(x=filter(x_y_stat,Type=="Sim")[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
-       y=filter(x_y_stat,Type=="Obs")[,i],col="gray")
-  abline(a=0,b=1)
+list_f=list.files(paste0("../Data_new/Inferrence/"),"NRMSE_sumstat")
+d=tibble()
+for (k in 1:length(list_f)){
+  name_cols=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+                        "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+  if (k==2){
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(10)] #no CV
+    
+    d2=d2%>%add_column(.,"CV PSD"=NA)%>%
+      relocate(., "CV PSD",.before="Frac. max")%>%
+      add_column(., Type="No CV PSD")
+    
+  }else if (k==3){
+    
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(10:11)] #No cv fmax
+    d2=d2%>%add_column(.,"CV PSD"=NA,"Frac. max"=NA)%>%
+      add_column(., Type="No Frac. max & CV PSD")
+      
+    
+  }else if (k==4){
+
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(9)] #no PL
+    d2=d2%>%add_column(.,"Exponent p.l."=NA)%>%
+      add_column(., Type="No Exponent p.l.")%>%
+      relocate(., "Exponent p.l.",.after="PLR")
+    
+  }else if (k==5){ #no pl plr
+    
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(8,9)]
+    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA)%>%
+      add_column(., Type="No PLR & Exponent p.l.")%>%
+      relocate(., "PLR",.after="SDR")%>%
+      relocate(., "Exponent p.l.",.after="PLR")
+      
+      
+    
+  }else if (k==6){ #no the 4
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(8:11)]
+    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA,"CV PSD"=NA,"Frac. max"=NA)%>%
+      add_column(., Type="No PLR, Exponent p.l. & \n CV PSD & Frac. max")
+    
+  }else if (k==7){
+
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(8:10)]    
+    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA,"CV PSD"=NA)%>%
+      add_column(., Type="No PLR, Exponent p.l. & \n CV PSD")%>%
+      relocate(., "Frac. max",.after="CV PSD")
+    
+  }else {
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols
+    d2=d2%>%add_column(., Type="All")
+  }
+
+  
+  d=rbind(d,d2)
 }
 
-par(mfrow=c(4,3),mar=rep(2,4))
-for (i in 1:11){
-  d_sim=filter(x_y_stat,Type=="Sim")%>%
-    filter(.,Site_ID %in% which(d_biocom$Nbpixels<80000))
-  d_obs=filter(x_y_stat,Type=="Obs")%>%
-    filter(.,Site_ID %in% which(d_biocom$Nbpixels<80000))
-  plot(x=d_sim[,i],xlab="Sim",ylab="Obs",main=colnames(x_y_stat)[i],
-       y=d_obs[,i],col="gray")
-  abline(a=0,b=1)
+
+mean_rmse=d%>%
+  melt(., id.vars=c("Type"))%>%
+  group_by(.,variable,Type)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))
+
+p=ggplot(d%>%melt(., id.vars=c("Type")))+
+  geom_jitter(aes(x=Type,y=value,color=Type),
+              position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=Type,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="",y="NRMSE",color="")+
+  facet_wrap(.~variable,scales = "free")+
+  the_theme+
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom",
+        axis.text.x = element_blank(),axis.ticks.x = element_blank())+
+  guides(color = guide_legend(override.aes = list(size = 4,alpha=1)))+
+  geom_hline(yintercept = 1)
+
+ggsave("../Figures/Final_figs/SI/NRMSE_sumstats.pdf",p,width = 10,height = 8)
+
+
+
+
+
+
+
+# Inference for all combination of summary statistics
+
+list_f=list.files("../Data_new/Inferrence/","x_y")
+
+pdf("../Figures/Final_figs/SI/All_inference.pdf",width = 7,height = 8)
+for (k in 1:length(list_f)){
+  
+  x_y_stat=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+  if (k==1) save=x_y_stat
+  
+  par(mfrow=c(4,3),mar=rep(2,4))
+  for (i in 1:(length(colnames(save))-3)){
+    if (colnames(save)[i] %in% colnames(x_y_stat)){
+      plot(y=filter(x_y_stat,Type=="Sim")[,colnames(save)[i]],xlab="Sim",ylab="Obs",main=colnames(save)[i],
+           x=filter(x_y_stat,Type=="Obs")[,colnames(save)[i]],col="gray")
+      abline(a=0,b=1)
+      
+    } else{
+      image(matrix(1,1,1,1),col="white")
+    }
+    
+  }
+  
+  
+  x_y_stat=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")%>%
+    filter(., Site_ID %in% which(d_biocom$Nbpixels<80000))
+  if (k==1) save=x_y_stat
+  
+  par(mfrow=c(4,3),mar=rep(2,4))
+  for (i in 1:(length(colnames(save))-3)){
+    if (colnames(save)[i] %in% colnames(x_y_stat)){
+      plot(y=filter(x_y_stat,Type=="Sim")[,colnames(save)[i]],xlab="Sim",ylab="Obs",main=colnames(save)[i],
+           x=filter(x_y_stat,Type=="Obs")[,colnames(save)[i]],col="#DC7575")
+      abline(a=0,b=1)
+      
+    } else{
+      image(matrix(1,1,1,1),col="white")
+    }
+    
+  }
+  
 }
+dev.off()
+
+
+
+
+# x-y obs-simulated for each spatial statistic
+
+x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
+list_plots=list()
+name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+
+for (i in 1:11){
+  d_fil=cbind(filter(x_y_stat%>%
+                 melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
+              filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
+  
+  list_plots[[i]]=ggplot(d_fil)+
+    geom_point(aes(x=value_obs,y=value_sim),color="#96C3DC",alpha=.75)+the_theme+
+    labs(x="",y="")+
+    geom_abline(slope=1,intercept = 0,color="black")+
+    ggtitle(name_plot[i])+
+    theme(title = element_text(size=10))
+}
+
+p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3),
+                left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
+                bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
+ggsave("../Figures/Final_figs/Inference_stats.pdf",p,width = 10,height = 8)
+
+
+# 
+# #With the ranking of sites
+# x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
+# list_plots=list()
+# name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+#             "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+# 
+# for (i in 1:11){
+#   d_fil=cbind(filter(x_y_stat%>%
+#                        melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+#                 filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
+#               filter(x_y_stat%>%
+#                        melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+#                 filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))%>%
+#     add_column(., Closest=final_rank$Rank)
+#   
+#   list_plots[[i]]=ggplot(d_fil)+
+#     geom_point(aes(x=value_obs,y=value_sim,color=Closest),alpha=.75)+the_theme+
+#     labs(x="",y="")+
+#     geom_abline(slope=1,intercept = 0,color="black")+
+#     ggtitle(name_plot[i])+
+#     theme(title = element_text(size=10))+
+#     scale_color_gradientn(colours = viridis(345))
+# }
+# 
+# p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3),
+#                   left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
+#                   bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
+# 
+
+
+
+
+
+## >> 6) Prediction ----
+
+d=read.table("../Data_new/Inferrence/NRMSE_param_NN_all.csv",sep=";")
+d2=read.table("../Data_new/Inferrence/NRMSE_param_rej_all.csv",sep=";")
+
+site_p_NN=d[,1:345]
+site_q_NN=d[,346:690]
+site_p_rej=d2[,1:345]
+site_q_rej=d2[,346:690]
 
 

@@ -8,9 +8,9 @@ library(FactoMineR) ;library(factoextra);library(pls)
 library(missMDA);library(GGally);library(scales);library(magick)
 library(png);library(EBImage);library(imager)
 library(lme4);library(car);library(diptest);library(raster);library(ape)
-library(abctools)
+library(abctools);library(viridis)
 
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
@@ -62,11 +62,9 @@ fourneighbors = function(landscape, state = 1, bounds = 1) {
   
 }
 
-
 Plot_psd=function(id,best=F){
   print(spatialwarnings::plot_distr(spatialwarnings::patchdistr_sews(Get_empirical_site(id)>0),best_only = best))
 }
-
 
 Plot_dynamics=function(d,different_sim=F){
   
@@ -828,7 +826,6 @@ Plot_png=function(mat_id){
                        ),".png"))
   grid::grid.raster(img_1)
 }
-
 
 Boxcox_and_scale=function(d){
   
