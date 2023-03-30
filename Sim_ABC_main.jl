@@ -1040,7 +1040,7 @@ pmap(Visual_post_pred_check, 1:15)
 #region, Step 7: Computing the distance to a tipping point and the hysteresis size
 
 
-
+# For each site, we compute the vegetation cover within the modes for p and q
 
 using Distributed
 
@@ -1054,33 +1054,35 @@ end
 @everywhere include("./Drylands_ABC_functions.jl")
 
 
-@everywhere function Compute_cover_space(id)
+@everywhere function Distance_tipping(id)
+
+    step_size = 1 / 200
 
     Param_site = Matrix{Float64}(CSV.read("../Data_new/Inferrence/Posterior_modes_each_sites.csv", DataFrame, header=1, delim=';')[id, :])
-
-    Keeping_data = zeros(2000, 5)
-
+    p_25, p_50, p_75, q_25, q_50, q_75 = Param_site[id, 4], Param_site[id, 3], Param_site[id, 5], Param_site[id, 7], Param_site[id, 6], Param_site[id, 8]
+    Keeping_data = zeros(((p_75 - p_25) / step_size) * ((q_75 - q_25) / step_size), 4)
+    index=1
     for traj in ["Degradation", "Restoration"]
 
-        param = Get_classical_param_Eby()
-        param[1] = Param_site[id, 3]
-        param[2] = Param_site[id, 6]
-        Keeping_data[:, 1:2] .= param
+        
+        for p_ in p_25:step_size:p_75, q_ in q_25:step_size:p_75
 
-        if traj == "Degradation"
-            fraction_cover = [0.8, 0.2]
-        else
-            fraction_cover = [0.1, 0.9]
-        end
+            param = Get_classical_param_Eby()
+            param[1] = p_
+            param[2] = q_
+            Keeping_data[index, 1:2] .= param
 
-        size_landscape = 150
-        ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+            if traj == "Degradation"
+                fraction_cover = [0.8, 0.2]
+            else
+                fraction_cover = [0.2, 0.8]
+            end
 
-        index = 1
-        while param[1] != 0
+            size_landscape = 100
+            ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
 
             d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
-                keep_landscape=true, burning_phase=1500, intensity_feedback=6)
+            keep_landscape=true, burning_phase=1500, intensity_feedback=6)
 
             mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
 
@@ -1088,18 +1090,14 @@ end
             Keeping_data[index, 4] = ifelse(traj == "Degradation", 1, 2)
 
             index += 1
-            param[1] -= 1 / 2000 #step size
-            if param[1] < 0
-                param[1] = 0
-            end
+                    
         end
-
     end
-    CSV.write("./Data/Inferrence/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+    CSV.write("./Data/Inferrence/Dist_tipping/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
 end
 
 
-pmap(Compute_cover_space, 1:102)
+pmap(Distance_tipping, 1:102)
 
 
 

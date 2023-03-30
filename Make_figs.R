@@ -6,25 +6,17 @@ source("./ABC_drylands_function.R")
 ## >> PCA levels of aggregation data ----
 
 
-d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-d_sim=mutate(read.table("../Data/Step9_Spatial_resolution/All_sims_models.csv",sep=";"),
-             Spectral_ratio=log(Spectral_ratio),clustering=log(clustering),
-             PLR=ifelse(is.nan(PLR),0,PLR),PL_expo=ifelse(is.nan(PL_expo),0,PL_expo))%>%
-  filter(., rho_p>0.03)%>%
-  arrange(.,Model)
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+d_sim=read.table("../Data_new/All_new_sim2.csv",sep=";")%>%
+  mutate(., Pooling=recode_factor(Pooling,"1"="Model, no change",
+                                  "2" = "Model, x2","3" = "Model, x3","4" = "Model, x4","5" = "Model, x5"))
 
-for (i in 1:(nrow(d_sim)/4)){
-  d_sim$PL_expo[(4*(i-1)+1):(4*(i-1)+3)]=d_sim$PL_expo[(4*(i-1)+4)]
-}
-d_biocom$PL_expo[d_biocom$PL_expo==0]=NA
-
-d_sim_data=rbind(d_sim%>%filter(., Model=="Eby_feedback"),
-                 d_biocom[which(d_biocom$Nbpixels<80000),17:ncol(d_biocom)]%>% #keeping only the data with relatively low quality
-                   add_column(., Pooling="Data",Model=NA)%>%
-                   mutate(., Spectral_ratio=log(Spectral_ratio),clustering=log(clustering)))
-
-sumstat_name=colnames(d_sim_data)[1:9]
-res.comp=imputePCA(d_sim_data[,which(colnames(d_sim_data) %in% sumstat_name)],ncp=3,scale = T) 
+set.seed(123)
+d=rbind(stat_sim[,-c(1:2,15)]%>%dplyr::sample_n(., 400000),
+        d_biocom[,c(14:ncol(d_biocom))]%>%
+          add_column(.,Pooling='Data'))
+sumstat_name=colnames(d)[1:11]
+res.comp=imputePCA(d[,which(colnames(d) %in% sumstat_name)],ncp=3,scale = T) 
 
 if ("completeObs" %in% names(res.comp)){
   res.pca=PCA(res.comp$completeObs, ncp = 3,  graph=F)
@@ -36,16 +28,15 @@ axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
 
 for (i in 1:3){
   assign(paste0("p",i),
-         d_sim_data%>%
-           mutate(., Pooling=recode_factor(Pooling,"1/4"='x4',"1/3"="x3","1/2"="x2","1"="No change"))%>%
+         d%>%
            add_column(., PC1=res.pca$ind$coord[,axes_for_plot$x[i]],PC2=res.pca$ind$coord[,axes_for_plot$y[i]])%>%
            ggplot(.) +
            geom_hline(yintercept = 0, lty = 2) +
            geom_vline(xintercept = 0, lty = 2) +
            geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling,size=Pooling),alpha=.5)+
-           scale_size_manual(values=c(rep(.5,4),1.5))+
-           scale_color_manual(values=c(brewer_pal(palette = "BrBG")(4),"black"))+
-           scale_fill_manual(values=c(brewer_pal(palette = "BrBG")(4),"black"))+
+           scale_size_manual(values=c(rep(.5,5),1.5))+
+           scale_color_manual(values=c(my_pal(5),"black"))+
+           scale_fill_manual(values=c(my_pal(5),"black"))+
            labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
                 y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
            ggtitle("")+guides(shape="none")+
@@ -66,10 +57,225 @@ ggsave(paste0("../Figures/Final_figs/PCA_spatial_resolution_model_and_data.pdf")
 
 
 
+
+
+## >> Observed versus simulated spatial statistics ----
+
+
+x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
+list_plots=list()
+name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+
+for (i in 1:11){
+  d_fil=cbind(filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
+              filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
+  
+  list_plots[[i]]=ggplot(d_fil)+
+    geom_point(aes(x=value_obs,y=value_sim),color="#96C3DC",alpha=.75)+the_theme+
+    labs(x="",y="")+
+    geom_abline(slope=1,intercept = 0,color="black")+
+    ggtitle(name_plot[i])+
+    theme(title = element_text(size=10))
+}
+
+p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3),
+                  left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
+                  bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
+ggsave("../Figures/Final_figs/Inference_stats.pdf",p,width = 10,height = 8)
+
+
+## >> Correlation parameters and drivers ----
+
+
+# Correlation posterior & environmental drivers
+
+d=read.table("../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";")[,-1]
+colnames(d)=c("Site","p_50","p_25","p_75","q_50","q_25","q_75","Scale")
+d=d%>%add_column(., Sand=d_biocom$Sand,Aridity=d_biocom$Aridity,MF=d_biocom$MF)
+
+d_melt=d%>%
+  melt(., measure.vars=c("p_50","q_50"),variable.name="Parameter_var")%>%
+  dplyr::rename(., Parameter_val=value)%>%
+  mutate(., Parameter_var=recode_factor(Parameter_var,"p_50"="Median of p posterior","q_50"="Median of q posterior"))%>%
+  melt(., measure.vars=c("MF","Aridity","Sand"),variable.name="Driver_var")%>%
+  mutate(., Driver_var=recode_factor(Driver_var,"MF"="Multifunctionality"))%>%
+  dplyr::rename(., Driver_val=value)
+
+list_plots=list()
+index=1
+for (i in unique(d_melt$Parameter_var)){
+  for (j in unique(d_melt$Driver_var)){
+    list_plots[[index]]=ggplot(d_melt%>%filter(., Driver_var==j,Parameter_var==i))+
+      geom_point(aes(x=Driver_val,y=Parameter_val),color="#96C3DC",alpha=.75)+the_theme+
+      labs(x=j,y=i)+the_theme
+    index=index+1
+  }
+}
+
+p=annotate_figure(ggarrange(plotlist=list_plots,nrow = 3,ncol = 2),
+                  left=text_grob("Median of posterior parameters",rot=90,color="black",size=15,face ="bold",family = "NewCenturySchoolbook"),
+                  bottom = text_grob("Drivers",color="black",size=15,face="bold",family = "NewCenturySchoolbook"))
+ggsave("../Figures/Final_figs/Correlation_drivers_parameters.pdf",p,width = 10,height = 8)
+
+
 # ---------------------------- SI figures ------------------------------
+
+## >> 0) Characteristics of empirical data ----
+### Resolution, geographical repartition ----
+
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+
+# spatial resolution
+
+p=ggplot(d_biocom)+
+  geom_histogram(aes(x=Nbpixels),fill=alpha("blue",.5))+
+  the_theme+
+  labs(x='# of pixels',y="Count")
+
+ggsave("../Figures/Final_figs/SI/Spatial_resolution_data.pdf",p,width = 6,height = 3)
+
+
+# Distribution of empirical data, map, aridity and sand cover
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+
+world_map <- map_data("world")
+p=ggplot(NULL) +
+  geom_polygon(data=world_map, aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_point(data=d_biocom,aes(x=Longitude,y=Lattitude,color=Aridity),size=3)+
+  the_theme+
+  scale_color_gradientn(colors = my_pal(4))+
+  labs(x="Longitude",y="Lattitue")
+
+ggsave("../Figures/Final_figs/SI/Map_empirical_sites.pdf",p,width = 6,height = 4)
+
+
+
+
+### Density of summary statistics: ecosystem type, type patterns ----
+
+#Pair correlation metrics used
+
+p=ggpairs(d_biocom%>%add_column(., for_color=1)%>%dplyr::select(., -Cover)%>%
+            dplyr::rename(., SDR=Spectral_ratio,Clustering=clustering,Cover=rho_p,
+                          "# neigh"=nb_neigh,Skewness=skewness,Variance=variance,"Autocorr."=moran_I,
+                          "Exponent p.l."=PL_expo,"CV PSD"=cv_psd,Fmax=fmax_psd),
+          columns = c(13:23),
+          mapping = ggplot2::aes(color = as.factor(for_color),size=as.factor(for_color)),
+          upper = "blank",
+          diag = NULL)+
+  scale_color_manual(values=c("#96C3DC"))+
+  scale_size_manual(values=.4)+
+  the_theme
+
+ggsave(paste0("../Figures/Final_figs/SI/Pair_corr_metrics.pdf"),p,width = 12,height = 12)
+
+
+
+
+#coupling with the one made biogeo consideration
+
+classif_biogeo=read.table("../Data_new/Veg_type_biogeo.csv",sep=";")
+d_plant_type=d_biocom%>%add_column(., Type_vege=classif_biogeo$type)
+
+p=ggplot(d_plant_type%>%melt(., measure.vars=colnames(d_plant_type)[14:24])%>%
+           mutate(., variable=recode_factor(variable,
+                                            "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering",
+                                            "skewness"="Skewness","variance"="Variance",
+                                            "moran_I"="Autocorrelation","Spectral_ratio"="SDR",
+                                            "cv_psd"="CV PSD","fmax_psd"="Frac. max","PL_expo"="Exponent p.l." ,
+           )))+
+  geom_density(aes(x=value,fill=Type_vege),alpha=.5)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="Value",y="Density",fill="")+
+  scale_fill_manual(values=c("#85AB61","#B55960","#ECC570"))
+
+ggsave(paste0("../Figures/Final_figs/SI/Density_type_vege.pdf"),p,width = 8,height = 6)
+
+
+
+own_classif=read.table("../Data_new/type_vege.csv",sep=";")
+d_plant_type=d_biocom%>%add_column(., Type_vege=own_classif$Type)
+
+p=ggplot(d_plant_type%>%melt(., measure.vars=colnames(d_plant_type)[14:24])%>%
+           mutate(., variable=recode_factor(variable,
+                                            "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering",
+                                            "skewness"="Skewness","variance"="Variance",
+                                            "moran_I"="Autocorrelation","Spectral_ratio"="SDR",
+                                            "cv_psd"="CV PSD","fmax_psd"="Frac. max","PL_expo"="Exponent p.l." ,
+           )))+
+  geom_density(aes(x=value,fill=Type_vege),alpha=.5)+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")+
+  labs(x="Value",y="Density",fill="")+
+  scale_fill_manual(values=c("#85AB61","#B55960","#ECC570"))
+
+
+
+
+
+
+# Type of vegetation patterns: regular versus irregular
+
+
+p=ggplot(d_biocom%>%
+           melt(., measure.vars=colnames(d_biocom)[14:ncol(d_biocom)])%>%
+           mutate(., variable=recode_factor(variable,
+                                            "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering",
+                                            "skewness"="Skewness","variance"="Variance",
+                                            "moran_I"="Autocorrelation","Spectral_ratio"="SDR",
+                                            "cv_psd"="CV PSD","fmax_psd"="Frac. max","PL_expo"="Exponent p.l." ,
+           ),Regular2=recode_factor(Regular2,"0"="Irregular","1"="Regular")))+
+  geom_density(aes(x=value,fill=as.factor(Regular2)),alpha=.8)+
+  the_theme+
+  labs(x="Value",y="Density",fill="Type of pattern  ")+
+  facet_wrap(.~variable,scales = "free",nrow=3)+
+  scale_fill_manual(values=c("#CCB6EA","#BADCA1"))
+
+ggsave("../Figures/Final_figs/SI/Density_empirical_type_patterns.pdf",p+theme(strip.background.x = element_blank()),width = 9,height = 6)
+
+
+
+
+
+
 
 ## >> 1) Optimizing ABC ----
 ### Optimization of the ABC method: pre- and post-processing ----
+
+
+#Simple rejection algorithm
+d=read.table("../Data_new/NRMSE/RMSE_param_BoxCox_rejection_optim_lambda_yes_N1_1000.csv",sep=";")
+
+mean_rmse_rej=d%>%
+  melt(.)%>%
+  group_by(.,variable)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
+  dplyr::rename(., Parameter=variable)%>%
+  add_column(., Method="BoxCox & Rejection")
+
+p2=ggplot(d%>%melt(.)%>%add_column(., Method="BoxCox & Rejection")%>%
+           dplyr::rename(., "Parameter"="variable"))+
+  geom_jitter(aes(x=Method,y=value),color="gray",alpha=.5,width =.05,height=0)+
+  geom_point(data=mean_rmse_rej,aes(x=Method,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="",y="NRMSE",color="")+
+  facet_grid(.~Parameter)+
+  the_theme+
+  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1))+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  theme(legend.position = "none",strip.background.x = element_blank())
+
+
+
+
+#With post sampling adjustment
 
 all_sim=expand.grid(N1=c(1000,3000),
                     lambda=c("yes"),
@@ -93,11 +299,11 @@ mean_rmse=d%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)
 
-p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
-           dplyr::rename(., "Parameter"="variable")%>%
-           mutate(., Post=recode_factor(Post,"loclinear"="Linear regression","neuralnet"="Non-linear regression"))%>%
-           mutate(., Pre=recode_factor(Pre,"None"="No BoxCox","BoxCox"="Box-Cox"))%>%
-           add_column(., Treatment=paste0(.$Pre," & \n ",.$Post)))+
+p1=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
+            dplyr::rename(., "Parameter"="variable")%>%
+            mutate(., Post=recode_factor(Post,"loclinear"="Linear regression","neuralnet"="Non-linear regression"))%>%
+            mutate(., Pre=recode_factor(Pre,"None"="No BoxCox","BoxCox"="Box-Cox"))%>%
+            add_column(., Treatment=paste0(.$Pre," & \n ",.$Post)))+
   geom_jitter(aes(x=Treatment,y=value,color=interaction(Pre)),
               position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
   geom_point(data=mean_rmse,aes(x=Treatment,y=mean_rmse,shape=Pre),
@@ -105,17 +311,14 @@ p=ggplot(d%>%melt(., id.vars=c("N1","optim_lambda","Post","Pre"))%>%
   labs(x="",y="NRMSE",color="")+
   facet_grid(N1~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter)),rows=N[1]==.(N1)))+
   the_theme+
-  
-  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
+  geom_hline(data=tibble(Parameter=c("p","q"),hpos=mean_rmse_rej$mean_rmse[1:2]),aes(yintercept = hpos),color="gray50")+
+  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1))+
   guides(color = guide_legend(override.aes = list(size = 3)))+
   scale_color_manual(values=c("#C46FC5","#80BD5C"))+
-  theme(legend.position = "none")
+  theme(legend.position = "none",axis.title.y = element_blank())
 
-ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf"),p,width = 6,height = 7)
-
-
-
-
+p=ggarrange(ggarrange(ggplot()+theme_void(),p2,ggplot()+theme_void(),nrow=3,heights = c(1,3,1)),p1,ncol=2,widths = c(1,3),labels = LETTERS[1:2])
+ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf"),p,width = 8,height = 6)
 
 
 ### Optimization of the ABC method: PLS versus no-PLS ----
@@ -205,7 +408,7 @@ ggsave(paste0("../Figures/Final_figs/SI/Optimization_NN.pdf"),
 ### Number of simulations kept ----
 
 d=tibble()
-list_f=list.files("../Data_new/NRMSE/","NA")
+list_f=list.files("../Data_new/NRMSE/","NA")[-grep(pattern = "rej",list.files("../Data_new/NRMSE/","NA"))]
 for (k in list_f){
   d=rbind(d,read.table(paste0("../Data_new/NRMSE/",k),sep=";")%>%
             add_column(., Nkept=as.numeric(gsub(".csv","",strsplit(k,"_")[[1]][3]))))
@@ -219,7 +422,7 @@ mean_rmse=d%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)
 
-p=ggplot(d%>%melt(., id.vars=c("Nkept"))%>%dplyr::rename(., Parameter=variable))+
+p1=ggplot(d%>%melt(., id.vars=c("Nkept"))%>%dplyr::rename(., Parameter=variable))+
   geom_jitter(aes(x=Nkept,y=value,color=Parameter),
               position = position_jitterdodge(jitter.width = 10,jitter.height = 0),alpha=.5)+
   geom_point(data=mean_rmse,aes(x=Nkept,y=mean_rmse),
@@ -234,8 +437,40 @@ p=ggplot(d%>%melt(., id.vars=c("Nkept"))%>%dplyr::rename(., Parameter=variable))
   theme(legend.position = "none")
 
 
-ggsave(paste0("../Figures/Final_figs/SI/N_sim_kept.pdf"),p,width = 7,height = 4)
 
+
+d=tibble()
+list_f=list.files("../Data_new/NRMSE/","NA")[grep(pattern = "rej",list.files("../Data_new/NRMSE/","NA"))]
+for (k in list_f){
+  d=rbind(d,read.table(paste0("../Data_new/NRMSE/",k),sep=";")%>%
+            add_column(., Nkept=as.numeric(gsub(".csv","",strsplit(k,"_")[[1]][4]))))
+}
+
+
+
+mean_rmse=d%>%
+  melt(., id.vars=c("Nkept"))%>%
+  group_by(.,variable,Nkept)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
+  dplyr::rename(., Parameter=variable)
+
+p2=ggplot(d%>%melt(., id.vars=c("Nkept"))%>%dplyr::rename(., Parameter=variable))+
+  geom_jitter(aes(x=Nkept,y=value,color=Parameter),
+              position = position_jitterdodge(jitter.width = 10,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=Nkept,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="Number of simulations kept",y="NRMSE",color="")+
+  facet_grid(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
+  the_theme+
+  
+  theme(strip.text.x = element_text(size=10),legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  scale_color_manual(values=c("#C46FC5","#80BD5C"))+
+  theme(legend.position = "none")
+
+ggsave(paste0("../Figures/Final_figs/SI/N_sim_kept.pdf"),
+       ggarrange(p1,p2,nrow=2,labels = c("A, non-linear regression","B, no post-sampling adjustment"),vjust=c(4,4),hjust=c(-.25,-.22))
+       ,width = 7,height = 8)
 
 
 ### Best summary statistics ----
@@ -287,7 +522,7 @@ ggsave(paste0("../Figures/Final_figs/SI/Combination_sumstats.pdf"),p,width = 9,h
 ## >> 2) Spatial resolution ---- 
 ### Change spatial stats with resolution ----
 
-stat_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
+stat_sim=read.table("../Data_new/All_new_sim2.csv",sep=";")%>%
   mutate(., Id_sim=rep(1:(nrow(.)/5),each=5))%>%
   mutate(., Pooling=as.character(Pooling),rho_p=round(rho_p,5),variable=as.character(variable))%>%
   melt(., id.vars=c("Pooling","Id_sim"))%>%
@@ -352,60 +587,12 @@ p2=ggplot(x_y_param%>% #we remove the scale of observation
 
 ggsave("../Figures/Final_figs/SI/Consistency_inference_param_scale.pdf",p2,width = 7,height = 4)
 
-## >> 3) Resolution, densities & characteristics of empirical data ----
-
-
-d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
-
-# spatial resolution
-
-p=ggplot(d_biocom)+
-  geom_histogram(aes(x=Nbpixels),fill=alpha("blue",.5))+
-  the_theme+
-  labs(x='# of pixels',y="Count")
-
-ggsave("../Figures/Final_figs/SI/Spatial_resolution_data.pdf",p,width = 6,height = 3)
-
-
-# Type of vegetation patterns: regular versus irregular
-
-
-p=ggplot(d_biocom%>%
-           melt(., measure.vars=colnames(d_biocom)[14:ncol(d_biocom)])%>%
-           mutate(., variable=recode_factor(variable,
-                                            "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering",
-                                            "skewness"="Skewness","variance"="Variance",
-                                            "moran_I"="Autocorrelation","Spectral_ratio"="SDR",
-                                            "cv_psd"="CV PSD","fmax_psd"="Frac. max","PL_expo"="Exponent p.l." ,
-           ),Regular2=recode_factor(Regular2,"0"="Irregular","1"="Regular")))+
-  geom_density(aes(x=value,fill=as.factor(Regular2)),alpha=.8)+
-  the_theme+
-  labs(x="Value",y="Density",fill="Type of pattern  ")+
-  facet_wrap(.~variable,scales = "free",nrow=3)+
-  scale_fill_manual(values=c("#CCB6EA","#BADCA1"))
-
-ggsave("../Figures/Final_figs/SI/Density_empirical_type_patterns.pdf",p+theme(strip.background.x = element_blank()),width = 9,height = 6)
-
-# Distribution of empirical data, map, aridity and sand cover
-d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
-
-world_map <- map_data("world")
-p=ggplot(NULL) +
-  geom_polygon(data=world_map, aes(x = long, y = lat, group = group),
-               fill="lightgray", colour = "white")+
-  geom_point(data=d_biocom,aes(x=Longitude,y=Lattitude,color=Aridity),size=3)+
-  the_theme+
-  scale_color_gradientn(colors = my_pal(4))+
-  labs(x="Longitude",y="Lattitue")
-
-ggsave("../Figures/Final_figs/SI/Map_empirical_sites.pdf",p,width = 6,height = 4)
-
-
-## >> 4) Comparison data-model : PCA and densities ----
+## >> 3) Comparison data-model : PCA and densities ----
 
 
 # Density data & model
-stat_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
+stat_sim=read.table("../Data_new/All_new_sim2.csv",sep=";")%>%
+  sample_n(., 400000)%>%
   mutate(., Pooling=recode_factor(Pooling,"1"="Model, no change",
                                   "2" = "Model, x2","3" = "Model, x3","4" = "Model, x4","5" = "Model, x5"))
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
@@ -474,10 +661,20 @@ ggsave(paste0("../Figures/Final_figs/SI/PCA_raw_model_data.pdf"),p,width = 11,he
 
 
 
-# PCA model at different observation scale and data 
+#PCA vegetion type versus model
+
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+
+#coupling with the one made biogeo consideration
+classif_biogeo=read.table("../Data_new/Veg_type_biogeo.csv",sep=";")
 
 
-d=all_d
+
+d=rbind(stat_sim[,-c(1:2,15)]%>%dplyr::sample_n(., 400000)%>%
+          add_column(.,own_classif="Simulations",biogeo="Simulations"),
+        d_biocom[,c(14:ncol(d_biocom))]%>%
+          add_column(.,Pooling='Data')%>%
+          add_column(.,own_classif=classif_own$Type,biogeo=classif_biogeo$type))
 sumstat_name=colnames(d)[1:11]
 res.comp=imputePCA(d[,which(colnames(d) %in% sumstat_name)],ncp=3,scale = T) 
 
@@ -496,15 +693,17 @@ for (i in 1:3){
            ggplot(.) +
            geom_hline(yintercept = 0, lty = 2) +
            geom_vline(xintercept = 0, lty = 2) +
-           geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling,size=Pooling),alpha=.5)+
-           scale_size_manual(values=c(rep(.7,5),1.5))+
+           geom_point(aes(x = PC1, y = PC2, color = Pooling,fill=Pooling,size=Pooling,shape=own_classif))+
+           scale_size_manual(values=c(rep(.5,5),1.5))+
+           scale_shape_manual(values=c(6,11,3,19))+
            scale_color_manual(values=c(my_pal(5),"black"))+
            scale_fill_manual(values=c(my_pal(5),"black"))+
-           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
-                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="",fill="")+
-           ggtitle("")+guides(shape="none")+
+           labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),shape="Type of vegetation",
+                y=paste0("PC ",axes_for_plot$y[i]," (",round(res.pca$eig[axes_for_plot$y[i],2], 1)," %)"),color="Change in resolution",fill="")+
+           ggtitle("")+guides()+
            theme_classic()+theme(legend.position = "bottom")+
-           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")
+           guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")+
+           theme(legend.box = "vertical")
   )
 }
 
@@ -512,12 +711,14 @@ p=ggarrange(ggarrange(p1+theme(legend.position = "none"),
                       p2+theme(legend.position = "none"),
                       p3+theme(legend.position = "none"),
                       ncol=3,align = "hv"),ggarrange(ggplot()+theme_void(),get_legend(p2),ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3)),
-            nrow=2,heights = c(1,.1))
-
-ggsave(paste0("../Figures/Final_figs/PCA_scale_observation_model_data.pdf"),p,width = 11,height = 5)
+            nrow=2,heights = c(1,.2))
 
 
-## >> 5) ABC-Posteriors ----
+ggsave(paste0("../Figs/SI/PCA_spatial_resolution_model_and_data_own_classif_veg.pdf"),p,width = 11,height = 6)
+
+
+
+## >> 4) ABC-Posteriors ----
 
 
 # NMRSE for the different combination of summary statistics
@@ -538,20 +739,13 @@ for (k in 1:length(list_f)){
   }else if (k==3){
     
     d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(10:11)] #No cv fmax
-    d2=d2%>%add_column(.,"CV PSD"=NA,"Frac. max"=NA)%>%
-      add_column(., Type="No Frac. max & CV PSD")
+    colnames(d2)=name_cols[-c(9)] #No PL
+    d2=d2%>%add_column(.,"Exponent p.l."=NA)%>%
+      relocate(., "Exponent p.l.",.after="PLR")%>%
+      add_column(., Type="No Exponent p.l.")
       
     
-  }else if (k==4){
-
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(9)] #no PL
-    d2=d2%>%add_column(.,"Exponent p.l."=NA)%>%
-      add_column(., Type="No Exponent p.l.")%>%
-      relocate(., "Exponent p.l.",.after="PLR")
-    
-  }else if (k==5){ #no pl plr
+  }else if (k==4){ #no pl plr
     
     d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
     colnames(d2)=name_cols[-c(8,9)]
@@ -561,6 +755,13 @@ for (k in 1:length(list_f)){
       relocate(., "Exponent p.l.",.after="PLR")
       
       
+  }  else if (k==5){  #no PLR
+    
+    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
+    colnames(d2)=name_cols[-c(8)] #no PL
+    d2=d2%>%add_column(.,"PLR"=NA)%>%
+      add_column(., Type="No PLR")%>%
+      relocate(., "PLR",.after="SDR")
     
   }else if (k==6){ #no the 4
     d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
@@ -660,77 +861,5 @@ dev.off()
 
 
 
-# x-y obs-simulated for each spatial statistic
-
-x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
-list_plots=list()
-name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
-            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
-
-for (i in 1:11){
-  d_fil=cbind(filter(x_y_stat%>%
-                 melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
-                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
-              filter(x_y_stat%>%
-                       melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
-                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
-  
-  list_plots[[i]]=ggplot(d_fil)+
-    geom_point(aes(x=value_obs,y=value_sim),color="#96C3DC",alpha=.75)+the_theme+
-    labs(x="",y="")+
-    geom_abline(slope=1,intercept = 0,color="black")+
-    ggtitle(name_plot[i])+
-    theme(title = element_text(size=10))
-}
-
-p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3),
-                left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
-                bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
-ggsave("../Figures/Final_figs/Inference_stats.pdf",p,width = 10,height = 8)
-
-
-# 
-# #With the ranking of sites
-# x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
-# list_plots=list()
-# name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
-#             "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
-# 
-# for (i in 1:11){
-#   d_fil=cbind(filter(x_y_stat%>%
-#                        melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
-#                 filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
-#               filter(x_y_stat%>%
-#                        melt(., id.vars=c("Site_ID","Method", "Type")),variable==colnames(x_y_stat)[i])%>%
-#                 filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))%>%
-#     add_column(., Closest=final_rank$Rank)
-#   
-#   list_plots[[i]]=ggplot(d_fil)+
-#     geom_point(aes(x=value_obs,y=value_sim,color=Closest),alpha=.75)+the_theme+
-#     labs(x="",y="")+
-#     geom_abline(slope=1,intercept = 0,color="black")+
-#     ggtitle(name_plot[i])+
-#     theme(title = element_text(size=10))+
-#     scale_color_gradientn(colours = viridis(345))
-# }
-# 
-# p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3),
-#                   left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
-#                   bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
-# 
-
-
-
-
-
-## >> 6) Prediction ----
-
-d=read.table("../Data_new/Inferrence/NRMSE_param_NN_all.csv",sep=";")
-d2=read.table("../Data_new/Inferrence/NRMSE_param_rej_all.csv",sep=";")
-
-site_p_NN=d[,1:345]
-site_q_NN=d[,346:690]
-site_p_rej=d2[,1:345]
-site_q_rej=d2[,346:690]
 
 

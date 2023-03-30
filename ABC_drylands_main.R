@@ -1133,7 +1133,67 @@ write.table(x_y_param,"../Data_new/Scale_obs_indentifiability/Retrieving_paramet
 
 
 
-# ---------------------- Step 3: Inference ----
+# ---------------------- Step 2': System size ----
+
+list_f=list.files("../Data_new/System_size")
+d=tibble()
+for (k in list_f){
+  d=rbind(d,read.table(paste0("../Data_new/System_size/",k),sep=",")%>%
+            filter(., V3>0))
+}
+colnames(d)=c("p","q","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
+              "Spectral_ratio","PLR","PL_expo","cv_psd","fmax_psd")
+d$System_size=rep(seq(75,225,50),each=15)
+d$Id_sim=1:15
+d$param_id=rep(1:(18900/60),each=60)
+d=d%>%filter(., Id_sim==1)
+
+stat_sim=d%>%
+  melt(., id.vars=c("System_size","Id_sim","param_id"))%>%
+  filter(., variable %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio","cv_psd","fmax_psd"))%>%
+  mutate(., variable=recode_factor(variable,
+                                   "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering","skewness"="Skewness","variance"="Variance",
+                                   "moran_I"="Autocorrelation","Spectral_ratio"="SDR","cv_psd"="CV PSD","fmax_psd"="Frac. max"
+  ))
+
+set.seed(123)
+
+p=ggplot(NULL)+
+  geom_line(data=stat_sim%>%
+              group_by(., System_size,Id_sim,variable)%>%
+              dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
+            aes(x=System_size,y=mean_value,group=interaction(Id_sim)),lwd=1,color="red")+
+  geom_point(data=stat_sim%>%
+               group_by(., System_size,Id_sim,variable)%>%
+               dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
+             aes(x=System_size,y=mean_value),color="red",fill="white",shape=21,size=2.5)+
+  facet_wrap(.~variable,scales = "free",nrow = 2)+
+  labs(x="System size",y="Mean value across all simulations")+
+  the_theme+
+  guides(color = guide_legend(override.aes = list(size = 2)),fill="none")
+
+ggsave("../Figures/Final_figs/SI/Change_statistics_system_size.pdf",p,width = 8,height = 6)
+
+# ---------------------- Step 3: Selecting relevant empirical data ----
+
+#Own made classification of empirical data between shrubs, grasslands or both
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+d=tibble()
+for (i in 1:nrow(d_biocom)){
+  d=rbind(d,tibble(Name=i,Type=Analyse_image(i)))
+}
+write.table(d,"../Data_new/type_vege.csv",sep=";")
+
+#coupling with the one made biogeo consideration
+classif_own=read.table("../Data_new/type_vege.csv",sep=";")
+classif_biogeo=read.table("../Data_new/Veg_type_biogeo.csv",sep=";")
+d_biocom=d_biocom%>%
+  add_column(.,own_classif=classif_own$Type,biogeo=classif_biogeo$type)
+
+
+
+
+# ---------------------- Step 4: Inference ----
 
 ## >> 1) Running inference ----
 
@@ -1349,19 +1409,46 @@ mclapply(1:8,run_abc,mc.cores = 8)
 
 #Getting the modes of the posterior of each site
 
-list_f=list.files("../Data_new/Inferrence/","param_NN_all")
 d=tibble()
-for (i in 1:length(list_f)){
-  param_infer=read.table(paste0("../Data_new/Inferrence/",list_f[i]),sep=";")
-  d=rbind(d,tibble(Site=1:345,N_keep=50,
-                   p_50=apply(param_infer[1:345],2,quantile,.5),
-                   p_25=apply(param_infer[1:345],2,quantile,.25),
-                   p_75=apply(param_infer[1:345],2,quantile,.75),
-                   q_50=apply(param_infer[346:690],2,quantile,.5),
-                   q_25=apply(param_infer[346:690],2,quantile,.25),
-                   q_75=apply(param_infer[346:690],2,quantile,.75)))
+param_infer_rej=read.table(paste0("../Data_new/Inferrence/NRMSE_param_rej_all.csv"),sep=";")
+d=rbind(d,tibble(Site=1:345,N_keep=50,
+                 p_50=apply(param_infer_rej[1:345],2,quantile,.5),
+                 p_25=apply(param_infer_rej[1:345],2,quantile,.25),
+                 p_75=apply(param_infer_rej[1:345],2,quantile,.75),
+                 q_50=apply(param_infer_rej[346:690],2,quantile,.5),
+                 q_25=apply(param_infer_rej[346:690],2,quantile,.25),
+                 q_75=apply(param_infer_rej[346:690],2,quantile,.75),
+                 Scale=apply(param_infer_rej[691:1035],2,mean)))
+
+write.table(d,"../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";",row.names = F,col.names = F)
+
+
+#Ploting histogram of each posterior distribution of the sites ----
+
+param_infer_rej=read.table(paste0("../Data_new/Inferrence/NRMSE_param_rej_all.csv"),sep=";")
+
+pdf("../Figures/Posterior_sites.pdf",width = 10,height = 5)
+
+par(mfrow=c(1,2))
+d=tibble()
+for (i in 1:345){
+  hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4))
+  hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("green",.4))
+  
+  d=rbind(d,tibble(Site=i,p25=quantile(param_infer_rej[,i],.25),
+                   p50=quantile(param_infer_rej[,i],.5),
+                   p75=quantile(param_infer_rej[,i],.75),
+                   sd_p=sd(param_infer_rej[,i]),range_p=diff(range(param_infer_rej[,i])),
+                   q25=quantile(param_infer_rej[,345+i],.25),
+                   q50=quantile(param_infer_rej[,345+i],.5),
+                   q75=quantile(param_infer_rej[,345+i],.75),
+                   sd_q=sd(param_infer_rej[,345+i]),range_q=diff(range(param_infer_rej[,345+i]))
+                   ))
+  
 }
-write.table(d,"../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";")
+
+dev.off()
+
 
 
 ## >> 2) Selecting closest sites ----
@@ -1394,4 +1481,23 @@ final_rank=tibble(Site=1:345,Rank=unlist(sapply(1:345,function(x){
 
 
 
+
+
+# ---------------------- Step 5: Validation inference PPC ----
+
+list_f=list.files("../Data_new/Posterior/")
+pdf("../Figures/Final_figs/SI/Best_sites_PPC.pdf",width = 9,height = 7)
+for (k in list_f){
+  d=read.table(paste0("../Data_new/Posterior/",k),sep=",")%>%
+    dplyr::select(., -V1,-V2)%>%
+    filter(., V3 !=0)
+  colnames(d) = colnames(d_biocom)[14:24]
+  
+  par(mfrow=c(3,4),mar=rep(2,4))
+  for (i in 1:11){
+    hist(d[,i],col=alpha("blue",.3),main=colnames(d)[i])
+    abline(v=d_biocom[as.numeric(strsplit(k,"_")[[1]][2]),13+i],lwd=3,col="red")
+  }
+}
+dev.off()
 
