@@ -998,7 +998,7 @@ p=d_sim%>%
   guides(color = guide_legend(override.aes = list(size = 2)),fill="none")
 
 
-## >> 0) Collecting data and merging data ----
+## >> 1) Collecting data and merging data ----
 
 
 d_simu=tibble()
@@ -1030,7 +1030,7 @@ for (i in 1:(nrow(d)/5)){
 write.table(d,"../Data_new/All_new_sim.csv",sep=";")
 
 
-## >> 1) Can we recover parameters and scale of observation in simulations ----
+## >> 2) Can we recover parameters and scale of observation in simulations ----
 
 dir.create("../Data_new/Scale_obs_indentifiability",showWarnings = F)
 d_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
@@ -1133,47 +1133,6 @@ write.table(x_y_param,"../Data_new/Scale_obs_indentifiability/Retrieving_paramet
 
 
 
-# ---------------------- Step 2': System size ----
-
-list_f=list.files("../Data_new/System_size")
-d=tibble()
-for (k in list_f){
-  d=rbind(d,read.table(paste0("../Data_new/System_size/",k),sep=",")%>%
-            filter(., V3>0))
-}
-colnames(d)=c("p","q","rho_p","nb_neigh","clustering","skewness","variance","moran_I",
-              "Spectral_ratio","PLR","PL_expo","cv_psd","fmax_psd")
-d$System_size=rep(seq(75,225,50),each=15)
-d$Id_sim=1:15
-d$param_id=rep(1:(18900/60),each=60)
-d=d%>%filter(., Id_sim==1)
-
-stat_sim=d%>%
-  melt(., id.vars=c("System_size","Id_sim","param_id"))%>%
-  filter(., variable %in% c("rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio","cv_psd","fmax_psd"))%>%
-  mutate(., variable=recode_factor(variable,
-                                   "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering","skewness"="Skewness","variance"="Variance",
-                                   "moran_I"="Autocorrelation","Spectral_ratio"="SDR","cv_psd"="CV PSD","fmax_psd"="Frac. max"
-  ))
-
-set.seed(123)
-
-p=ggplot(NULL)+
-  geom_line(data=stat_sim%>%
-              group_by(., System_size,Id_sim,variable)%>%
-              dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
-            aes(x=System_size,y=mean_value,group=interaction(Id_sim)),lwd=1,color="red")+
-  geom_point(data=stat_sim%>%
-               group_by(., System_size,Id_sim,variable)%>%
-               dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
-             aes(x=System_size,y=mean_value),color="red",fill="white",shape=21,size=2.5)+
-  facet_wrap(.~variable,scales = "free",nrow = 2)+
-  labs(x="System size",y="Mean value across all simulations")+
-  the_theme+
-  guides(color = guide_legend(override.aes = list(size = 2)),fill="none")
-
-ggsave("../Figures/Final_figs/SI/Change_statistics_system_size.pdf",p,width = 8,height = 6)
-
 # ---------------------- Step 3: Selecting relevant empirical data ----
 
 #Own made classification of empirical data between shrubs, grasslands or both
@@ -1191,6 +1150,11 @@ d_biocom=d_biocom%>%
   add_column(.,own_classif=classif_own$Type,biogeo=classif_biogeo$type)
 
 
+non_relevant=c(10,11,12,21,52,67,68,69,70,71,72,88:90,92,107:109,111:114,117,121:123,127:129,
+               136:141,144,147,154:156,159,172:174,184,186:188,198:201,203:205,208:210,241,243,
+               255,258,283:288,292:294,295:297,301:309,337:339,343:345)
+
+write.table(c(1:345)[-non_relevant],"../Data_new/Keeping_sites.csv",sep=";",row.names = F,col.names = F)
 
 
 # ---------------------- Step 4: Inference ----
@@ -1410,7 +1374,7 @@ mclapply(1:8,run_abc,mc.cores = 8)
 #Getting the modes of the posterior of each site
 
 d=tibble()
-param_infer_rej=read.table(paste0("../Data_new/Inferrence/NRMSE_param_rej_all.csv"),sep=";")
+param_infer_rej=read.table(paste0("../Data_new/posterior_param.csv"),sep=";")
 d=rbind(d,tibble(Site=1:345,N_keep=50,
                  p_50=apply(param_infer_rej[1:345],2,quantile,.5),
                  p_25=apply(param_infer_rej[1:345],2,quantile,.25),
@@ -1423,28 +1387,16 @@ d=rbind(d,tibble(Site=1:345,N_keep=50,
 write.table(d,"../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";",row.names = F,col.names = F)
 
 
-#Ploting histogram of each posterior distribution of the sites ----
+#Ploting histogram of each posterior distribution of the sites
 
-param_infer_rej=read.table(paste0("../Data_new/Inferrence/NRMSE_param_rej_all.csv"),sep=";")
+param_infer_rej=read.table(paste0("../Data_new/posterior_param.csv"),sep=";")
 
 pdf("../Figures/Posterior_sites.pdf",width = 10,height = 5)
 
 par(mfrow=c(1,2))
-d=tibble()
 for (i in 1:345){
   hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4))
   hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("green",.4))
-  
-  d=rbind(d,tibble(Site=i,p25=quantile(param_infer_rej[,i],.25),
-                   p50=quantile(param_infer_rej[,i],.5),
-                   p75=quantile(param_infer_rej[,i],.75),
-                   sd_p=sd(param_infer_rej[,i]),range_p=diff(range(param_infer_rej[,i])),
-                   q25=quantile(param_infer_rej[,345+i],.25),
-                   q50=quantile(param_infer_rej[,345+i],.5),
-                   q75=quantile(param_infer_rej[,345+i],.75),
-                   sd_q=sd(param_infer_rej[,345+i]),range_q=diff(range(param_infer_rej[,345+i]))
-                   ))
-  
 }
 
 dev.off()
@@ -1500,4 +1452,134 @@ for (k in list_f){
   }
 }
 dev.off()
+
+
+# ---------------------- Step 6: Prediction ----
+  
+
+
+
+d=tibble();step_size=0.005
+pdf("../Figures/Prediction/Distrib_dist_tipping.pdf",width = 10,height = 4)
+
+for (site in list.files("../Data_new/Prediction/","Dist")){
+  
+  site_id=as.numeric(gsub(".csv","",strsplit(site,"_")[[1]][3]))
+  
+  pred=read.table(paste0("../Data_new/Prediction/",site),sep=",")%>%
+    filter(., V1 != 0)
+  colnames(pred)=c("p","q","cover")
+  
+  index=0;pred$ID_sim=NA
+  for (x in 1:nrow(pred)){
+    if (pred$p[x]==0.005){
+      index=index+1
+    }
+    pred$ID_sim[x]=index
+  }
+  par(mfrow=c(5,5),mar=rep(1,4))
+  p_desert=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    if (any(d_fil$cover>0)){
+      return(d_fil$p[min(which(d_fil$cover !=0))]+step_size)
+    }else {
+      return(NA)
+    }
+  }) 
+  
+  p_infer=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    return(d_fil$p[nrow(d_fil)])
+  }) 
+
+  q_infer=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    return(d_fil$q[nrow(d_fil)])
+  }) 
+  
+  size_tipping=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    if (any(d_fil$cover>0)){
+      return(d_fil$cover[which(d_fil$p==d_fil$p[min(which(d_fil$cover !=0))])])
+    }else {
+      return(NA)
+    }
+    
+  }) 
+  
+  
+  d=rbind(d,tibble(ID_sim=1:length(p_desert),pcrit=p_desert,pinfer=p_infer,qinfer=q_infer,Size_tipping=size_tipping,
+                   Site=site_id,
+                   aridity=d_biocom$Aridity[site_id],Sand=d_biocom$Sand[site_id],
+                   MF=d_biocom$MF[site_id]))
+  
+  #displaying the distribution
+  
+  d2=tibble(abs_dist=p_infer-p_desert,relativ_dist=(p_infer-p_desert)/(p_desert),Size_tipping=size_tipping)
+  
+  print(
+    ggplot(d2%>%melt(.)%>%
+             mutate(., variable=recode_factor(variable,"abs_dist"="Absolute distance","relativ_dist"="Relative distance","Size_tipping"="Size shift")))+
+      geom_histogram(aes(x=value,fill=variable),alpha=.7,bins=20)+
+      facet_wrap(.~variable,ncol = 3,scales = "free")+
+      scale_fill_manual(values=c("#A1D4C5","#BAA1D4","#F3BB8C"))+
+      the_theme+theme(legend.position = "none")
+    )
+  
+  
+}
+dev.off()
+
+#write.table(d,"../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
+
+# ---------------------- Step 7: Climatic projection ----
+rm(list=ls())
+source("./ABC_drylands_function.R")
+library(stars)      # To process the raster data
+library(sf)         # To work with vector data
+library(ggplot2)    # For plotting
+library(patchwork)  # To combine different ggplot plots
+library(raster)
+library(ncdf4)
+library(greenbrown)
+library(terra)
+
+
+nc_data_aridity = ncvar_get(nc_open("../Data_new/Climatic_data/aridity_4.5_mean.nc"), varid="aridity_annual-mean")
+
+list_years=list()
+for (i in 1:dim(nc_data_aridity)[3]){
+  list_years[[i]]=flip(raster(t(as.matrix(nc_data_aridity[,,i])),xmn=-180, xmx=180, ymn=-90, ymx=90),2)
+}
+trend_aridity=raster::stack(list_years)
+years = seq(1960, 2100, by=1)[1:132]
+names(trend_aridity) = as.character(years)
+
+
+
+# extract aridity values for each field site
+aridity_values=extract(trend_aridity, SpatialPoints(d_biocom[,c("Lattitude","Longitude")]))
+
+
+
+
+coordinate_aridity=coordinates(trend_aridity)
+# Trends global aridity
+
+trend_df=data.frame(cell_id = 1:ncell(trend_aridity))
+array_aridity=as.array(trend_aridity)
+trends_aridity=tibble();index=1
+
+for (row in 1:nrow(array_aridity)){ #each row
+  for (col in 1:ncol(array_aridity)){ #each col
+    if (any(is.na(array_aridity[row,col,]))){
+      trends_aridity=rbind(d,tibble(Trend=NA,x=coordinate_aridity[index,1],y=coordinate_aridity[index,2]))  
+    }else{
+      trend=lm(array_aridity[row,col,]~seq(1960, 2100, by=1)[1:132])
+      trends_aridity=rbind(trends_aridity,tibble(Trend=trend$coefficients[2],x=coordinate_aridity[index,1],y=coordinate_aridity[index,2]))  
+    }
+    index=index+1
+  }
+}
+
 

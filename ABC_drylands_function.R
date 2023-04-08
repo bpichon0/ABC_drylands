@@ -1,7 +1,3 @@
-library(simecol)
-library(tidyverse);library(reshape2);library(latex2exp)
-library(animation);library(magick)
-library(deSolve);library(rootSolve);library(ggdendro)
 library(FME);library(ggpubr);library(spatialwarnings)
 library(reshape2);library(abc);library(igraph);library(cluster)
 library(FactoMineR) ;library(factoextra);library(pls)
@@ -9,6 +5,25 @@ library(missMDA);library(GGally);library(scales);library(magick)
 library(png);library(EBImage);library(imager)
 library(lme4);library(car);library(diptest);library(raster);library(ape)
 library(abctools);library(viridis)
+
+x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
+      "abc", "spatialwarnings", "FME","phaseR","ggpattern",
+      "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
+      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis")
+
+#install pacakges if not installed already
+install.packages(setdiff(packages, rownames(installed.packages())))
+
+
+x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
+      "abc", "spatialwarnings", "FME","phaseR","ggpattern",
+      "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
+      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis")
+lapply(x, require, character.only = TRUE)
+
+
+
+
 
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
@@ -356,8 +371,8 @@ Plot_leveraged_landscape=function(id,res=200){
   landscape=Get_empirical_site(id)
   landscape_pooled=pooling(landscape,nrow(landscape)/res)
   par(mfrow=c(1,2))
-  Plot_landscape(landscape,paste0("Resolution = ",nrow(landscape),"²"))
-  Plot_landscape(landscape_pooled,paste0("Resolution = ",nrow(landscape_pooled),"²"))
+  Plot_landscape(landscape,paste0("Resolution = ",nrow(landscape),"ï¿½"))
+  Plot_landscape(landscape_pooled,paste0("Resolution = ",nrow(landscape_pooled),"ï¿½"))
   par(mfrow=c(1,1))
 }
 
@@ -858,6 +873,3 @@ Boxcox_and_scale=function(d){
   
   return(d)
 }
-
-
-
