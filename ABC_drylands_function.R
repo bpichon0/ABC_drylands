@@ -22,7 +22,10 @@ x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
 lapply(x, require, character.only = TRUE)
 
 
-
+# dir.create("./Data/Simulations",showWarnings = F)
+# dir.create("./Data/System_size",showWarnings = F)
+# dir.create("./Figures/Final_figs",showWarnings = F)
+# dir.create("./Figures/Final_figs/SI",showWarnings = F)
 
 
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")

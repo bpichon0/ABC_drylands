@@ -194,7 +194,7 @@ p=ggplot(NULL) +
 
 # ---------------------------- SI figures ------------------------------
 
-## >> 0) Characteristics of empirical data ----
+## >> 1) Characteristics of empirical data ----
 ### Resolution, geographical repartition ----
 
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
@@ -295,7 +295,7 @@ ggsave("../Figures/Final_figs/SI/Density_empirical_type_patterns.pdf",p+theme(st
 
 
 
-## >> 1) Optimizing ABC ----
+## >> 2) Optimizing ABC ----
 ### Optimization of the ABC method: pre- and post-processing ----
 
 
@@ -595,7 +595,7 @@ p=ggplot(d%>%
 ggsave(paste0("../Figures/Final_figs/SI/Combination_sumstats_on_p_q.pdf"),p,width = 10,height = 5)
 
 
-## >> 2) Spatial resolution & system size ---- 
+## >> 3) Spatial resolution & system size ---- 
 ### Change spatial stats with resolution ----
 
 stat_sim=read.table("../Data_new/All_new_sim2.csv",sep=";")%>%
@@ -717,7 +717,7 @@ ggsave("../Figures/Final_figs/SI/Change_statistics_system_size.pdf",p,width = 8,
 
 
 
-## >> 3) Comparison data-model : PCA and densities ----
+## >> 4) Comparison data-model : PCA and densities ----
 
 
 # Density data & model
@@ -848,7 +848,7 @@ ggsave(paste0("../Figs/SI/PCA_spatial_resolution_model_and_data_own_classif_veg.
 
 
 
-## >> 4) ABC-Posteriors ----
+## >> 5) ABC-Posteriors ----
 
 
 # NMRSE for the different combination of summary statistics
@@ -1022,7 +1022,7 @@ ggsave("../Figures/Final_figs/Correlation_drivers_parameters.pdf",p,width = 10,h
 
 
 
-## >> 5) Influence of the number of simulations kept ----
+## >> 6) Influence of the number of simulations kept ----
 
 ### x_y obs-sim ----
 

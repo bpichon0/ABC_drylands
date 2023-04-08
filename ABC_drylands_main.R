@@ -9,11 +9,11 @@ source("./ABC_drylands_function.R")
 d_simu=tibble()
 n_param=2
 
-list_sim=list.files("../Data/Step10_ABC_scale/Sim_new",".csv")
+list_sim=list.files("./Data/Simulations/",".csv")
 
 d=tibble()
 for (sim in list_sim){
-  d=rbind(d,read.table(paste0("../Data/Step10_ABC_scale/Sim_new","/",sim),sep=",")[,(1):(n_param+14)])%>%
+  d=rbind(d,read.table(paste0("./Data/Simulations/",sim),sep=",")[,(1):(n_param+11)])%>%
     filter(., V3>0.03)
 }
 
@@ -25,14 +25,11 @@ d=add_column(d,Pooling=rep(1:5,nrow(d)/5))
 for (i in 1:(nrow(d)/5)){
   d$PL_expo[(5*(i-1)+2):(5*(i-1)+5)]=d$PL_expo[(5*(i-1)+1)]
   d$PLR[(5*(i-1)+2):(5*(i-1)+5)]=d$PLR[(5*(i-1)+1)]
-  d$median_psd[(5*(i-1)+2):(5*(i-1)+5)]=d$median_psd[(5*(i-1)+1)]*d$Pooling[(5*(i-1)+2):(5*(i-1)+5)]
-  d$mean_psd[(5*(i-1)+2):(5*(i-1)+5)]=d$mean_psd[(5*(i-1)+1)]*d$Pooling[(5*(i-1)+2):(5*(i-1)+5)]
-  d$sd_psd[(5*(i-1)+2):(5*(i-1)+5)]=d$sd_psd[(5*(i-1)+1)]*d$Pooling[(5*(i-1)+2):(5*(i-1)+5)]
   d$cv_psd[(5*(i-1)+2):(5*(i-1)+5)]=d$cv_psd[(5*(i-1)+1)]
   d$fmax_psd[(5*(i-1)+2):(5*(i-1)+5)]=d$fmax_psd[(5*(i-1)+1)]
 }
 
-write.table(d,"../Data_new/All_new_sim.csv",sep=";")
+write.table(d,"./Data/simulations.csv",sep=";")
 
 
 
@@ -1581,5 +1578,3 @@ for (row in 1:nrow(array_aridity)){ #each row
     index=index+1
   }
 }
-
-

@@ -2,11 +2,16 @@ include("./Sim_ABC_functions.jl")
 
 #region, Step 1: Generating the simulations
 
+# Code to generate the all simulations from uniform priors 
+# for p and q and different spatial resolution
+# This can take a while depending on the number of cores used (~2 days with 25 cores CPU)
+
+
 using Distributed
 
-ncores = 25
 
-addprocs(25, exeflags="--project=$(Base.active_project())")
+ncores = 25
+addprocs(ncores, exeflags="--project=$(Base.active_project())")
 
 @everywhere begin
     using StatsBase, RCall, Random, LaTeXStrings
@@ -20,55 +25,65 @@ end
 @everywhere function Run_sim_model_EWS(N_sim)
 
     n_param = 2
-    pooling_vec = [0.2 0.25 1 / 3 0.5 1]
-    n_keep = 100
-    pseudo_param = Matrix{Float64}(CSV.read("./Data/Parameter_sim.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :])
+    n_sim_kept = 15
+    pooling_vec = [1 1 / 2 1 / 3 1 / 4 1 / 5]
+    n_keep = 200
+    pseudo_param = CSV.read("./Data/Parameters.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
+
     param = Get_classical_param_Eby()
     fraction_cover = [0.8, 0.2]
-    size_landscape = 50
+    size_landscape = 75
     ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
-    n_metric = 9
+    n_metric = 11
 
-    summary_stat_table = zeros((length(pooling_vec) + 1) * n_keep, size(pseudo_param)[2] + n_metric) #for each site = 
+    summary_stat_table = zeros((length(pooling_vec) + 1) * n_keep * n_sim_kept, size(pseudo_param)[2] + n_metric) #for each site = 
 
     for n_ in 1:n_keep
         for k in 1:n_param
-            summary_stat_table[((n_-1)*length(pooling_vec)+1):(n_*length(pooling_vec)), k] .= pseudo_param[n_, k]
+            summary_stat_table[((n_-1)*length(pooling_vec)*n_sim_kept+1):(n_*length(pooling_vec)*n_sim_kept), k] .= pseudo_param[n_, k]
         end
     end
 
     for i in 1:size(pseudo_param)[1]
-        param[1:2] .= Vector{Float64}(pseudo_param[i, :])
-        d, land = IBM_Eby_model(time_t=200, param=copy(param), landscape=copy(ini_land), keep_landscape=false, n_snapshot=15, n_time_bw_snap=50)
+        param[1] = pseudo_param[i, 1]
+        param[2] = pseudo_param[i, 2]
+        d, land = IBM_Eby_model(time_t=100, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=false, n_snapshot=n_sim_kept, n_time_bw_snap=25, intensity_feedback=6)
 
-        if d[200, 1] < 0.05 || d[200, 1] > 0.9 #in case there are missing issues
-            for x in 1:length(pooling_vec)
-                summary_stat_table[(i-1)*length(pooling_vec)+x, (n_param+1):size(summary_stat_table)[2]] = zeros(9)
-            end
+        if d[100, 1] < 0.04 || d[100, 1] > 0.9 #in case there are missing issues
+            summary_stat_table[(1+(i-1)*length(pooling_vec)*n_sim_kept):(i)*length(pooling_vec)*n_sim_kept, (n_param+1):size(summary_stat_table)[2]] .= zeros(length(pooling_vec) * n_sim_kept, n_metric)
         else
-            d, land = IBM_Eby_model(time_t=200, param=copy(param), landscape=copy(ini_land), keep_landscape=true, n_snapshot=15, n_time_bw_snap=50)
+            d, land = IBM_Eby_model(time_t=200, param=copy(param), landscape=copy(ini_land),
+                keep_landscape=true, n_snapshot=n_sim_kept, n_time_bw_snap=25, burning_phase=1500, intensity_feedback=6)
 
-            for (x, pooling_intensity) in enumerate(pooling_vec)
+            if any([length(findall(land[:, :, l] .== 1)) for l in 1:size(land)[3]] .== 0)
+                summary_stat_table[(1+(i-1)*length(pooling_vec)*n_sim_kept):(i)*length(pooling_vec)*n_sim_kept, (n_param+1):size(summary_stat_table)[2]] .= zeros(length(pooling_vec) * n_sim_kept, n_metric)
+            else
+                for (x, pooling_intensity) in enumerate(pooling_vec) #each spatial resolution
+                    for sub_mat in 1:size(land)[3] #for each of the landscapes at asymptotic state
 
-                if pooling_intensity < 1
-                    land_pooled = zeros(Int(1 / pooling_intensity) * size(land)[1], Int(1 / pooling_intensity) * size(land)[2], size(land)[3])
-                elseif pooling_intensity == 1
-                    land_pooled = copy(land)
-                else
-                    land_pooled = zeros(convert(Int64, floor(size(land)[1] / pooling_intensity)), convert(Int64, floor(size(land)[1] / pooling_intensity)), size(land)[3])
-                end
+                        if pooling_intensity < 1
+                            land_pooled = inverse_pooling(land[:, :, sub_mat], Int(1 / pooling_intensity)) #increasing resolution
+                        else #no changes
+                            land_pooled = copy(land[:, :, sub_mat])
+                        end
 
-                for third_sim in 1:size(land)[3] #we pool all saved landscapes 
-                    if pooling_intensity < 1
-                        land_pooled[:, :, third_sim] = inverse_pooling(land[:, :, third_sim], Int(1 / pooling_intensity)) #increasing resolution
-                    else
-                        land_pooled[:, :, third_sim] = pooling(land[:, :, third_sim], Int(pooling_intensity)) #decreasing resolution
+                        if pooling_intensity < 1
+                            summary_stat_table[((i-1)*length(pooling_vec)*n_sim_kept+(sub_mat-1)*length(pooling_vec)+x), (n_param+1):size(summary_stat_table)[2]] = Get_summary_stat(land_pooled, xmin_fit=Int(1 / pooling_intensity)^2, compute_psd=false)
+                        else #no changes
+                            summary_stat_table[((i-1)*length(pooling_vec)*n_sim_kept+(sub_mat-1)*length(pooling_vec)+x), (n_param+1):size(summary_stat_table)[2]] = Get_summary_stat(land_pooled, xmin_fit=1)
+                        end
+
+
+
                     end
 
+
+
                 end
-                summary_stat_table[(i-1)*length(pooling_vec)+x, (n_param+1):size(summary_stat_table)[2]] = Get_summary_stat(land_pooled)
 
             end
+
         end
     end
 
@@ -76,8 +91,7 @@ end
 end
 
 
-pmap(Run_sim_model_EWS, 1:40)
-
+pmap(Run_sim_model_EWS, 1:1200) #1200*200 pairs of parameters
 
 
 
@@ -150,6 +164,86 @@ end
 
 pmap(Distance_tipping, 1:345)
 
+
+
+
+#endregion
+#region, Step 3: Sensitivity to system site (# of pixels)
+
+
+
+addprocs(10, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Random, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+end
+
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+@everywhere function Run_sim_model_EWS(N_sim)
+
+    n_param = 2
+    n_sim_kept = 15
+    size_vec = [75 125 175 225]
+    n_keep = 100
+    pseudo_param = CSV.read("./Data/Parameter_sim.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
+
+    param = Get_classical_param_Eby()
+    fraction_cover = [0.8, 0.2]
+    n_metric = 11
+
+    summary_stat_table = zeros((length(size_vec) + 1) * n_keep * n_sim_kept, size(pseudo_param)[2] + n_metric) #for each site = 
+
+    for n_ in 1:n_keep
+        for k in 1:n_param
+            summary_stat_table[((n_-1)*length(size_vec)*n_sim_kept+1):(n_*length(size_vec)*n_sim_kept), k] .= pseudo_param[n_, k]
+        end
+    end
+
+    for i in 1:size(pseudo_param)[1]
+        param[1] = pseudo_param[i, 1]
+        param[2] = pseudo_param[i, 2]
+        d, land = IBM_Eby_model(time_t=100, param=copy(param), landscape=copy(Get_initial_lattice_Eby(frac=fraction_cover, size_mat=75)),
+            keep_landscape=false, n_snapshot=n_sim_kept, n_time_bw_snap=25, intensity_feedback=6)
+
+        if d[100, 1] < 0.04 || d[100, 1] > 0.9 #in case there are missing issues
+
+            summary_stat_table[(1+(i-1)*length(size_vec)*n_sim_kept):(i)*length(size_vec)*n_sim_kept, (n_param+1):size(summary_stat_table)[2]] .= zeros(length(size_vec) * n_sim_kept, n_metric)
+
+        else
+
+            for (x, size_landscape) in enumerate(size_vec) #each spatial resolution
+
+                d, land = IBM_Eby_model(time_t=100, param=copy(param), landscape=copy(Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)),
+                    keep_landscape=true, n_snapshot=n_sim_kept, n_time_bw_snap=25, intensity_feedback=6)
+
+                if any([length(findall(land[:, :, l] .== 1)) for l in 1:size(land)[3]] .== 0)
+
+                    summary_stat_table[(1+(i-1)*length(size_vec)*n_sim_kept):(i)*length(size_vec)*n_sim_kept, (n_param+1):size(summary_stat_table)[2]] .= zeros(length(size_vec) * n_sim_kept, n_metric)
+
+                else
+
+                    for sub_mat in 1:size(land)[3] #for each of the landscapes at asymptotic state
+
+                        land_pooled = copy(land[:, :, sub_mat])
+
+                        summary_stat_table[((i-1)*length(size_vec)*n_sim_kept+(sub_mat-1)*length(size_vec)+x), (n_param+1):size(summary_stat_table)[2]] = Get_summary_stat(land_pooled, xmin_fit=1)
+
+                    end
+                end
+            end
+
+        end
+    end
+
+    CSV.write("./Data/System_size/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
+    print(N_sim)
+end
+
+
+pmap(Run_sim_model_EWS, 1:10)
 
 
 

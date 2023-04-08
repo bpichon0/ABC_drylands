@@ -28,7 +28,8 @@ In order to replicate the analyses, both simulations and observed vegetation lan
 
 - For the data, we provide the data on empirical site in the file `data_sites.csv` within the folder `Data`. This *csv* file contains the summary statistics on the empirical sites as well as the environmental data used in the paper. 
 
-- The simulations are made using julia for computational speed. To generate the simulations, you can run the Step 1 of `Sim_ABC_main.jl` file. We nevertheless, provide a subset of simulations, with $(p, q) \sim \mathcal{U}[0,1]$, in the Data folder to avoid too long computational time (`simulations.csv`).
+- The simulations are made using julia for computational speed. To generate the simulations, you can run the Step 1 of `Sim_ABC_main.jl` file. Then, the outputs of these simulations are post-processed using the first section of `ABC_drylands_main.R` file. We nevertheless provide a subset of simulations (`simulations.csv` file), with $(p, q) \sim \mathcal{U}[0,1]$, in the Data folder to avoid too long computational time.
+Note that if you want to generate outputs from IBM simulations, we provide also generic functions to generate different IBM models and plot them (<a href="https://github.com/bpichon0/IBM_models">Link git<a>)  
 
 Next, all the analyses exept from the simulations for prediction are made with the R file `ABC_drylands_main.R`. 
 The file is organized in explicit sections (Alt+O to see them). All section starts with the explanation of the code.
