@@ -119,15 +119,23 @@ pinfered=pred%>%
 p1=ggplot(NULL)+
   geom_line(data=pred%>%filter(., abs(q-median(q)) < quantile(abs(q-median(q)),.5),p>.45)%>%
               add_column(., median_or_not=sapply(1:nrow(.),function(x){
-                if (.$q[x]==median(.$q)){return("Yes")
-                }else{return("No")}
+                if (.$q[x]==median(.$q)){return("50")
+                } else if (.$q[x]==quantile(.$q,.25)) {
+                  return("25")
+                } else if (.$q[x]==quantile(.$q,.75)) {
+                  return("75")
+                } else {
+                  return("No")
+                }
               })),
             aes(p,y=cover,group=ID_sim,color=median_or_not,size=median_or_not))+
   geom_point(data=pinfered%>%filter(., abs(q-median(q)) < quantile(abs(q-median(q)),.5)),
              aes(x=pinfered,y=cover),color=alpha("red",.3))+
-  scale_color_manual(values=(c("gray","#A564C3")))+
-  scale_size_manual(values=c(.5,1.3))+
+  scale_color_manual(values=(c("No"="gray",'50'="#A564C3","25"="#EABBFF","75"="#EABBFF")))+
+  scale_size_manual(values=c("No"=.5,"50"=1.3,"25"=1,"75"=1))+
   xlim(0.46,.62)+
+  geom_segment(aes(x = .6, y = .45, xend = .5, yend = .45),arrow = arrow(length = unit(0.3, "cm")),color="black")+
+  geom_text(aes(x = .55, y = .47,label="Increasing stress"),color="black")+
   the_theme+
   labs(y="Vegetation cover",x="Reproduction parameter (p)",color="Median of q ? ")+
   guides(color = guide_legend(override.aes = list(size = 1.5)),size="none")
@@ -140,7 +148,7 @@ landscape_vege=ggplot(Get_empirical_site(site)%>%melt(.))+
 
 p1=p1 +
   annotation_custom(grob=ggplotGrob(landscape_vege),
-                    ymin = 0, ymax=0.27, xmin=.55, xmax=.63)
+                    ymin = 0, ymax=0.27, xmin=.55, xmax=.64)
 
 # all sites
 d_summarized=d%>%
@@ -156,36 +164,71 @@ d_summarized=d%>%
                    Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
 
 p2=ggplot(d_summarized%>%melt(., measure.vars=c("Sand","MF","aridity")))+
-  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="#77ADE6")+
+  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
+  geom_smooth(aes(value,y=relativ_dis50),fill="#D38DEF",color="#782898",alpha=.3)+
   facet_wrap(.~variable,scales = "free")+
   the_theme+
   labs(y="Relative dist. to desert state",x="Driver value")
 
 p3=ggplot(d_summarized%>%melt(., measure.vars=c("Sand","MF","aridity")))+
-  geom_pointrange(aes(value,ymin=Size_tipping25,ymax=Size_tipping75,y=Size_tipping50),shape=21,color="black",fill="#77ADE6")+
+  geom_pointrange(aes(value,ymin=Size_tipping25,ymax=Size_tipping75,y=Size_tipping50),shape=21,color="black",fill="gray")+
   facet_wrap(.~variable,scales = "free")+
   the_theme+
   labs(y="Size shift",x="Driver value")
 
+# ggsave("../Figures/Final_figs/Dist_tipping.pdf",
+#        ggarrange(ggarrange(ggplot()+theme_void(),
+#                            p1,
+#                            ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3),labels = c("",LETTERS[1],"")),
+#                  p2,p3,nrow=3,labels=c("",LETTERS[2:3])),width = 7,height = 10)
+
 ggsave("../Figures/Final_figs/Dist_tipping.pdf",
        ggarrange(ggarrange(ggplot()+theme_void(),
                            p1,
-                           ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3),labels = c("",LETTERS[1],""))
-                 ,p2,p3,nrow=3,labels=c("",LETTERS[2:3])),width = 7,height = 10)
+                           ggplot()+theme_void(),ncol=3,widths = c(.4,1,.4),labels = c("",LETTERS[1],"")),
+                 p2,nrow=2,labels=c("",LETTERS[2]),heights = c(1.2,1)),width = 7,height = 7)
 
 
 
-#map
+## >> Climatic projections ----
 
-world_map <- map_data("world")
-p=ggplot(NULL) +
-  geom_polygon(data=world_map, aes(x = long, y = lat, group = group),
-               fill="lightgray", colour = "white")+
-  geom_point(data=d_biocom[unique(d$Site),],aes(x=Longitude,y=Lattitude,color=d_summarized$relativ_dis50),size=3)+
+
+d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
+list_clim=list.files("../Data_new/Climatic_data",pattern = ".csv")[-grep("mean",list.files("../Data_new/Climatic_data",pattern = ".csv"))]
+sites_proj=sapply(list.files("../Data_new/Prediction/","Dist"),function(x){
+  return(as.numeric(gsub(".csv","",strsplit(x,"_")[[1]][3])))
+  }
+)
+
+proj_clim=as.data.frame(matrix(NA,length(sites_proj),length(list_clim)))
+for (x in 1:ncol(proj_clim)){
+  proj_clim[,x]=read.table(paste0("../Data_new/Climatic_data/",list_clim[x]),sep=";")[sites_proj,1]
+}
+colnames(proj_clim)=c("Aridity RCP 4.5","Aridity RCP 8.5","Temperature RCP 4.5","Temperature RCP 8.5")
+
+# all sites
+d_summarized=d%>%
+  group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",abs_dis50=quantile(pinfer-pcrit,na.rm = T,.5),
+                   abs_dis25=quantile(pinfer-pcrit,na.rm = T,.25),
+                   abs_dis75=quantile(pinfer-pcrit,na.rm = T,.75),
+                   relativ_dis50=quantile((pinfer-pcrit)/pinfer,na.rm = T,.5),
+                   relativ_dis25=quantile((pinfer-pcrit)/pinfer,na.rm = T,.25),
+                   relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
+                   Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
+                   Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
+                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
+
+d_summarized=cbind(d_summarized,proj_clim)
+
+p=ggplot(d_summarized%>%melt(., measure.vars=colnames(d_summarized)[14:ncol(d_summarized)]))+
+  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
+  geom_smooth(aes(value,y=relativ_dis50),fill="#D38DEF",color="#782898",alpha=.3)+
+  facet_wrap(.~variable,scales = "free",ncol = 4)+
   the_theme+
-  scale_color_gradientn(colors = my_pal(4))+
-  labs(x="Longitude",y="Lattitue")
+  labs(y="Relative dist. to desert state",x="Trend in aridity/temperature")
 
+ggsave("../Figures/Final_figs/Climatic_trend.pdf",p,width = 10,height = 3.5)
 
 
 
@@ -851,7 +894,7 @@ ggsave(paste0("../Figs/SI/PCA_spatial_resolution_model_and_data_own_classif_veg.
 ## >> 5) ABC-Posteriors ----
 
 
-# NMRSE for the different combination of summary statistics
+### NMRSE for the different combination of summary statistics ----
 
 list_f=list.files(paste0("../Data_new/Inferrence/"),"NRMSE_sumstat")
 d=tibble()
@@ -939,63 +982,17 @@ p=ggplot(d%>%melt(., id.vars=c("Type")))+
 ggsave("../Figures/Final_figs/SI/NRMSE_sumstats.pdf",p,width = 10,height = 8)
 
 
+### Correlation parameters and drivers ----
 
 
+d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
+d=tibble(Site=1:345,p_50=apply(d[,1:345],2,median),p_25=apply(d[,1:345],2,quantile,.25),p_75=apply(d[,1:345],2,quantile,.75),
+         q_50=apply(d[,346:690],2,median),q_25=apply(d[,346:690],2,quantile,.25),q_75=apply(d[,346:690],2,quantile,.75))
+d=d%>%add_column(., Sand=d_biocom$Sand,Aridity=d_biocom$Aridity,MF=d_biocom$MF,Cover=d_biocom$Cover)
+keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$V1
 
 
-
-# Inference for all combination of summary statistics
-
-list_f=list.files("../Data_new/Inferrence/","x_y")
-
-pdf("../Figures/Final_figs/SI/All_inference.pdf",width = 7,height = 8)
-for (k in 1:length(list_f)){
-  
-  x_y_stat=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-  if (k==1) save=x_y_stat
-  
-  par(mfrow=c(4,3),mar=rep(2,4))
-  for (i in 1:(length(colnames(save))-3)){
-    if (colnames(save)[i] %in% colnames(x_y_stat)){
-      plot(y=filter(x_y_stat,Type=="Sim")[,colnames(save)[i]],xlab="Sim",ylab="Obs",main=colnames(save)[i],
-           x=filter(x_y_stat,Type=="Obs")[,colnames(save)[i]],col="gray")
-      abline(a=0,b=1)
-      
-    } else{
-      image(matrix(1,1,1,1),col="white")
-    }
-    
-  }
-  
-  
-  x_y_stat=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")%>%
-    filter(., Site_ID %in% which(d_biocom$Nbpixels<80000))
-  if (k==1) save=x_y_stat
-  
-  par(mfrow=c(4,3),mar=rep(2,4))
-  for (i in 1:(length(colnames(save))-3)){
-    if (colnames(save)[i] %in% colnames(x_y_stat)){
-      plot(y=filter(x_y_stat,Type=="Sim")[,colnames(save)[i]],xlab="Sim",ylab="Obs",main=colnames(save)[i],
-           x=filter(x_y_stat,Type=="Obs")[,colnames(save)[i]],col="#DC7575")
-      abline(a=0,b=1)
-      
-    } else{
-      image(matrix(1,1,1,1),col="white")
-    }
-    
-  }
-  
-}
-dev.off()
-
-##  Correlation parameters and drivers
-
-
-d=read.table("../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";",header=T)[,-1]
-colnames(d)=c("Site","p_50","p_25","p_75","q_50","q_25","q_75","Scale")
-d=d%>%add_column(., Sand=d_biocom$Sand,Aridity=d_biocom$Aridity,MF=d_biocom$MF)
-
-d_melt=d%>%
+d_melt=d%>%filter(., Site %in% keeping_sites)%>%
   melt(., measure.vars=c("p_50","q_50"),variable.name="Parameter_var")%>%
   dplyr::rename(., Parameter_val=value)%>%
   mutate(., Parameter_var=recode_factor(Parameter_var,"p_50"="Median of p posterior","q_50"="Median of q posterior"))%>%
@@ -1008,8 +1005,9 @@ index=1
 for (i in unique(d_melt$Parameter_var)){
   for (j in unique(d_melt$Driver_var)){
     list_plots[[index]]=ggplot(d_melt%>%filter(., Driver_var==j,Parameter_var==i))+
-      geom_point(aes(x=Driver_val,y=Parameter_val),color="#96C3DC",alpha=.75)+the_theme+
-      labs(x=j,y=i)+the_theme
+      geom_point(aes(x=Driver_val,y=Parameter_val),fill="grey",color="black",alpha=.75,shape=21)+the_theme+
+      labs(x=j,y=i)+the_theme+
+      geom_smooth(aes(x=Driver_val,y=Parameter_val),fill="#D38DEF",color="#782898",alpha=.4)
     index=index+1
   }
 }
@@ -1018,6 +1016,53 @@ p=annotate_figure(ggarrange(plotlist=list_plots,nrow = 3,ncol = 2),
                   left=text_grob("Median of posterior parameters",rot=90,color="black",size=15,face ="bold",family = "NewCenturySchoolbook"),
                   bottom = text_grob("Drivers",color="black",size=15,face="bold",family = "NewCenturySchoolbook"))
 ggsave("../Figures/Final_figs/Correlation_drivers_parameters.pdf",p,width = 10,height = 8)
+
+
+
+
+### Comparison posterior of landscapes from the same site ----
+
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$V1
+d=read.table("../Data_new/posterior_param.csv",sep=";")
+
+p_=colMeans(d)[keep_sites];q_=colMeans(d)[keep_sites+345]
+d_biocom=d_biocom[keep_sites,]
+
+d2=tibble()
+for (k in unique(d_biocom$Plot_n)){ #each landscape
+  
+  p_site=p_[which(d_biocom$Plot_n == k)]
+  q_site=q_[which(d_biocom$Plot_n == k)]
+  p_other=p_[-which(d_biocom$Plot_n == k)]
+  q_other=q_[-which(d_biocom$Plot_n == k)]
+  
+  RMSE_p_within = sapply(1:length(p_site),function(x){
+    return(sqrt(sum((p_site-p_site[x])**2)/length(p_site) ))})
+  RMSE_q_within = sapply(1:length(q_site),function(x){
+    return(sqrt(sum((q_site-q_site[x])**2)/length(q_site) ))})
+  
+  RMSE_p_all = sapply(1:length(p_site),function(x){
+    return(sqrt(sum((p_other-p_site[x])**2)/length(p_other) ))})
+  RMSE_q_all = sapply(1:length(q_site),function(x){
+    return(sqrt(sum((q_other-q_site[x])**2)/length(q_other) ))})
+  
+  NRMSE_p=RMSE_p_within/RMSE_p_all
+  NRMSE_q=RMSE_q_within/RMSE_q_all
+  
+  
+  d2=rbind(d2,tibble(NRMSE_p=NRMSE_p,NRMSE_q=NRMSE_q,Plot_n=k))
+  
+}
+
+p=ggplot(d2%>%melt(., id.vars="Plot_n"))+
+  geom_jitter(aes(x=variable,y=value),width=.1,height=0,
+              color=alpha("blue",.4))+
+  the_theme+
+  labs(x="Parameter",y="NRMSE within / between sites")+
+  scale_x_discrete(labels=c("p","q"))+
+  geom_hline(yintercept = 1,color="red")
+
+ggsave("../Figures/Final_figs/SI/Comparison_within_between_sites.pdf",p,width = 6,height = 3)
 
 
 

@@ -1,5 +1,5 @@
-using StatsBase, RCall, Random, LaTeXStrings,
-    BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames, DelimitedFiles
+using StatsBase, RCall, Random, LaTeXStrings,    BenchmarkTools, Images, Tables, CSV,
+ LinearAlgebra, Distributions, DataFrames, DelimitedFiles
 
 
 function Get_classical_param()

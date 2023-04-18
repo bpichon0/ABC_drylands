@@ -12,7 +12,7 @@ x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
       "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis")
 
 #install pacakges if not installed already
-install.packages(setdiff(packages, rownames(installed.packages())))
+install.packages(setdiff(x, rownames(installed.packages())))
 
 
 x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
@@ -32,7 +32,7 @@ d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
-                                strip.background = element_rect(fill = "#CCE8D8"),
+                                strip.background = element_rect(fill="white",color="white"),
                                 strip.text.y = element_text(size = 10, angle = -90, face = "italic"),
                                 strip.text.x = element_text(size = 10, face = "italic"),
                                 legend.text = element_text(size = 10),text = element_text(family = "NewCenturySchoolbook"))

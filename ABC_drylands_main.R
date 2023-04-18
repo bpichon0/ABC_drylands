@@ -1133,19 +1133,6 @@ write.table(x_y_param,"../Data_new/Scale_obs_indentifiability/Retrieving_paramet
 # ---------------------- Step 3: Selecting relevant empirical data ----
 
 #Own made classification of empirical data between shrubs, grasslands or both
-d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
-d=tibble()
-for (i in 1:nrow(d_biocom)){
-  d=rbind(d,tibble(Name=i,Type=Analyse_image(i)))
-}
-write.table(d,"../Data_new/type_vege.csv",sep=";")
-
-#coupling with the one made biogeo consideration
-classif_own=read.table("../Data_new/type_vege.csv",sep=";")
-classif_biogeo=read.table("../Data_new/Veg_type_biogeo.csv",sep=";")
-d_biocom=d_biocom%>%
-  add_column(.,own_classif=classif_own$Type,biogeo=classif_biogeo$type)
-
 
 non_relevant=c(10,11,12,21,52,67,68,69,70,71,72,88:90,92,107:109,111:114,117,121:123,127:129,
                136:141,144,147,154:156,159,172:174,184,186:188,198:201,203:205,208:210,241,243,
@@ -1388,12 +1375,13 @@ write.table(d,"../Data_new/Inferrence/Posterior_modes_each_sites.csv",sep=";",ro
 
 param_infer_rej=read.table(paste0("../Data_new/posterior_param.csv"),sep=";")
 
-pdf("../Figures/Posterior_sites.pdf",width = 10,height = 5)
+pdf("../Figures/Posterior_sites.pdf",width = 12,height = 5)
 
-par(mfrow=c(1,2))
+par(mfrow=c(1,3))
 for (i in 1:345){
   hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4))
   hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("green",.4))
+  hist(param_infer_rej[,i+690],main="scale",xlab="",ylab="",col=alpha("red",.4))
 }
 
 dev.off()
@@ -1432,29 +1420,40 @@ final_rank=tibble(Site=1:345,Rank=unlist(sapply(1:345,function(x){
 
 
 
-# ---------------------- Step 5: Validation inference PPC ----
+# ---------------------- Step 5: Validation inference: posterior correlations ----
+library(readxl)
+#loading berdugo data
 
-list_f=list.files("../Data_new/Posterior/")
-pdf("../Figures/Final_figs/SI/Best_sites_PPC.pdf",width = 9,height = 7)
-for (k in list_f){
-  d=read.table(paste0("../Data_new/Posterior/",k),sep=",")%>%
-    dplyr::select(., -V1,-V2)%>%
-    filter(., V3 !=0)
-  colnames(d) = colnames(d_biocom)[14:24]
-  
-  par(mfrow=c(3,4),mar=rep(2,4))
-  for (i in 1:11){
-    hist(d[,i],col=alpha("blue",.3),main=colnames(d)[i])
-    abline(v=d_biocom[as.numeric(strsplit(k,"_")[[1]][2]),13+i],lwd=3,col="red")
-  }
-}
-dev.off()
+d_berdugo=read_excel("../Data_new/BerdugoetalData.xlsx")
+d_biocom$facil=sapply(1:nrow(d_biocom),function(x){
+  return(d_berdugo$Facil[which(d_biocom$Plot_n[x]==d_berdugo$plotn)])
+})
+post_param=read.table("../Data_new/posterior_param.csv",sep=";")
+
+d_biocom=cbind(d_biocom,tibble(p=apply(post_param[,1:345],2,median),
+                  q=apply(post_param[,346:690],2,median),
+                  res=apply(post_param[,691:1035],2,median)))
+
+ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
+  geom_point(aes(x=Sand,y=value),fill="gray",color="black",shape=21)+
+  geom_smooth(aes(x=Sand,y=value))+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")
+
+ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
+  geom_point(aes(x=Cover,y=value),fill="gray",color="black",shape=21)+
+  geom_smooth(aes(x=Cover,y=value))+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")
+
+ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
+  geom_point(aes(x=clustering,y=value),fill="gray",color="black",shape=21)+
+  geom_smooth(aes(x=clustering,y=value))+
+  the_theme+
+  facet_wrap(.~variable,scales = "free")
 
 
 # ---------------------- Step 6: Prediction ----
-  
-
-
 
 d=tibble();step_size=0.005
 pdf("../Figures/Prediction/Distrib_dist_tipping.pdf",width = 10,height = 4)
@@ -1529,7 +1528,196 @@ dev.off()
 
 #write.table(d,"../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
 
-# ---------------------- Step 7: Climatic projection ----
+
+# ---------------------- Step 7: Validating predictions using Kefi model ----
+
+## >> 1) ABC on Kefi output sites ----
+run_abc=function(n_sim_kept=250,method_abc="rejection"){
+  
+  `%!in%` = Negate(`%in%`)
+  n_param=3
+  
+  d_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
+    dplyr::relocate(., Pooling,.after =q )%>%
+    filter(., PL_expo>0)
+  
+  rownames(d_sim)=1:nrow(d_sim)
+  
+  
+  d_param_infer_NN=array(0,c(n_sim_kept,nrow(d_biocom),3))
+  d_param_infer_rej=array(0,c(n_sim_kept,nrow(d_biocom),3))
+  
+  d_NRMSE_sumstat=x_y_stat=tibble()
+  
+
+  sumstat_kept=4:14
+  
+  
+  for (empirical_id in 1:345){
+    
+    target=d_biocom[empirical_id,10+sumstat_kept]
+    matrix_param=d_sim[,1:3]
+    
+    mat_sumstat=rbind(d_sim[,sumstat_kept],target)
+    
+    #1) Boxcox
+    
+    for (x in 1:ncol(mat_sumstat)){
+      if (any(is.na(target)) & x %!in% which(is.na(target))){
+        if (colnames(mat_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
+          
+          
+          
+          b=boxcox(lm(mat_sumstat[,x]+abs(min(mat_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat[,x] = (exp(mat_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+        }else {
+          b=boxcox(lm(mat_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat[,x] = (mat_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+          }
+        }
+      }
+    }
+    
+    
+    #2) Scaling
+    
+    for (x in 1:ncol(mat_sumstat)) mat_sumstat[,x] = (mat_sumstat[,x]-mean(mat_sumstat[,x],na.rm = T))/sd(mat_sumstat[,x],na.rm = T)
+    
+    if (any(is.na(mat_sumstat[nrow(mat_sumstat),]))){
+      
+      which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
+      
+      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),-which_na],
+                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),-which_na], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),],
+                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    }
+    
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    
+    mat_sumstat_step1=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,target)
+    
+    #again, first box cox
+    which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
+    
+    for (x in 1:ncol(mat_sumstat_step1)){
+      
+      if (any(which_na) & x %!in% which_na){
+        
+        if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
+          
+          b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+        }else {
+          b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+          }
+        }
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    if (any(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))){
+      
+      which_na=which(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))
+      
+      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),-which_na],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),-which_na], #removing the target data
+                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
+                      numnet = 10,sizenet = 15)
+      
+      x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                       add_column(., PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
+                       relocate(., PL_expo,.after =PLR ))
+      
+      x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                       add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
+                       relocate(., PL_expo,.after =PLR ))
+      
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),], #removing the target data
+                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
+                      numnet = 10,sizenet = 15)
+      
+      x_y_stat=rbind(x_y_stat,target%>%
+                       add_column(., Site_ID=empirical_id,Method="rejection",Type="Obs"))
+      
+      x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                       add_column(.,Site_ID=empirical_id,Method="rejection",Type="Sim"))
+      
+    }
+    
+    
+    cross_valid$ss=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
+    
+    mat_sumstat=d_sim[,sumstat_kept]
+    
+    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+    
+    cross_valid$adj.values=cross_valid$adj.values
+    
+    #NRMSE for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+      sqrt(sum((cross_valid$ss[,x]-target[,x])**2,na.rm = T)/nrow(cross_valid$ss) )
+    }
+    )
+    
+    RMSE_prior=sapply(1:ncol(mat_sumstat),function(x){
+      sqrt(sum((mat_sumstat[,x]-target[,x])**2,na.rm = T)/nrow(mat_sumstat) )
+    }
+    )
+    NRMSE = RMSE/RMSE_prior
+    
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+    
+    d_param_infer_NN[,empirical_id,1]=cross_valid$adj.values[,1] # we keep the whole distribution for p
+    d_param_infer_NN[,empirical_id,2]=cross_valid$adj.values[,2] # for q
+    d_param_infer_NN[,empirical_id,3]=cross_valid$adj.values[,3] # for the scale of observation
+    
+    d_param_infer_rej[,empirical_id,1]=cross_valid$unadj.values[,1] # we keep the whole distribution for p
+    d_param_infer_rej[,empirical_id,2]=cross_valid$unadj.values[,2] # for q
+    d_param_infer_rej[,empirical_id,3]=cross_valid$unadj.values[,3] # for the scale of observation
+    
+    
+  }
+  
+}
+
+
+
+
+
+
+# ---------------------- Step 8: Climatic projection ----
+## >> 1) From rasters to trends ----
+
 rm(list=ls())
 source("./ABC_drylands_function.R")
 library(stars)      # To process the raster data
@@ -1540,41 +1728,95 @@ library(raster)
 library(ncdf4)
 library(greenbrown)
 library(terra)
-
-
-nc_data_aridity = ncvar_get(nc_open("../Data_new/Climatic_data/aridity_4.5_mean.nc"), varid="aridity_annual-mean")
-
-list_years=list()
-for (i in 1:dim(nc_data_aridity)[3]){
-  list_years[[i]]=flip(raster(t(as.matrix(nc_data_aridity[,,i])),xmn=-180, xmx=180, ymn=-90, ymx=90),2)
-}
-trend_aridity=raster::stack(list_years)
-years = seq(1960, 2100, by=1)[1:132]
-names(trend_aridity) = as.character(years)
-
-
-
-# extract aridity values for each field site
-aridity_values=extract(trend_aridity, SpatialPoints(d_biocom[,c("Lattitude","Longitude")]))
-
-
-
-
-coordinate_aridity=coordinates(trend_aridity)
-# Trends global aridity
-
-trend_df=data.frame(cell_id = 1:ncell(trend_aridity))
-array_aridity=as.array(trend_aridity)
-trends_aridity=tibble();index=1
-
-for (row in 1:nrow(array_aridity)){ #each row
-  for (col in 1:ncol(array_aridity)){ #each col
-    if (any(is.na(array_aridity[row,col,]))){
-      trends_aridity=rbind(d,tibble(Trend=NA,x=coordinate_aridity[index,1],y=coordinate_aridity[index,2]))  
-    }else{
-      trend=lm(array_aridity[row,col,]~seq(1960, 2100, by=1)[1:132])
-      trends_aridity=rbind(trends_aridity,tibble(Trend=trend$coefficients[2],x=coordinate_aridity[index,1],y=coordinate_aridity[index,2]))  
-    }
-    index=index+1
+for (file_ in list.files("../Data_new/Climatic_data",pattern = ".nc")){
+  
+  
+  nc_data_aridity = ncvar_get(nc_open(paste0("../Data_new/Climatic_data/",file_)),
+                              varid=ifelse(any(grep("aridity",file_)),"aridity_annual-mean","BIO01"))
+  
+  list_years=list()
+  for (i in 1:dim(nc_data_aridity)[3]){
+    list_years[[i]]=flip(raster(t(as.matrix(nc_data_aridity[,,i])),xmn=-180, xmx=180, ymn=-90, ymx=90),2)
   }
+  aridity_years=raster::stack(list_years)
+  
+  names(aridity_years) = as.character(seq(1950, 2100, by=1)[1:length(names(aridity_years))])
+  
+  
+  fun=function(x) { 
+    if (any(is.na(x))){
+      NA
+    }else{
+      lin_mod=lm(x ~ as.numeric(seq(1950, 2100, by=1)[1:ncol(aridity_years)]));
+      summary(lin_mod)$coefficients[2]
+    }
+  }
+  
+  aridity_years=extract(aridity_years, SpatialPoints(d_biocom[,c("Longitude","Lattitude")]))
+  
+  trends_aridity = apply(aridity_years,1,fun)
+  
+  write.table(trends_aridity,paste0("../Data_new/Climatic_data/trend_clim_",gsub(".nc","",file_),".csv"),sep=";")
+  
 }
+
+
+## >> 2) Correlating all drivers with dist tipping ----
+
+rm(list=ls())
+source("./ABC_drylands_function.R")
+
+
+d2=readxl::read_xlsx("../Data_new/BerdugoetalData.xlsx")
+
+d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
+list_clim=list.files("../Data_new/Climatic_data",pattern = ".csv")[-grep("mean",list.files("../Data_new/Climatic_data",pattern = ".csv"))]
+sites_proj=sapply(list.files("../Data_new/Prediction/","Dist"),function(x){
+  return(as.numeric(gsub(".csv","",strsplit(x,"_")[[1]][3])))})
+
+
+d_biocom=d_biocom[sites_proj,]
+
+proj_clim=as.data.frame(matrix(NA,length(sites_proj),length(list_clim)))
+for (x in 1:ncol(proj_clim)){
+  proj_clim[,x]=read.table(paste0("../Data_new/Climatic_data/",list_clim[x]),sep=";")[sites_proj,1]
+}
+colnames(proj_clim)=c("Aridity RCP 4.5","Aridity RCP 8.5","Temperature RCP 4.5","Temperature RCP 8.5")
+
+# all sites
+d_summarized=d%>%
+  group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",abs_dis50=quantile(pinfer-pcrit,na.rm = T,.5),
+                   abs_dis25=quantile(pinfer-pcrit,na.rm = T,.25),
+                   abs_dis75=quantile(pinfer-pcrit,na.rm = T,.75),
+                   relativ_dis50=quantile((pinfer-pcrit)/pinfer,na.rm = T,.5),
+                   relativ_dis25=quantile((pinfer-pcrit)/pinfer,na.rm = T,.25),
+                   relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
+                   Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
+                   Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
+                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
+
+d_summarized=cbind(d_summarized,proj_clim)
+d_summarized$plotn=d_biocom$Plot_n
+
+d_summarized$plotn
+
+drivers=d2[sapply(d_summarized$plotn,function(x){
+  return(which(d2$plotn==x))
+}),]
+
+d_summarized=cbind(d_summarized,drivers)
+
+
+p=ggplot(d_summarized%>%melt(., measure.vars=colnames(d_summarized)[38:ncol(d_summarized)]))+
+  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
+  geom_smooth(aes(value,y=relativ_dis50),fill="#D38DEF",color="#782898",alpha=.3)+
+  facet_wrap(.~variable,scales = "free",ncol = 5)+
+  the_theme+
+  labs(y="Relative dist. to desert state",x="Driver value")
+
+ggsave("../Figures/Final_figs/All_drivers.pdf",p,width = 14,height = 12)
+
+
+
+

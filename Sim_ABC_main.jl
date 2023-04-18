@@ -248,3 +248,23 @@ pmap(Run_sim_model_EWS, 1:10)
 
 
 #endregion
+#region, Step 4: Correlating distances to desert state in Kefi model and Eby model
+
+param_space = zeros(27, 7)
+param_space[:, 1] .= 0.0001 #r
+param_space[:, 2] .= 0.2  #d
+param_space[:, 3] .= 0.1  #m
+param_space[:, 4] .= 0.3  #c
+
+index = 1
+for f in [0.5 0.75 0.9], b in [0.4 0.6 0.8], delta in [0.1 0.3 0.5]
+    param_space[index, 5:7] = [f b delta]
+    index += 1
+end
+
+CSV.write("../Data_new/Parameters_kefi.csv", Tables.table(param_space), writeheader=false, delim=";")
+
+
+
+
+#endregion
