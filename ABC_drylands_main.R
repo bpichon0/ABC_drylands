@@ -1130,20 +1130,8 @@ write.table(x_y_param,"../Data_new/Scale_obs_indentifiability/Retrieving_paramet
 
 
 
-# ---------------------- Step 3: Selecting relevant empirical data ----
+# ---------------------- Step 3: Inference, what we learn ----
 
-#Own made classification of empirical data between shrubs, grasslands or both
-
-non_relevant=c(10,11,12,21,52,67,68,69,70,71,72,88:90,92,107:109,111:114,117,121:123,127:129,
-               136:141,144,147,154:156,159,172:174,184,186:188,198:201,203:205,208:210,241,243,
-               255,258,283:288,292:294,295:297,301:309,337:339,343:345)
-
-write.table(c(1:345)[-non_relevant],"../Data_new/Keeping_sites.csv",sep=";",row.names = F,col.names = F)
-
-
-# ---------------------- Step 4: Inference ----
-
-## >> 1) Running inference ----
 
 
 run_abc=function(id,n_sim_kept=50,method_abc="neuralnet"){
@@ -1382,81 +1370,117 @@ for (i in 1:345){
   hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4))
   hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("green",.4))
   hist(param_infer_rej[,i+690],main="scale",xlab="",ylab="",col=alpha("red",.4))
+  mtext(paste0(mean(param_infer_rej[,i+690])))
 }
 
 dev.off()
 
 
 
-## >> 2) Selecting closest sites ----
 
-#We rank each sites for each sumstat based on the distance between observed and simulated 
-x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
-dist_sites=data.frame()
-for (i in 1:(nrow(x_y_stat)/2)){
-  dist_sites=rbind(dist_sites,as.data.frame(abs(x_y_stat[(i-1)*2+1,1:11]-x_y_stat[i*2,1:11]))%>%add_column(., Site=i,Method=x_y_stat$Method[2*i]))
+
+pdf("../Figures/TEST.pdf",width = 12,height = 5)
+
+par(mfrow=c(1,3))
+for (i in 1:345){
+  hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4),
+       xlim=c(min(param_infer_rej[,i],param_infer_rej2[,i]),max(param_infer_rej[,i],param_infer_rej2[,i])))
+  hist(param_infer_rej2[,i],main="p",xlab="",ylab="",col=alpha("red",.4),add=T)
+  hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("blue",.4),
+       xlim=c(min(param_infer_rej[,i+345],param_infer_rej2[,i+345]),max(param_infer_rej[,i+345],param_infer_rej2[,i+345])))
+  hist(param_infer_rej2[,i+345],main="q",xlab="",ylab="",col=alpha("red",.4),add=T)
+  hist(param_infer_rej[,i+690],main="scale",xlab="",ylab="",col=alpha("blue",.4),
+       xlim=c(min(param_infer_rej[,i+690],param_infer_rej2[,i+690]),max(param_infer_rej[,i+690],param_infer_rej2[,i+690])))
+  hist(param_infer_rej2[,i+690],main="scale",xlab="",ylab="",col=alpha("red",.4),add=T)
+  mtext(paste0(mean(param_infer_rej[,i+690])))
 }
 
-n_sumstat=11
-mat_rank=data.frame()
-for (i in 1:nrow(dist_sites)){
-  mat_rank=rbind(mat_rank,sapply(1:n_sumstat,function(x){
-    return(rank(dist_sites[,x])[match(dist_sites[i,x], dist_sites[,x])])
-  }))
-}
-final_rank=tibble(Site=1:345,Rank=unlist(sapply(1:345,function(x){
-  return(ifelse(length(which(sort(rowSums(mat_rank))==rowSums(mat_rank)[x]))>1,
-         which(sort(rowSums(mat_rank))==rowSums(mat_rank)[x])[1],
-         which(sort(rowSums(mat_rank))==rowSums(mat_rank)[x])))
-})))
+dev.off()
 
 
 
 
 
+# ---------------------- Step 5: Validation inference
 
-
-
-
-
-
-# ---------------------- Step 5: Validation inference: posterior correlations ----
 library(readxl)
 #loading berdugo data
 
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 d_berdugo=read_excel("../Data_new/BerdugoetalData.xlsx")
+d_gross_2017NEE=read.table("../Data_new/datasetmultifunctionality.txt",header = T)
+post_param=read.table("../Data_new/posterior_param.csv",sep=";")
+keep_site=read.table("../Data_new/Keeping_sites.csv",sep=";")
+
 d_biocom$facil=sapply(1:nrow(d_biocom),function(x){
   return(d_berdugo$Facil[which(d_biocom$Plot_n[x]==d_berdugo$plotn)])
 })
+
+
+d=as_tibble(cbind(d_biocom,tibble(p=apply(post_param[,1:345],2,median),
+                  q=apply(post_param[,346:690],2,median),
+                  res=apply(post_param[,691:1035],2,median),
+                  site=1:345)))
+
+d_traits=tibble()
+
+for (i in 1:nrow(d)){
+  if (any(which(round(d_gross_2017NEE$LAT,6)==round(d$Lattitude,6)[i]))){
+    d_traits=rbind(d_traits,d_gross_2017NEE[which(round(d_gross_2017NEE$LAT,6)==round(d$Lattitude,6)[i]),7:24])
+  }else {
+    NA_df=as.data.frame(matrix(NA,nrow=1,ncol=18))
+    colnames(NA_df)=colnames(d_gross_2017NEE)[7:24]
+    d_traits=rbind(d_traits,NA_df)
+  }
+  
+}
+
+d=cbind(d,d_traits)
+
+
+pdf("../Figures/What_we_learn_correlation.pdf",width = 6,height = 4)
+
+for (driver in c("facil","Cover","Sand","Aridity",colnames(d)[30:ncol(d)])){
+  
+  print(ggplot(d%>%melt(., measure.vars=c("p","q"),value.name = "param")%>%
+           dplyr::rename(., param_id=variable)%>%
+           melt(., measure.vars=driver))+
+    geom_point(aes(x=value,y=param),fill="gray",color="black",shape=21)+
+    geom_smooth(aes(x=value,y=param))+
+    labs(x=driver,y="Parameters")+
+    the_theme+
+    facet_wrap(.~param_id,scales = "free"))
+}
+dev.off()  
+
+
+
+## >> 3)  with 
+# ---------------------- Step 4: Selecting relevant empirical data ----
+
+# #Own made classification of empirical data between shrubs, grasslands or both
+# 
+# non_relevant=c(10,11,12,21,52,67,68,69,70,71,72,88:90,92,107:109,111:114,117,121:123,127:129,
+#                136:141,144,147,154:156,159,172:174,184,186:188,198:201,203:205,208:210,241,243,
+#                255,258,283:288,292:294,295:297,301:309,337:339,343:345)
+# 
+# write.table(c(1:345)[-non_relevant],"../Data_new/Keeping_sites.csv",sep=";",row.names = F,col.names = F)
+
+library(diptest)
 post_param=read.table("../Data_new/posterior_param.csv",sep=";")
 
-d_biocom=cbind(d_biocom,tibble(p=apply(post_param[,1:345],2,median),
-                  q=apply(post_param[,346:690],2,median),
-                  res=apply(post_param[,691:1035],2,median)))
+d_biocom$bimod=sapply(1:nrow(d_biocom),function(x){
+  if (dip.test(post_param[,x])$p.value<.05 | dip.test(post_param[,x+345])$p.value<.05){
+    return("bimod")
+  }else {
+    return("unimod")
+  }
+})
+write.table(which(d_biocom$bimod!="bimod"),"../Data_new/Keeping_sites.csv",sep=";")
 
-ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
-  geom_point(aes(x=Sand,y=value),fill="gray",color="black",shape=21)+
-  geom_smooth(aes(x=Sand,y=value))+
-  the_theme+
-  facet_wrap(.~variable,scales = "free")
-
-ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
-  geom_point(aes(x=Cover,y=value),fill="gray",color="black",shape=21)+
-  geom_smooth(aes(x=Cover,y=value))+
-  the_theme+
-  facet_wrap(.~variable,scales = "free")
-
-ggplot(d_biocom%>%melt(., measure.vars=c("p","q")))+
-  geom_point(aes(x=clustering,y=value),fill="gray",color="black",shape=21)+
-  geom_smooth(aes(x=clustering,y=value))+
-  the_theme+
-  facet_wrap(.~variable,scales = "free")
-
-
-# ---------------------- Step 6: Prediction ----
+# ---------------------- Step 5: Prediction ----
 
 d=tibble();step_size=0.005
-pdf("../Figures/Prediction/Distrib_dist_tipping.pdf",width = 10,height = 4)
 
 for (site in list.files("../Data_new/Prediction/","Dist")){
   
@@ -1473,11 +1497,10 @@ for (site in list.files("../Data_new/Prediction/","Dist")){
     }
     pred$ID_sim[x]=index
   }
-  par(mfrow=c(5,5),mar=rep(1,4))
   p_desert=sapply(unique(pred$ID_sim),function(x){
     d_fil=filter(pred,ID_sim==x)
     if (any(d_fil$cover>0)){
-      return(d_fil$p[min(which(d_fil$cover !=0))]+step_size)
+      return(d_fil$p[min(which(d_fil$cover !=0))]-step_size)
     }else {
       return(NA)
     }
@@ -1513,210 +1536,19 @@ for (site in list.files("../Data_new/Prediction/","Dist")){
   
   d2=tibble(abs_dist=p_infer-p_desert,relativ_dist=(p_infer-p_desert)/(p_desert),Size_tipping=size_tipping)
   
-  print(
-    ggplot(d2%>%melt(.)%>%
-             mutate(., variable=recode_factor(variable,"abs_dist"="Absolute distance","relativ_dist"="Relative distance","Size_tipping"="Size shift")))+
-      geom_histogram(aes(x=value,fill=variable),alpha=.7,bins=20)+
-      facet_wrap(.~variable,ncol = 3,scales = "free")+
-      scale_fill_manual(values=c("#A1D4C5","#BAA1D4","#F3BB8C"))+
-      the_theme+theme(legend.position = "none")
-    )
-  
-  
-}
-dev.off()
 
-#write.table(d,"../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
-
-
-# ---------------------- Step 7: Validating predictions using Kefi model ----
-
-## >> 1) ABC on Kefi output sites ----
-run_abc=function(n_sim_kept=250,method_abc="rejection"){
-  
-  `%!in%` = Negate(`%in%`)
-  n_param=3
-  
-  d_sim=read.table("../Data_new/All_new_sim.csv",sep=";")%>%
-    dplyr::relocate(., Pooling,.after =q )%>%
-    filter(., PL_expo>0)
-  
-  rownames(d_sim)=1:nrow(d_sim)
-  
-  
-  d_param_infer_NN=array(0,c(n_sim_kept,nrow(d_biocom),3))
-  d_param_infer_rej=array(0,c(n_sim_kept,nrow(d_biocom),3))
-  
-  d_NRMSE_sumstat=x_y_stat=tibble()
-  
-
-  sumstat_kept=4:14
-  
-  
-  for (empirical_id in 1:345){
-    
-    target=d_biocom[empirical_id,10+sumstat_kept]
-    matrix_param=d_sim[,1:3]
-    
-    mat_sumstat=rbind(d_sim[,sumstat_kept],target)
-    
-    #1) Boxcox
-    
-    for (x in 1:ncol(mat_sumstat)){
-      if (any(is.na(target)) & x %!in% which(is.na(target))){
-        if (colnames(mat_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
-          
-          
-          
-          b=boxcox(lm(mat_sumstat[,x]+abs(min(mat_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat[,x] = (exp(mat_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-          }
-          
-        }else {
-          b=boxcox(lm(mat_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat[,x] = (mat_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-          }
-        }
-      }
-    }
-    
-    
-    #2) Scaling
-    
-    for (x in 1:ncol(mat_sumstat)) mat_sumstat[,x] = (mat_sumstat[,x]-mean(mat_sumstat[,x],na.rm = T))/sd(mat_sumstat[,x],na.rm = T)
-    
-    if (any(is.na(mat_sumstat[nrow(mat_sumstat),]))){
-      
-      which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
-      
-      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),-which_na],
-                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),-which_na], #removing the target data
-                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-      
-    }else {
-      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),],
-                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),], #removing the target data
-                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-    }
-    
-    
-    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-    
-    mat_sumstat_step1=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
-    mat_sumstat_step1=rbind(mat_sumstat_step1,target)
-    
-    #again, first box cox
-    which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
-    
-    for (x in 1:ncol(mat_sumstat_step1)){
-      
-      if (any(which_na) & x %!in% which_na){
-        
-        if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
-          
-          b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-          lambda_x=b$x[which.max(b$y)]
-          
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-          }
-          
-        }else {
-          b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-          }
-        }
-      }
-    }
-    
-    #and normalization
-    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-    
-    if (any(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))){
-      
-      which_na=which(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))
-      
-      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),-which_na],
-                      param = cross_valid$unadj.values,
-                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),-which_na], #removing the target data
-                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
-                      numnet = 10,sizenet = 15)
-      
-      x_y_stat=rbind(x_y_stat,target[-which_na]%>%
-                       add_column(., PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
-                       relocate(., PL_expo,.after =PLR ))
-      
-      x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
-                       add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
-                       relocate(., PL_expo,.after =PLR ))
-      
-      
-    }else {
-      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),],
-                      param = cross_valid$unadj.values,
-                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),], #removing the target data
-                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
-                      numnet = 10,sizenet = 15)
-      
-      x_y_stat=rbind(x_y_stat,target%>%
-                       add_column(., Site_ID=empirical_id,Method="rejection",Type="Obs"))
-      
-      x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
-                       add_column(.,Site_ID=empirical_id,Method="rejection",Type="Sim"))
-      
-    }
-    
-    
-    cross_valid$ss=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
-    
-    mat_sumstat=d_sim[,sumstat_kept]
-    
-    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-    
-    cross_valid$adj.values=cross_valid$adj.values
-    
-    #NRMSE for the summary statistics observed
-    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-      sqrt(sum((cross_valid$ss[,x]-target[,x])**2,na.rm = T)/nrow(cross_valid$ss) )
-    }
-    )
-    
-    RMSE_prior=sapply(1:ncol(mat_sumstat),function(x){
-      sqrt(sum((mat_sumstat[,x]-target[,x])**2,na.rm = T)/nrow(mat_sumstat) )
-    }
-    )
-    NRMSE = RMSE/RMSE_prior
-    
-    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-    
-    d_param_infer_NN[,empirical_id,1]=cross_valid$adj.values[,1] # we keep the whole distribution for p
-    d_param_infer_NN[,empirical_id,2]=cross_valid$adj.values[,2] # for q
-    d_param_infer_NN[,empirical_id,3]=cross_valid$adj.values[,3] # for the scale of observation
-    
-    d_param_infer_rej[,empirical_id,1]=cross_valid$unadj.values[,1] # we keep the whole distribution for p
-    d_param_infer_rej[,empirical_id,2]=cross_valid$unadj.values[,2] # for q
-    d_param_infer_rej[,empirical_id,3]=cross_valid$unadj.values[,3] # for the scale of observation
-    
-    
-  }
   
 }
 
+write.table(d,"../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
 
 
 
 
 
-# ---------------------- Step 8: Climatic projection ----
-## >> 1) From rasters to trends ----
+
+
+# ---------------------- Step 6: Climatic & societal projection ----
 
 rm(list=ls())
 source("./ABC_drylands_function.R")
@@ -1728,8 +1560,28 @@ library(raster)
 library(ncdf4)
 library(greenbrown)
 library(terra)
-for (file_ in list.files("../Data_new/Climatic_data",pattern = ".nc")){
+library(oceanmap)
+for (file_ in list.files("../Data_new/Climatic_data",pattern = ".nc")[-c(1,2)]){
   
+  # data_aridity = rast(paste0("../Data_new/Climatic_data/",file_))
+  # # years_sample=as.numeric(seq(2006, 2100, by=1))
+  # names(data_aridity) = as.character(seq(1950, 2100, by=1)[1:length(names(data_aridity))])
+  # 
+  # fun=function(x) { 
+  #   if (any(is.na(x))){
+  #     NA
+  #   }else{
+  #     lin_mod=lm(x[-1] ~ as.character(seq(1950, 2100, by=1)[1:length(names(data_aridity))]));
+  #     summary(lin_mod)$coefficients[2]
+  #   }
+  # }
+  # 
+  # site_year=raster::extract(data_aridity,
+  #                           d_biocom[,(c("Longitude","Lattitude"))],
+  #                           method = "bilinear", buffer = 0)
+  # 
+  # trends_aridity = apply(site_year,1,fun)
+  # write.table(trends_aridity,paste0("../Data_new/Climatic_data/trend_clim_",gsub(".nc","",file_),".csv"),sep=";")
   
   nc_data_aridity = ncvar_get(nc_open(paste0("../Data_new/Climatic_data/",file_)),
                               varid=ifelse(any(grep("aridity",file_)),"aridity_annual-mean","BIO01"))
@@ -1757,65 +1609,51 @@ for (file_ in list.files("../Data_new/Climatic_data",pattern = ".nc")){
   trends_aridity = apply(aridity_years,1,fun)
   
   write.table(trends_aridity,paste0("../Data_new/Climatic_data/trend_clim_",gsub(".nc","",file_),".csv"),sep=";")
+
+}
+
+
+
+simulated_sites=sapply(1:length(list.files("../Data_new/Prediction/","Dist")),
+            function(x){
+              return(as.numeric(gsub(".csv","",strsplit(list.files("../Data_new/Prediction/","Dist")[x],"_")[[1]][3])))})
+
+
+
+# Human population data
+
+list_years=list()
+index=1
+for (file_ in list.files("../Data_new/Climatic_data/Population/SSP3",pattern = ".nc")){
+  nc_data_pop = ncvar_get(nc_open(paste0("../Data_new/Climatic_data/Population/SSP3/",file_)),
+                              varid=gsub(".nc","",file_))
+  list_years[[index]]=flip(raster(t(as.matrix(nc_data_pop)),xmn=-180, xmx=180, ymn=-90, ymx=90),2)
+  index=index+1
+}
   
+pop_years=raster::stack(list_years)
+names(pop_years) = as.character(seq(2010, 2100, by=10))
+
+
+fun=function(x) { 
+  if (any(is.na(x))){
+    NA
+  }else{
+    lin_mod=lm(x ~ as.numeric(as.character(seq(2010, 2100, by=10))));
+    summary(lin_mod)$coefficients[2]
+  }
 }
 
+pop_years_data=extract(pop_years, SpatialPoints(d_biocom[,c("Longitude","Lattitude")]))
 
-## >> 2) Correlating all drivers with dist tipping ----
-
-rm(list=ls())
-source("./ABC_drylands_function.R")
-
-
-d2=readxl::read_xlsx("../Data_new/BerdugoetalData.xlsx")
-
-d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
-list_clim=list.files("../Data_new/Climatic_data",pattern = ".csv")[-grep("mean",list.files("../Data_new/Climatic_data",pattern = ".csv"))]
-sites_proj=sapply(list.files("../Data_new/Prediction/","Dist"),function(x){
-  return(as.numeric(gsub(".csv","",strsplit(x,"_")[[1]][3])))})
+trends_pop = apply(pop_years_data,1,fun)
+  
+write.table(trends_aridity,paste0("../Data_new/Climatic_data/trend_clim_",gsub(".nc","",file_),".csv"),sep=";")
+  
 
 
-d_biocom=d_biocom[sites_proj,]
-
-proj_clim=as.data.frame(matrix(NA,length(sites_proj),length(list_clim)))
-for (x in 1:ncol(proj_clim)){
-  proj_clim[,x]=read.table(paste0("../Data_new/Climatic_data/",list_clim[x]),sep=";")[sites_proj,1]
-}
-colnames(proj_clim)=c("Aridity RCP 4.5","Aridity RCP 8.5","Temperature RCP 4.5","Temperature RCP 8.5")
-
-# all sites
-d_summarized=d%>%
-  group_by(., Site,MF,aridity,Sand)%>%
-  dplyr::summarise(., .groups = "keep",abs_dis50=quantile(pinfer-pcrit,na.rm = T,.5),
-                   abs_dis25=quantile(pinfer-pcrit,na.rm = T,.25),
-                   abs_dis75=quantile(pinfer-pcrit,na.rm = T,.75),
-                   relativ_dis50=quantile((pinfer-pcrit)/pinfer,na.rm = T,.5),
-                   relativ_dis25=quantile((pinfer-pcrit)/pinfer,na.rm = T,.25),
-                   relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
-                   Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
-                   Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
-                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
-
-d_summarized=cbind(d_summarized,proj_clim)
-d_summarized$plotn=d_biocom$Plot_n
-
-d_summarized$plotn
-
-drivers=d2[sapply(d_summarized$plotn,function(x){
-  return(which(d2$plotn==x))
-}),]
-
-d_summarized=cbind(d_summarized,drivers)
 
 
-p=ggplot(d_summarized%>%melt(., measure.vars=colnames(d_summarized)[38:ncol(d_summarized)]))+
-  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
-  geom_smooth(aes(value,y=relativ_dis50),fill="#D38DEF",color="#782898",alpha=.3)+
-  facet_wrap(.~variable,scales = "free",ncol = 5)+
-  the_theme+
-  labs(y="Relative dist. to desert state",x="Driver value")
-
-ggsave("../Figures/Final_figs/All_drivers.pdf",p,width = 14,height = 12)
 
 
 

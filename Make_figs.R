@@ -60,8 +60,10 @@ ggsave(paste0("../Figures/Final_figs/PCA_spatial_resolution_model_and_data.pdf")
 
 ## >> Observed versus simulated spatial statistics ----
 
-
+keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
+x_y_stat=filter(x_y_stat,Site_ID %in% keeping_sites)
+
 list_plots=list()
 name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
             "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
@@ -94,7 +96,7 @@ ggsave("../Figures/Final_figs/Inference_stats.pdf",p,width = 10,height = 8)
 
 
 d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
-
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 #example with site 3
 
 site=279
@@ -117,7 +119,7 @@ pinfered=pred%>%
 #example of bifu for a site
 
 p1=ggplot(NULL)+
-  geom_line(data=pred%>%filter(., abs(q-median(q)) < quantile(abs(q-median(q)),.5),p>.45)%>%
+  geom_line(data=pred%>%filter(., abs(q-median(q)) < quantile(abs(q-median(q)),.6),p>.45)%>%
               add_column(., median_or_not=sapply(1:nrow(.),function(x){
                 if (.$q[x]==median(.$q)){return("50")
                 } else if (.$q[x]==quantile(.$q,.25)) {
@@ -132,7 +134,7 @@ p1=ggplot(NULL)+
   geom_point(data=pinfered%>%filter(., abs(q-median(q)) < quantile(abs(q-median(q)),.5)),
              aes(x=pinfered,y=cover),color=alpha("red",.3))+
   scale_color_manual(values=(c("No"="gray",'50'="#A564C3","25"="#EABBFF","75"="#EABBFF")))+
-  scale_size_manual(values=c("No"=.5,"50"=1.3,"25"=1,"75"=1))+
+  scale_size_manual(values=c("No"=.1,"50"=1.3,"25"=1,"75"=1))+
   xlim(0.46,.62)+
   geom_segment(aes(x = .6, y = .45, xend = .5, yend = .45),arrow = arrow(length = unit(0.3, "cm")),color="black")+
   geom_text(aes(x = .55, y = .47,label="Increasing stress"),color="black")+
@@ -142,7 +144,7 @@ p1=ggplot(NULL)+
 
 landscape_vege=ggplot(Get_empirical_site(site)%>%melt(.))+
   geom_tile(aes(x=Var1,y=Var2,fill=as.factor(value)))+
-  scale_fill_manual(values=c("black","white"))+
+  scale_fill_manual(values=rev(c("black","white")))+
   theme_transparent()+
   theme(legend.position = "none")
 
@@ -161,7 +163,8 @@ d_summarized=d%>%
                    relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
                    Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
                    Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
-                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
+                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))%>%
+  filter(., Site %in% keep_sites)
 
 p2=ggplot(d_summarized%>%melt(., measure.vars=c("Sand","MF","aridity")))+
   geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
@@ -176,11 +179,6 @@ p3=ggplot(d_summarized%>%melt(., measure.vars=c("Sand","MF","aridity")))+
   the_theme+
   labs(y="Size shift",x="Driver value")
 
-# ggsave("../Figures/Final_figs/Dist_tipping.pdf",
-#        ggarrange(ggarrange(ggplot()+theme_void(),
-#                            p1,
-#                            ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3),labels = c("",LETTERS[1],"")),
-#                  p2,p3,nrow=3,labels=c("",LETTERS[2:3])),width = 7,height = 10)
 
 ggsave("../Figures/Final_figs/Dist_tipping.pdf",
        ggarrange(ggarrange(ggplot()+theme_void(),
@@ -192,17 +190,13 @@ ggsave("../Figures/Final_figs/Dist_tipping.pdf",
 
 ## >> Climatic projections ----
 
-
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
-list_clim=list.files("../Data_new/Climatic_data",pattern = ".csv")[-grep("mean",list.files("../Data_new/Climatic_data",pattern = ".csv"))]
-sites_proj=sapply(list.files("../Data_new/Prediction/","Dist"),function(x){
-  return(as.numeric(gsub(".csv","",strsplit(x,"_")[[1]][3])))
-  }
-)
+list_clim=list.files("../Data_new/Climatic_data",pattern = ".csv")#[-grep("mean",list.files("../Data_new/Climatic_data",pattern = ".csv"))]
 
-proj_clim=as.data.frame(matrix(NA,length(sites_proj),length(list_clim)))
+proj_clim=as.data.frame(matrix(NA,length(keep_sites),length(list_clim)))
 for (x in 1:ncol(proj_clim)){
-  proj_clim[,x]=read.table(paste0("../Data_new/Climatic_data/",list_clim[x]),sep=";")[sites_proj,1]
+  proj_clim[,x]=read.table(paste0("../Data_new/Climatic_data/",list_clim[x]),sep=";")[keep_sites,1]
 }
 colnames(proj_clim)=c("Aridity RCP 4.5","Aridity RCP 8.5","Temperature RCP 4.5","Temperature RCP 8.5")
 
@@ -217,28 +211,150 @@ d_summarized=d%>%
                    relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
                    Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
                    Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
-                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))
+                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))%>%
+  filter(., Site %in% keep_sites)%>%
+  add_column(.,ID=1:nrow(.))
 
 d_summarized=cbind(d_summarized,proj_clim)
 
-p=ggplot(d_summarized%>%melt(., measure.vars=colnames(d_summarized)[14:ncol(d_summarized)]))+
-  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50),shape=21,color="black",fill="gray")+
-  geom_smooth(aes(value,y=relativ_dis50),fill="#D38DEF",color="#782898",alpha=.3)+
-  facet_wrap(.~variable,scales = "free",ncol = 4)+
+
+
+
+mat_tmp=Get_color_classif()
+
+d_summarized$sort_relativ_dist=unlist(sapply(d_summarized$relativ_dis50,function(x){
+  return(which(sort(d_summarized$relativ_dis50)==x)[1])
+}))
+d_summarized$sort_aridity_45=unlist(sapply(d_summarized$`Aridity RCP 4.5`,function(x){
+  return(which(sort(d_summarized$`Aridity RCP 4.5`)==x)[1])
+}))
+d_summarized$color=unlist(sapply(1:nrow(d_summarized),function(x){
+  return(mat_tmp[d_summarized$sort_aridity_45[x],d_summarized$sort_relativ_dist[x]])
+}))
+
+melting_d=d_summarized%>%
+  melt(., measure.vars=colnames(d_summarized)[15:(ncol(d_summarized)-3)])
+cols=melting_d$color[1:nrow(d_summarized)];names(cols)=1:nrow(d_summarized)
+
+
+p1=ggplot(melting_d%>%
+            filter(., variable %in% c("Aridity RCP 8.5"))%>%arrange(., relativ_dis50))+
+  geom_pointrange(aes(value,ymin=relativ_dis25,ymax=relativ_dis75,y=relativ_dis50,
+                      fill=as.character(ID),color=as.character(ID)),
+                  shape=21)+
   the_theme+
-  labs(y="Relative dist. to desert state",x="Trend in aridity/temperature")
+  theme(legend.position = "none")+
+  scale_fill_manual(values=cols)+
+  scale_color_manual(values=cols)+
+  labs(y="Distance to desertification",x="Vulnerability to climate change")
 
-ggsave("../Figures/Final_figs/Climatic_trend.pdf",p,width = 10,height = 3.5)
+
+mat_tmp=Get_color_classif(50)
+
+cols=as.character(mat_tmp);names(cols)=paste0(1:length(cols))
+
+p0_1=ggplot(melt(mat_tmp)%>%add_column(., Val_id=1:nrow(.)))+
+  geom_tile(aes(Var1,Var2,fill=as.factor(Val_id)))+
+  scale_fill_manual(values = cols)+
+  theme_transparent()+
+  theme(legend.position = "none",text = element_text(face = "plain"))
+
+p1=p1+annotation_custom(grob=ggplotGrob(p0_1),
+                        xmin = -0.0002, xmax=0.00035, ymin=.65, ymax=1.05)+
+  geom_richtext(aes(x=0.000075,y=.66,label="Vulnerability to climate change"),
+                label.size = NA,size=3,family = "NewCenturySchoolbook")+
+  geom_richtext(aes(x=-0.00018,y=.85,label="Dist. to desert.",angle=90),
+                label.size = NA,size=3,family = "NewCenturySchoolbook")
+
+p0_2=ggplot(d_summarized)+
+  geom_histogram(aes(relativ_dis50),color="black",fill="gray",alpha=.5)+
+  the_theme+theme(legend.position = "none")+
+  labs(x="Distance to desertification",y="Count")
+
+p1=p1+annotation_custom(grob=ggplotGrob(p0_2),
+                        xmin = 0.00107, xmax=0.00177, ymin=.65, ymax=1.05)+
+  geom_richtext(aes(x=0.0011,y=1,label="b"),
+                label.size = NA,size=5,fontface="bold")
+
+
+melting_d=melting_d%>%
+  filter(., variable=="Aridity RCP 8.5")
+
+melting_d$long=d_biocom$Longitude[melting_d$Site]
+melting_d$lat=d_biocom$Lattitude[melting_d$Site]
+
+
+coord_rect=tibble(xmin=c(-10,-85,-125),xmax=c(15,-35,-107),
+                  ymin=c(25,-45,30),ymax=c(50,0,45),label=c("(1)","(2)","(3)"))
 
 
 
+world_map <- map_data("world")
+p2=ggplot(NULL) +
+  geom_polygon(data=world_map, aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_jitter(data=melting_d,
+              aes(x=long,y=lat,color=as.character(ID)),size=1,width = .25,height = .25)+
+  geom_rect(data=coord_rect,
+            aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax),fill="transparent",color="black")+
+  geom_text(data=coord_rect,aes(x=xmax+6,y=ymax+6,label=label))+
+  the_theme+
+  scale_color_manual(values=cols)+
+  labs(x="",y="")+
+  theme(axis.title = element_blank())+
+  theme(legend.position = "none",axis.line = element_blank())
+
+p3_1=ggplot(NULL) +
+  geom_polygon(data=world_map%>%filter(., long<coord_rect$xmax[1] & long>coord_rect$xmin[1],
+                                       lat>coord_rect$ymin[1] & lat<coord_rect$ymax[1]), aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_jitter(data=melting_d%>%filter(., long<coord_rect$xmax[1] & long>coord_rect$xmin[1],
+                                      lat>coord_rect$ymin[1] & lat<coord_rect$ymax[1])%>%arrange(., relativ_dis50),
+              aes(x=long,y=lat,color=as.character(ID),size=relativ_dis50),width = .25,height = .25)+
+  scale_color_manual(values=cols)+scale_size_continuous(range=c(.3,.7))+
+  labs(x="",y="")+
+  theme_transparent()+
+  theme(legend.position ="none" )
+
+p3_2=ggplot(NULL) +
+  geom_polygon(data=world_map%>%filter(., long<coord_rect$xmax[2] & long>coord_rect$xmin[2],
+                                       lat>coord_rect$ymin[2] & lat<coord_rect$ymax[2]), aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_jitter(data=melting_d%>%filter(., long<coord_rect$xmax[2] & long>coord_rect$xmin[2],
+                                      lat>coord_rect$ymin[2] & lat<coord_rect$ymax[2])%>%arrange(., relativ_dis50),
+              aes(x=long,y=lat,color=as.character(ID),size=relativ_dis50),width = .25,height = .25)+
+  scale_color_manual(values=cols)+scale_size_continuous(range=c(.3,.7))+
+  labs(x="",y="")+
+  theme_transparent()+
+  theme(legend.position ="none" )
+
+
+p3_3=ggplot(NULL) +
+  geom_polygon(data=world_map%>%filter(., long<coord_rect$xmax[3]+10 & long>coord_rect$xmin[3],
+                                       lat>coord_rect$ymin[3] & lat<coord_rect$ymax[3]+5), aes(x = long, y = lat, group = group),
+               fill="lightgray", colour = "white")+
+  geom_jitter(data=melting_d%>%filter(., long<coord_rect$xmax[3] & long>coord_rect$xmin[3],
+                                      lat>coord_rect$ymin[3] & lat<coord_rect$ymax[3])%>%arrange(., relativ_dis50),
+              aes(x=long,y=lat,color=as.character(ID),size=relativ_dis50),width = .25,height = .25)+
+  scale_color_manual(values=cols)+scale_size_continuous(range=c(.3,.7))+
+  labs(x="",y="")+
+  theme_transparent()+
+  theme(legend.position ="none" )
+
+
+p_tot=ggarrange(p1,
+                ggarrange(p2,
+                          ggarrange(p3_1,p3_2,p3_3,ncol=3,labels = coord_rect$label),nrow=2,heights = c(1, .8),labels=c("c","")),
+                nrow=2,heights = c(1,1.3),labels = c("a",""))
+
+ggsave("../Figures/Final_figs/Climatic_trend.pdf",p_tot,width = 7,height = 10)
 
 
 
 # ---------------------------- SI figures ------------------------------
 
-## >> 1) Characteristics of empirical data ----
-### Resolution, geographical repartition ----
+# >> 1) Characteristics of empirical data ----
+## Resolution, geographical repartition
 
 d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
@@ -269,7 +385,7 @@ ggsave("../Figures/Final_figs/SI/Map_empirical_sites.pdf",p,width = 6,height = 4
 
 
 
-### Density of summary statistics: ecosystem type, type patterns ----
+## Density of summary statistics: ecosystem type, type patterns
 
 #Pair correlation metrics used
 
@@ -315,7 +431,6 @@ ggsave(paste0("../Figures/Final_figs/SI/Density_type_vege.pdf"),p,width = 8,heig
 
 # Type of vegetation patterns: regular versus irregular
 
-
 p=ggplot(d_biocom%>%
            melt(., measure.vars=colnames(d_biocom)[14:ncol(d_biocom)])%>%
            mutate(., variable=recode_factor(variable,
@@ -323,8 +438,8 @@ p=ggplot(d_biocom%>%
                                             "skewness"="Skewness","variance"="Variance",
                                             "moran_I"="Autocorrelation","Spectral_ratio"="SDR",
                                             "cv_psd"="CV PSD","fmax_psd"="Frac. max","PL_expo"="Exponent p.l." ,
-           ),Regular2=recode_factor(Regular2,"0"="Irregular","1"="Regular")))+
-  geom_density(aes(x=value,fill=as.factor(Regular2)),alpha=.8)+
+           ),Regular_berdugo=recode_factor(Regular_berdugo,"0"="Irregular","1"="Regular")))+
+  geom_density(aes(x=value,fill=as.factor(Regular_berdugo)),alpha=.8)+
   the_theme+
   labs(x="Value",y="Density",fill="Type of pattern  ")+
   facet_wrap(.~variable,scales = "free",nrow=3)+
@@ -338,8 +453,8 @@ ggsave("../Figures/Final_figs/SI/Density_empirical_type_patterns.pdf",p+theme(st
 
 
 
-## >> 2) Optimizing ABC ----
-### Optimization of the ABC method: pre- and post-processing ----
+# >> 2) Optimizing ABC ----
+## Optimization of the ABC method: pre- and post-processing
 
 
 #Simple rejection algorithm
@@ -413,7 +528,7 @@ p=ggarrange(ggarrange(ggplot()+theme_void(),p2,ggplot()+theme_void(),nrow=3,heig
 ggsave(paste0("../Figures/Final_figs/SI/Optimization_inference_preprocessing.pdf"),p,width = 8,height = 6)
 
 
-### Optimization of the ABC method: PLS versus no-PLS ----
+## Optimization of the ABC method: PLS versus no-PLS
 
 
 
@@ -454,7 +569,7 @@ ggsave(paste0("../Figures/Final_figs/SI/Optimization_PLS.pdf"),p,width = 6,heigh
 
 
 
-### Optimization of the ABC method: neural-network ----
+## Optimization of the ABC method: neural-network
 
 
 all_sim=expand.grid(rep_network=seq(10,30,by=10),N_hidden=seq(5,25,by=5))
@@ -497,7 +612,7 @@ ggsave(paste0("../Figures/Final_figs/SI/Optimization_NN.pdf"),
 
 
 
-### Number of simulations kept ----
+## Number of simulations kept
 
 d=tibble()
 list_f=list.files("../Data_new/NRMSE/","NA")[-grep(pattern = "rej",list.files("../Data_new/NRMSE/","NA"))]
@@ -565,7 +680,7 @@ ggsave(paste0("../Figures/Final_figs/SI/N_sim_kept.pdf"),
        ,width = 7,height = 8)
 
 
-### Best summary statistics ----
+## Best summary statistics
 
 
 d=tibble()
@@ -638,8 +753,8 @@ p=ggplot(d%>%
 ggsave(paste0("../Figures/Final_figs/SI/Combination_sumstats_on_p_q.pdf"),p,width = 10,height = 5)
 
 
-## >> 3) Spatial resolution & system size ---- 
-### Change spatial stats with resolution ----
+# >> 3) Spatial resolution & system size ---- 
+## Change spatial stats with resolution
 
 stat_sim=read.table("../Data_new/All_new_sim2.csv",sep=";")%>%
   mutate(., Id_sim=rep(1:(nrow(.)/5),each=5))%>%
@@ -670,7 +785,7 @@ p=ggplot(NULL)+
 
 ggsave(paste0("../Figures/Final_figs/SI/Change_metrics_spatial_resolution_model.pdf"),p,width = 8,height = 5)
 
-### Robustness inference with spatial resolution ----
+## Robustness inference with spatial resolution
 
 d_RMSE_param=read.table("../Data_new/Scale_obs_indentifiability/Retrieving_parameters_different_resolution_RMSE_param.csv",sep=";")
 p1=ggplot(d_RMSE_param%>% #we remove the scale of observation
@@ -685,7 +800,6 @@ p1=ggplot(d_RMSE_param%>% #we remove the scale of observation
   guides(Method="none")+
   scale_color_manual(values=my_pal(5))+
   scale_x_discrete(labels = c("No change","x2","x3","x4","x5"))+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
   guides(color="none")
 
 ggsave("../Figures/Final_figs/SI/NMRSE_consistency_inference_param_scale.pdf",p1,width = 6,height = 3)
@@ -705,7 +819,7 @@ p2=ggplot(x_y_param%>% #we remove the scale of observation
 
 ggsave("../Figures/Final_figs/SI/Consistency_inference_param_scale.pdf",p2,width = 7,height = 4)
 
-### System size and summary statistics ----
+## System size and summary statistics
 
 
 list_f=list.files("../Data_new/System_size")
@@ -760,7 +874,7 @@ ggsave("../Figures/Final_figs/SI/Change_statistics_system_size.pdf",p,width = 8,
 
 
 
-## >> 4) Comparison data-model : PCA and densities ----
+# >> 4) Comparison data-model : PCA and densities ----
 
 
 # Density data & model
@@ -891,74 +1005,50 @@ ggsave(paste0("../Figs/SI/PCA_spatial_resolution_model_and_data_own_classif_veg.
 
 
 
-## >> 5) ABC-Posteriors ----
+# >> 5) ABC-Posteriors ----
+
+## Comparison x-y obs sim with regular/irregular patterns
 
 
-### NMRSE for the different combination of summary statistics ----
-
-list_f=list.files(paste0("../Data_new/Inferrence/"),"NRMSE_sumstat")
-d=tibble()
-for (k in 1:length(list_f)){
-  name_cols=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
-                        "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
-  if (k==2){
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(10)] #no CV
-    
-    d2=d2%>%add_column(.,"CV PSD"=NA)%>%
-      relocate(., "CV PSD",.before="Frac. max")%>%
-      add_column(., Type="No CV PSD")
-    
-  }else if (k==3){
-    
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(9)] #No PL
-    d2=d2%>%add_column(.,"Exponent p.l."=NA)%>%
-      relocate(., "Exponent p.l.",.after="PLR")%>%
-      add_column(., Type="No Exponent p.l.")
-      
-    
-  }else if (k==4){ #no pl plr
-    
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(8,9)]
-    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA)%>%
-      add_column(., Type="No PLR & Exponent p.l.")%>%
-      relocate(., "PLR",.after="SDR")%>%
-      relocate(., "Exponent p.l.",.after="PLR")
-      
-      
-  }  else if (k==5){  #no PLR
-    
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(8)] #no PL
-    d2=d2%>%add_column(.,"PLR"=NA)%>%
-      add_column(., Type="No PLR")%>%
-      relocate(., "PLR",.after="SDR")
-    
-  }else if (k==6){ #no the 4
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(8:11)]
-    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA,"CV PSD"=NA,"Frac. max"=NA)%>%
-      add_column(., Type="No PLR, Exponent p.l. & \n CV PSD & Frac. max")
-    
-  }else if (k==7){
-
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols[-c(8:10)]    
-    d2=d2%>%add_column(.,"PLR"=NA,"Exponent p.l."=NA,"CV PSD"=NA)%>%
-      add_column(., Type="No PLR, Exponent p.l. & \n CV PSD")%>%
-      relocate(., "Frac. max",.after="CV PSD")
-    
-  }else {
-    d2=read.table(paste0("../Data_new/Inferrence/",list_f[k]),sep=";")
-    colnames(d2)=name_cols
-    d2=d2%>%add_column(., Type="All")
+keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+x_y_stat=read.table(paste0("../Data_new/Inferrence/x_y_stat_all.csv"),sep=";")
+x_y_stat=filter(x_y_stat,Site_ID %in% keeping_sites)%>%
+  add_column(., Regular=sapply(1:nrow(.),function(x){
+    return(d_biocom$Regular_berdugo[which(d_biocom$ID==.$Site_ID[x])])
   }
+ )
+)
 
+list_plots=list()
+name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+index=1
+for (i in c(1:11)){
+  d_fil=cbind(filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type","Regular")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
+              filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type","Regular")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
   
-  d=rbind(d,d2)
+  list_plots[[index]]=ggplot(d_fil)+
+    geom_point(aes(x=value_obs,y=value_sim,color=as.factor(Regular)),alpha=.75)+the_theme+
+    labs(x="",y="",color="Is regular ?")+
+    geom_abline(slope=1,intercept = 0,color="black")+
+    ggtitle(name_plot[i])+
+    theme(title = element_text(size=10))
+  
+  index=index+1
 }
+
+p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3,common.legend = T,legend="bottom"),
+                  left=text_grob("Closest simulations",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
+                  bottom = text_grob("Observed spatial statistic",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
+
+ggsave("../Figures/Final_figs/SI/Inference_stats_regular_irregular.pdf",p,width = 10,height = 8)
+
+
+## NMRSE for the summary statistics ----
 
 
 mean_rmse=d%>%
@@ -982,14 +1072,13 @@ p=ggplot(d%>%melt(., id.vars=c("Type")))+
 ggsave("../Figures/Final_figs/SI/NRMSE_sumstats.pdf",p,width = 10,height = 8)
 
 
-### Correlation parameters and drivers ----
-
+## Correlation parameters and drivers ----
 
 d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
 d=tibble(Site=1:345,p_50=apply(d[,1:345],2,median),p_25=apply(d[,1:345],2,quantile,.25),p_75=apply(d[,1:345],2,quantile,.75),
          q_50=apply(d[,346:690],2,median),q_25=apply(d[,346:690],2,quantile,.25),q_75=apply(d[,346:690],2,quantile,.75))
 d=d%>%add_column(., Sand=d_biocom$Sand,Aridity=d_biocom$Aridity,MF=d_biocom$MF,Cover=d_biocom$Cover)
-keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$V1
+keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 
 
 d_melt=d%>%filter(., Site %in% keeping_sites)%>%
@@ -1019,55 +1108,544 @@ ggsave("../Figures/Final_figs/Correlation_drivers_parameters.pdf",p,width = 10,h
 
 
 
+d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
+d=tibble(Site=1:345,p_50=apply(d[,1:345],2,median),p_25=apply(d[,1:345],2,quantile,.25),p_75=apply(d[,1:345],2,quantile,.75),
+         q_50=apply(d[,346:690],2,median),q_25=apply(d[,346:690],2,quantile,.25),q_75=apply(d[,346:690],2,quantile,.75))
+d=d%>%add_column(., Sand=d_biocom$Sand,Aridity=d_biocom$Aridity,MF=d_biocom$MF,Cover=d_biocom$Cover)
+keeping_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 
-### Comparison posterior of landscapes from the same site ----
 
-keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$V1
+p1=ggplot(d%>%filter(., Site %in% keeping_sites))+
+  geom_pointrange(aes(x=Cover,y=p_50,ymin=p_25,ymax=p_75),shape=21,fill="gray",color="black")+
+  geom_smooth(aes(x=Cover,y=p_50),fill="#D38DEF",color="#782898",alpha=.3)+
+  the_theme+ggtitle("p")+
+  labs(x="Vegetation cover",y="Posterior parameter value")
+  
+p2=ggplot(d%>%filter(., Site %in% keeping_sites))+
+    geom_pointrange(aes(x=Cover,y=q_50,ymin=q_25,ymax=q_75),shape=21,fill="gray",color="black")+
+    geom_smooth(aes(x=Cover,y=q_50),fill="#D38DEF",color="#782898",alpha=.3)+
+    the_theme+ggtitle("q")+
+    labs(x="Vegetation cover",y="Posterior parameter value")
+
+ggsave("../Figures/Final_figs/SI/Correlation_param_cover.pdf",
+       ggarrange(p1,p2,ncol=2),
+       width = 9,height = 4)
+  
+
+## Comparison posterior of landscapes from the same site ----
+
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
 d=read.table("../Data_new/posterior_param.csv",sep=";")
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
 
 p_=colMeans(d)[keep_sites];q_=colMeans(d)[keep_sites+345]
+p_sd=apply(d,2,sd,na.rm=T)[keep_sites];q_sd=apply(d,2,sd,na.rm=T)[keep_sites+345]
 d_biocom=d_biocom[keep_sites,]
 
 d2=tibble()
-for (k in unique(d_biocom$Plot_n)){ #each landscape
-  
-  p_site=p_[which(d_biocom$Plot_n == k)]
-  q_site=q_[which(d_biocom$Plot_n == k)]
-  p_other=p_[-which(d_biocom$Plot_n == k)]
-  q_other=q_[-which(d_biocom$Plot_n == k)]
-  
-  RMSE_p_within = sapply(1:length(p_site),function(x){
-    return(sqrt(sum((p_site-p_site[x])**2)/length(p_site) ))})
-  RMSE_q_within = sapply(1:length(q_site),function(x){
-    return(sqrt(sum((q_site-q_site[x])**2)/length(q_site) ))})
-  
-  RMSE_p_all = sapply(1:length(p_site),function(x){
-    return(sqrt(sum((p_other-p_site[x])**2)/length(p_other) ))})
-  RMSE_q_all = sapply(1:length(q_site),function(x){
-    return(sqrt(sum((q_other-q_site[x])**2)/length(q_other) ))})
-  
-  NRMSE_p=RMSE_p_within/RMSE_p_all
-  NRMSE_q=RMSE_q_within/RMSE_q_all
-  
-  
-  d2=rbind(d2,tibble(NRMSE_p=NRMSE_p,NRMSE_q=NRMSE_q,Plot_n=k))
-  
+for (k in unique(d_biocom$Plot_n)){ #each site
+    
+  for (rep_id in 1:100){
+    
+    p_site=sapply(which(d_biocom$Plot_n==k),function(x){
+      return(rnorm(1,mean=p_[x],
+                   sd = p_sd[x]))
+    }) #get the values of p
+      
+    q_site=sapply(which(d_biocom$Plot_n==k),function(x){
+      return(rnorm(1,mean=q_[x],
+                   sd = q_sd[x]))
+    }) #get the values of p
+    
+    p_other=sapply(which(d_biocom$Plot_n!=k),function(x){
+      return(rnorm(1,mean=p_[x],sd=p_sd[x]))
+    }) #get the values of p aside this site
+    q_other=sapply(which(d_biocom$Plot_n!=k),function(x){
+      return(rnorm(1,mean=q_[x],sd=q_sd[x]))
+    }) #get the values of q aside this site
+    
+    RMSE_p_within = mean(sapply(1:length(p_site),function(x){
+      return(sqrt(sum((p_site-p_site[x])**2)/length(p_site) ))})) #NRMSE of p within
+    
+    RMSE_q_within = mean(sapply(1:length(q_site),function(x){
+      return(sqrt(sum((q_site-q_site[x])**2)/length(q_site) ))})) #NRMSE of q within
+    
+    RMSE_p_all = mean(sapply(1:length(p_site),function(x){
+      return(sqrt(sum((p_other-p_site[x])**2)/length(p_other) ))})) #NRMSE of p between
+    RMSE_q_all = mean(sapply(1:length(q_site),function(x){
+      return(sqrt(sum((q_other-q_site[x])**2)/length(q_other) ))})) #NRMSE of q between
+    
+    NRMSE_p=RMSE_p_within/RMSE_p_all
+    NRMSE_q=RMSE_q_within/RMSE_q_all
+    
+    d2=rbind(d2,tibble(NRMSE_p=NRMSE_p,NRMSE_q=NRMSE_q,Plot_n=k,ID_rep=rep_id))
+  }
 }
 
-p=ggplot(d2%>%melt(., id.vars="Plot_n"))+
-  geom_jitter(aes(x=variable,y=value),width=.1,height=0,
-              color=alpha("blue",.4))+
+d=d2%>%
+  group_by(.,Plot_n)%>%
+  dplyr::summarise(., .groups = "keep",
+                   q_median=quantile(NRMSE_p,.5),p_median=quantile(NRMSE_q,.5),
+                   p_q1=quantile(NRMSE_p,.25),p_q3=quantile(NRMSE_p,.75),
+                   q_q1=quantile(NRMSE_q,.25),q_q3=quantile(NRMSE_q,.75))
+
+d=rbind(tibble(Site=d$Plot_n,Median=d$p_median,Q1=d$p_q1,Q3=d$p_q3,Parameter="Parameter p"),
+        tibble(Site=d$Plot_n,Median=d$q_median,Q1=d$q_q1,Q3=d$q_q3,Parameter="Parameter q"))%>%
+  filter(., Median>0)
+save_d=d
+
+## same but comparison with the distance to desert state
+
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
+
+d_summarized=d%>%
+  group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   mean_dist=mean((pinfer-pcrit)/pinfer,na.rm = T),
+                   sd_dist=sd((pinfer-pcrit)/pinfer,na.rm = T))%>%
+  filter(., Site %in% keep_sites)
+
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+d_biocom=d_biocom[keep_sites,]
+d_summarized$Plot_n=d_biocom$Plot_n[d_summarized$Site]
+
+d2=tibble()
+for (k in unique(d_biocom$Plot_n)){ #each site
+  
+  for (rep_id in 1:100){
+    
+    dist_site=sapply(which(d_biocom$Plot_n==k),function(x){
+      return(rnorm(1,mean=d_summarized$mean_dist[x],
+                   sd = d_summarized$sd_dist[x]))
+    }) #get the values of distance to desert state within the site
+    
+
+    dist_other=sapply(which(d_biocom$Plot_n!=k),function(x){
+      return(rnorm(1,mean=d_summarized$mean_dist[x],sd=d_summarized$sd_dist[x]))
+    }) #get the values of distance aside this site
+    
+    if (any (dist_other<0)){
+      dist_other=dist_other[-which(dist_other<0)] #can happen
+    }
+    
+    
+    RMSE_dist_within = mean(sapply(1:length(dist_site),function(x){
+      return(sqrt(sum((dist_site-dist_site[x])**2)/length(dist_site) ))})) #NRMSE of p within
+    
+
+    RMSE_dist_all = mean(sapply(1:length(dist_site),function(x){
+      return(sqrt(sum((dist_other-dist_site[x])**2)/length(dist_other) ))})) #NRMSE of p between
+
+    NRMSE=RMSE_dist_within/RMSE_dist_all
+
+    d2=rbind(d2,tibble(NRMSE=NRMSE,Plot_n=k,ID_rep=rep_id))
+  }
+}
+
+d=d2%>%
+  group_by(.,Plot_n)%>%
+  dplyr::summarise(., .groups = "keep",
+                   Median=quantile(NRMSE,.5),
+                   Q1=quantile(NRMSE,.25),
+                   Q3=quantile(NRMSE,.75))
+colnames(d)[1]="Site"
+
+d=rbind(save_d,d%>%add_column(., Parameter="Distance desert state"))
+
+
+p=ggplot(d)+
+  geom_violin(aes(x=Parameter,y=Median,fill=Parameter),
+              color="transparent",alpha=.5,width=.3)+
+  geom_boxplot(aes(x=Parameter,y=Median,fill=Parameter),
+               width=.1,alpha=.5,color="black")+
   the_theme+
-  labs(x="Parameter",y="NRMSE within / between sites")+
-  scale_x_discrete(labels=c("p","q"))+
-  geom_hline(yintercept = 1,color="red")
+  labs(x="",y="RMSE within / between sites")+
+  geom_hline(yintercept = 1,color="black")+
+  scale_color_manual(values=c("#E46767","#7095D2","#A6D67E"))+
+  scale_fill_manual(values=c("#E46767","#7095D2","#A6D67E"))+
+  theme(legend.position = "none")
 
 ggsave("../Figures/Final_figs/SI/Comparison_within_between_sites.pdf",p,width = 6,height = 3)
 
 
 
 
-## >> 6) Influence of the number of simulations kept ----
+# >> 6) Bimodality in posterior sites ----
+
+site=15
+post=read.table("../Data_new/posterior_param.csv",sep=";")[,c(site,site+345)]
+
+p_land=ggplot(Get_empirical_site(site)%>%melt(.))+
+  geom_tile(aes(Var1,Var2,fill=as.factor(value)))+
+  scale_fill_manual(values=c("1"="black","0"="white"))+
+  theme_transparent()+
+  theme(legend.position="none")
+
+colnames(post)=c("p","q")
+p_post=ggplot(post%>%melt(.)%>%
+                mutate(., variable=as.character(variable)))+
+  geom_histogram(aes(value),color="black",fill="gray")+
+  labs(x="Parameter value",y="Count")+
+  facet_wrap(.~variable,scales = "free",labeller = label_bquote(cols = Parameters == .(variable) ))+
+  the_theme+
+  theme(strip.text.x = element_text(size=12),strip.background = element_rect(fill = "#CCE8D8"))
+
+ggsave("../Figures/Final_figs/SI/Example_bimodal_distrib2.pdf",
+       ggarrange(
+         ggarrange(labels = c("","A",""),
+                   ggplot()+theme_void(),
+                   p_land+theme_black,ggplot()+theme_void(),ncol=3,widths =c(.3,1,.3)),
+         p_post,labels = c("","B"),nrow = 2,heights = c(1,1.3)),width = 6,height = 6)
+
+
+# >> 7) Validating predictions using Kefi model ----
+
+
+#We compare the distance to the tipping point predicted by the Kefi model with the one
+#predicted by the Eby model.
+
+
+#first comparizon on how much we fitted the statistics from the Kefi model
+
+x_y_stat=read.table("../Data_new/Confirm_kefi/x_y_stat.csv",sep=";")
+x_y_stat=x_y_stat%>%filter(., Site_ID %in% d_kefi$Site)%>%
+  add_column(., Low_cov=sapply(1:nrow(.), function(x){
+    if (x%%2==0){
+      if(.$rho_p[x-1]<.11){
+        return(T)
+      }else {
+        return(F)
+      }
+    }else{
+      if(.$rho_p[x]<.11){
+        return(T)
+      }else {
+        return(F)
+      }
+    }
+  }))%>%
+  filter(., Low_cov==F)%>%
+  add_column(., Bistab=sapply(1:nrow(.),function(x){
+    return(d_kefi$Bistab[which(d_kefi$Site==.$Site_ID[x])])
+  }))
+
+
+list_plots=list()
+name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
+            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
+index=1
+for (i in c(1:11)){
+  d_fil=cbind(filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type","Bistab")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
+              filter(x_y_stat%>%
+                       melt(., id.vars=c("Site_ID","Method", "Type","Bistab")),variable==colnames(x_y_stat)[i])%>%
+                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
+  
+  list_plots[[index]]=ggplot(d_fil)+
+    geom_point(aes(x=value_obs,y=value_sim,color=Bistab),alpha=.75,size=2)+the_theme+
+    labs(x="",y="",color="")+
+    geom_abline(slope=1,intercept = 0,color="black")+
+    ggtitle(name_plot[i])+
+    theme(title = element_text(size=10))+
+    scale_color_manual(values=c("#EAA96C","#82A6E2"),labels=c("Gradual change","Abrupt change"))+
+    guides(color = guide_legend(override.aes = list(size = 3)))+
+    theme(legend.text = element_text(size=13))
+  
+  index=index+1
+}
+
+p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3,common.legend = T,legend="bottom"),
+                  left=text_grob("Stats in Eby model (closest selected simulations)",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
+                  bottom = text_grob("Stats in Kefi model (virtual observation)",color="black",size=15,face="bold",vjust=-4,family = "NewCenturySchoolbook"))
+ggsave("../Figures/Final_figs/SI/x_y_kefi_eby.pdf",p,width = 10,height = 8)
+
+
+
+
+
+
+#secondly the distance predicted by the kefi model
+
+
+dist_kefi=tibble()
+for (site in list.files("../Data_new/Confirm_kefi/Dist_kefi","Dist")){
+  
+  site_id=as.numeric(gsub(".csv","",strsplit(site,"_")[[1]][3]))
+  
+  pred=read.table(paste0("../Data_new/Confirm_kefi/Dist_kefi/",site),sep=",")%>%
+    filter(., V1>0)
+  colnames(pred)=c("f","b","delta","cover")
+  pred$cover[pred$cover<.01]=0
+  
+  if (max(pred$cover)>.05){
+    dist_kefi=rbind(dist_kefi,tibble(Site=site_id,
+                                     abs_dist=max(pred$b)-max(pred$b[pred$cover==0]),
+                                     relativ_dist=(max(pred$b)-max(pred$b[pred$cover==0]))/(max(pred$b[pred$cover==0])),
+                                     f=unique(pred$f),delta=unique(pred$delta),
+                                     Cover=max(pred$cover)))
+  }
+}
+
+dist_kefi=dist_kefi%>%add_column(.,Bistab=ifelse(.$Site>81,"yes","no"))
+
+dist_eby=tibble();step_size=0.005
+for (site in list.files("../Data_new/Confirm_kefi/Dist_Eby","Dist")){
+  site_id=as.numeric(gsub("Eby","",gsub(".csv","",strsplit(site,"_")[[1]][3])))
+  
+  pred=read.table(paste0("../Data_new/Confirm_kefi/Dist_Eby/",site),sep=",")%>%
+    filter(., V2>0)
+  colnames(pred)=c("p","q","cover")
+  pred$cover[pred$cover<0.01] = 0
+  
+  if (max(pred$cover)>.05){
+    index=0;pred$ID_sim=NA
+    for (x in 1:nrow(pred)){
+      pred$ID_sim[x]=index
+      if (pred$p[x]==0){
+        index=index+1
+      }
+    }
+    
+    p_desert=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      if (any(d_fil$cover>0)){
+        return(d_fil$p[max(which(d_fil$cover !=0))]-step_size)
+      }else {
+        return(NA)
+      }
+    }) 
+    
+    p_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$p[1])
+    }) 
+    
+    q_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$q[1])
+    }) 
+    
+    max_cover=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$cover[1])
+    }) 
+    
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=1:length(p_desert),
+                                   abs_dist=p_infer-p_desert,
+                                   relativ_dist=(p_infer-p_desert)/p_desert,
+                                   Cover=max_cover))
+  }else{
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=0,
+                                   abs_dist=0,
+                                   relativ_dist=0,
+                                   Cover=0))
+  }
+  
+}
+
+#summarize by quantiles, mean and sd
+dist_eby=dist_eby%>%arrange(., Site)
+
+d_eby=dist_eby%>%
+  dplyr::group_by(., Site)%>%
+  dplyr::summarize(., .groups = "keep",
+                   cover_q1=quantile(Cover,.25,na.rm=T),cover_q3=quantile(Cover,.75,na.rm=T),
+                   Cover=mean(Cover,na.rm=T),
+                   abs_q1=quantile(abs_dist,.25,na.rm=T),abs_q3=quantile(abs_dist,.75,na.rm=T),
+                   rela_q1=quantile(relativ_dist,.25,na.rm=T),rela_q3=quantile(relativ_dist,.75,na.rm=T),
+                   abs_dist=median(abs_dist,na.rm=T),mean_abs_dist=mean(abs_dist,na.rm=T),
+                   mean_rela_dist=mean(relativ_dist,na.rm=T),
+                   sd_rela_dist=sd(relativ_dist,na.rm = T),
+                   relativ_dist=median(relativ_dist,na.rm=T))%>%
+  add_column(., Model="Eby")%>%
+  arrange(., Site)%>%
+  add_column(.,Bistab=ifelse(.$Site>81,"yes","no"))
+
+sd_abs_dist=sapply(unique(dist_eby$Site),function(x){
+  return(sd(dist_eby$abs_dist[which(dist_eby$Site==x)],na.rm = T))
+})
+d_eby$sd_abs_dist=sd_abs_dist
+
+d_kefi=dist_kefi%>%dplyr::select(., -f,-delta)%>%
+  add_column(., abs_q1=0,abs_q3=0,rela_q1=0,rela_q3=0,Model="Kefi")%>%
+  arrange(., Site)
+
+
+stats_param_kefi=read.table("../Data_new/Confirm_kefi/Stats_kefi.csv",sep=",")
+colnames(stats_param_kefi)=c("r","d","f","m","b","c","delta","rho_p","nb_neigh","clustering","skewness","variance","moran_I","Spectral_ratio","PLR","PL_expo","cv_psd","fmax_psd")
+
+d_eby=d_eby%>%
+  filter(., !(Site %in%  c(1:162)[-unique(d_kefi$Site)]))#%>%
+  #filter(., Site %in% which(stats_param_kefi$delta==0.1))
+
+d_kefi=d_kefi%>%
+  filter(., Site %in% unique(d_eby$Site))#%>%
+  #filter(., Site %in% which(stats_param_kefi$delta==0.1))
+
+
+# As there is uncertainty around each inferred distance to the desertification point, 
+# we assume that the each inference ~ follow a normal distrib with mean = mean posterior samples
+# and sd = sd posterior samples. We then compute the spearman correlation and its associated p-value
+
+
+
+#catastrophic shift parameters
+d_kefi_cat=filter(d_kefi,Bistab=="yes")#,Site %in% c(1:nrow(stats_param_kefi))[which(stats_param_kefi$c==.1)])
+d_eby_cat=filter(d_eby,Bistab=="yes")#,Site %in% c(1:nrow(stats_param_kefi))[which(stats_param_kefi$c==.1)])
+
+#gradual shift parameters
+d_kefi_nocat=filter(d_kefi,Bistab=="no")#,Site %in% c(1:nrow(stats_param_kefi))[which(stats_param_kefi$c==.1)])
+d_eby_nocat=filter(d_eby,Bistab=="no")#,Site %in% c(1:nrow(stats_param_kefi))[which(stats_param_kefi$c==.1)])
+
+
+n=1000
+d_spearman=tibble()
+for (x in 1:n){
+    
+  #catastrophic shift params --- absolute distance
+  
+  abs_eby=sapply(1: nrow(d_eby_cat),function(x){
+    return(rnorm(1,mean=d_eby_cat$mean_abs_dist[x],sd=d_eby_cat$sd_abs_dist[x]))
+  })
+  r_spearman=cor.test(d_kefi_cat$abs_dist,abs_eby,method = "spearman",exact = F)
+  d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,Pval=r_spearman$p.value,Type_dist="Abs",Type_bifu="Cat"))
+  
+  #catastrophic shift params --- relative distance
+  rela_eby=sapply(1: nrow(d_eby_cat),function(x){
+    return(rnorm(1,mean=d_eby_cat$mean_rela_dist[x],sd=d_eby_cat$sd_rela_dist[x]))
+  })
+  r_spearman=cor.test(d_kefi_cat$relativ_dist,rela_eby,method = "spearman",exact = F)
+  d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,Pval=r_spearman$p.value,Type_dist="Rela",Type_bifu="Cat"))
+  
+  #gradual shift params --- absolute distance
+  abs_eby=sapply(1: nrow(d_eby_nocat),function(x){
+    return(rnorm(1,mean=d_eby_nocat$mean_abs_dist[x],sd=d_eby_nocat$sd_abs_dist[x]))
+  })
+  r_spearman=cor.test(d_kefi_nocat$abs_dist,abs_eby,method = "spearman",exact = F)
+  d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,Pval=r_spearman$p.value,Type_dist="Abs",Type_bifu="Grad"))
+  
+  #gradual shift params --- relative distance
+  rela_eby=sapply(1: nrow(d_eby_nocat),function(x){
+    return(rnorm(1,mean=d_eby_nocat$mean_rela_dist[x],sd=d_eby_nocat$sd_rela_dist[x]))
+  })
+  r_spearman=cor.test(d_kefi_nocat$relativ_dist,rela_eby,method = "spearman",exact = F)
+  d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,Pval=r_spearman$p.value,Type_dist="Rela",Type_bifu="Grad"))
+  
+}
+
+
+
+pdf("../Figures/Final_figs/SI/Correspondance_Kefi_Eby_dist.pdf",width = 8,height = 8)
+{
+  par(mfrow=c(2,2))
+  
+  corr_sp=filter(d_spearman, Type_dist=="Abs",Type_bifu=="Cat")
+  
+  plot(d_kefi_cat$abs_dist,d_eby_cat$abs_dist,col="#82A6E2",lwd=7,
+       main="Absolute distance",xlab="Mean abs. dist from Kefi model",
+       ylab="Mean abs. dist from Eby model")
+  errbar(d_kefi_cat$abs_dist,d_eby_cat$abs_dist,d_eby_cat$abs_q3,d_eby_cat$abs_q1,
+         col="#82A6E2",add=T)
+  text(.14,0.28,paste0("r = ",round(median(corr_sp$Stat),2),
+                       " (",round(quantile(corr_sp$Stat,.25),2),
+                        ", ",round(quantile(corr_sp$Stat,.75),2),
+                       ")"))
+  
+  corr_sp=filter(d_spearman, Type_dist=="Rela",Type_bifu=="Cat")
+  
+  plot(d_kefi_cat$relativ_dist,d_eby_cat$relativ_dist,col="#82A6E2",lwd=7,pch=19,
+       main="Relative distance",
+       xlab="Mean relat. dist from Kefi model",
+       ylab="Mean relat. dist from Eby model")
+  errbar(d_kefi_cat$relativ_dist,d_eby_cat$relativ_dist,
+         d_eby_cat$rela_q3,d_eby_cat$rela_q1,
+         col="#82A6E2",add=T)
+  text(.35,0.45,paste0("r = ",round(median(corr_sp$Stat),2),
+                      " (",round(quantile(corr_sp$Stat,.25),2),
+                      ", ",round(quantile(corr_sp$Stat,.75),2),
+                      ")"))
+  
+  corr_sp=filter(d_spearman, Type_dist=="Abs",Type_bifu=="Grad")
+  
+  plot(d_kefi_nocat$abs_dist,d_eby_nocat$abs_dist,col="#EAA96C",lwd=7,
+       xlab="Mean abs. dist from Kefi model",
+       ylab="Mean abs. dist from Eby model",
+       main=NULL)
+  errbar(d_kefi_nocat$abs_dist,d_eby_nocat$abs_dist,d_eby_nocat$abs_q3,d_eby_nocat$abs_q1,
+         col="#EAA96C",add=T)
+  text(.13,0.35,paste0("r = ",round(median(corr_sp$Stat),2),
+                       " (",round(quantile(corr_sp$Stat,.25),2),
+                       ", ",round(quantile(corr_sp$Stat,.75),2),
+                       ")"))
+  
+  corr_sp=filter(d_spearman, Type_dist=="Rela",Type_bifu=="Grad")
+  
+  plot(d_kefi_nocat$relativ_dist,d_eby_nocat$relativ_dist,col="#EAA96C",lwd=7,
+       xlab="Mean relat. dist from Kefi model",
+       ylab="Mean relat. dist from Eby model",
+       main=NULL)
+  errbar(d_kefi_nocat$relativ_dist,d_eby_nocat$relativ_dist,
+         d_eby_nocat$rela_q3,d_eby_nocat$rela_q1,
+         col="#EAA96C",add=T)
+  text(.35,0.62,paste0("r = ",round(median(corr_sp$Stat),2),
+                      " (",round(quantile(corr_sp$Stat,.25),2),
+                      ", ",round(quantile(corr_sp$Stat,.75),2),
+                      ")"))
+  
+}
+dev.off()
+
+
+
+# >> 8) Comparing predicted distance with the site cover ----
+
+
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
+d_biocom=d_biocom[keep_sites,]
+
+d=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
+d_summarized=d%>%
+  group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",abs_dis50=quantile(pinfer-pcrit,na.rm = T,.5),
+                   abs_dis25=quantile(pinfer-pcrit,na.rm = T,.25),
+                   abs_dis75=quantile(pinfer-pcrit,na.rm = T,.75),
+                   relativ_dis50=quantile((pinfer-pcrit)/pinfer,na.rm = T,.5),
+                   relativ_dis25=quantile((pinfer-pcrit)/pinfer,na.rm = T,.25),
+                   relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
+                   Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
+                   Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
+                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75))%>%
+  filter(., Site %in% keep_sites)
+
+
+
+#second, correlation cover and predicted distance
+
+p1=ggplot(NULL)+
+  geom_pointrange(aes(d_biocom$Cover,d_summarized$abs_dis50,
+                      ymin=d_summarized$abs_dis25,
+                      ymax=d_summarized$abs_dis75),color="blue",
+                  fill="#8BB3E4",alpha=.5,shape=21,size=.7)+
+  the_theme+
+  labs(x="Vegetation cover",y="Predicted abslute distance \n to desert stat")
+
+p2=ggplot(NULL)+
+  geom_pointrange(aes(d_biocom$Cover,d_summarized$relativ_dis50,
+                      ymin=d_summarized$relativ_dis25,
+                      ymax=d_summarized$relativ_dis75),color="blue",
+                  fill="#8BB3E4",alpha=.5,shape=21,size=.7)+
+  the_theme+
+  labs(x="Vegetation cover",y="Predicted relative distance \n to desert stat")
+
+ggsave("../Figures/Final_figs/SI/Cover_distance_tipping.pdf",
+       ggarrange(p1,p2,nrow=2,labels=letters[1:2]),
+       width=7,height = 7)
+
+
+## --------------------------------------------OTHER) Influence of the number of simulations kept ----
 
 ### x_y obs-sim ----
 
@@ -1176,6 +1754,7 @@ p=ggplot(d%>%
 
 
 ggsave(paste0("../Figures/Final_figs/SI/Change_median_p_q_N_sim_kept.pdf"),p,width = 8,height = 10)
+
 
 
 

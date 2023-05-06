@@ -5,6 +5,8 @@ library(missMDA);library(GGally);library(scales);library(magick)
 library(png);library(EBImage);library(imager)
 library(lme4);library(car);library(diptest);library(raster);library(ape)
 library(abctools);library(viridis)
+library(Hmisc);library(ggtext)
+
 
 x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
       "abc", "spatialwarnings", "FME","phaseR","ggpattern",
@@ -82,6 +84,21 @@ fourneighbors = function(landscape, state = 1, bounds = 1) {
 
 Plot_psd=function(id,best=F){
   print(spatialwarnings::plot_distr(spatialwarnings::patchdistr_sews(Get_empirical_site(id)>0),best_only = best))
+}
+
+Plot_psd_raw=function(landscape){
+  psd_id=spatialwarnings::patchsizes(landscape>0)
+  psd_tibble=tibble(patch_size=psd_id)
+  
+  psd_tibble$freq=sapply(1:nrow(psd_tibble),function(x){
+    return(length(which(psd_tibble$patch_size>=psd_tibble$patch_size[x]))/nrow(psd_tibble))
+  })
+  print(ggplot(psd_tibble)+
+    geom_point(aes(x=patch_size,y=freq))+
+    the_theme+
+    scale_x_log10()+
+    scale_y_log10())
+  
 }
 
 Plot_dynamics=function(d,different_sim=F){
@@ -313,6 +330,7 @@ Get_sumstat=function(landscape,log_=T){
   
   psd=spatialwarnings::patchdistr_sews(landscape>0)
   max_patchsize=max(psd$psd_obs)
+  cv_patch=sd(psd$psd_obs)/mean(psd$psd_obs)
   PLR=spatialwarnings::raw_plrange(landscape>0)
   if (nrow(psd$psd_type)==1){ 
     alpha_exp=NA        
@@ -321,11 +339,13 @@ Get_sumstat=function(landscape,log_=T){
   if (log_){
     mean_clustering=log(mean_clustering)
     spectral_ratio=log(spectral_ratio)
+    max_patchsize=log(max_patchsize/length(landscape))
   }
   d=tibble(rho_p=cover,
            nb_neigh=mean_nb_neigh,clustering=mean_clustering,
            skewness=spatial_ews[2],variance=spatial_ews[1],moran_I=spatial_ews[3],
-           Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp)
+           Spectral_ratio=spectral_ratio,PLR=PLR,PL_expo=alpha_exp,CV_PSD=cv_patch,
+           fmax_PSD=max_patchsize)
   
   return(d)
 }
@@ -875,4 +895,29 @@ Boxcox_and_scale=function(d){
   for (x in 1:ncol(d)) d[,x] = (d[,x]-mean(d[,x],na.rm = T))/sd(d[,x],na.rm = T)
   
   return(d)
+}
+
+Get_psd=function(id){
+  psd_mat=sort(spatialwarnings::patchsizes(Get_empirical_site(id)>0))
+  print(psd_mat)
+  return(psd_mat)
+}
+
+Get_id_in_pdf=function(id){
+  return(paste0(floor(id/23)+1," & ",23*2*((id/23) -floor(id/23))))
+}
+
+rotate = function(x) t(apply(x, 2, rev))
+
+Get_color_classif=function(n=275){
+  rotate=function(x) t(apply(x, 2, rev))
+  mm=tcrossprod(seq(1,0,length.out = n))
+  tmp1=sapply(col2rgb("purple")/255, function(x) 1-mm*(1-x))
+  tmp2=sapply(col2rgb("cyan")/255, function(x) 1-rotate(mm)*(1-x))
+  tmp3=sapply(col2rgb("orange")/255, function(x) 1-rotate(rotate(mm))*(1-x))
+  tmp4=sapply(col2rgb("red")/255, function(x) 1-rotate(rotate(rotate(mm)))*(1-x))
+  
+  tmp=(tmp1*tmp2*tmp3*tmp4)
+  mat_tmp=matrix(sapply(1:nrow(tmp),function(x){return(rgb(tmp[x,1],tmp[x,2],tmp[x,3]))}),n,n)
+  return(mat_tmp)
 }
