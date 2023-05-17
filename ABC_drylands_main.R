@@ -1398,64 +1398,6 @@ for (i in 1:345){
 dev.off()
 
 
-
-
-
-# ---------------------- Step 5: Validation inference
-
-library(readxl)
-#loading berdugo data
-
-d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
-d_berdugo=read_excel("../Data_new/BerdugoetalData.xlsx")
-d_gross_2017NEE=read.table("../Data_new/datasetmultifunctionality.txt",header = T)
-post_param=read.table("../Data_new/posterior_param.csv",sep=";")
-keep_site=read.table("../Data_new/Keeping_sites.csv",sep=";")
-
-d_biocom$facil=sapply(1:nrow(d_biocom),function(x){
-  return(d_berdugo$Facil[which(d_biocom$Plot_n[x]==d_berdugo$plotn)])
-})
-
-
-d=as_tibble(cbind(d_biocom,tibble(p=apply(post_param[,1:345],2,median),
-                  q=apply(post_param[,346:690],2,median),
-                  res=apply(post_param[,691:1035],2,median),
-                  site=1:345)))
-
-d_traits=tibble()
-
-for (i in 1:nrow(d)){
-  if (any(which(round(d_gross_2017NEE$LAT,6)==round(d$Lattitude,6)[i]))){
-    d_traits=rbind(d_traits,d_gross_2017NEE[which(round(d_gross_2017NEE$LAT,6)==round(d$Lattitude,6)[i]),7:24])
-  }else {
-    NA_df=as.data.frame(matrix(NA,nrow=1,ncol=18))
-    colnames(NA_df)=colnames(d_gross_2017NEE)[7:24]
-    d_traits=rbind(d_traits,NA_df)
-  }
-  
-}
-
-d=cbind(d,d_traits)
-
-
-pdf("../Figures/What_we_learn_correlation.pdf",width = 6,height = 4)
-
-for (driver in c("facil","Cover","Sand","Aridity",colnames(d)[30:ncol(d)])){
-  
-  print(ggplot(d%>%melt(., measure.vars=c("p","q"),value.name = "param")%>%
-           dplyr::rename(., param_id=variable)%>%
-           melt(., measure.vars=driver))+
-    geom_point(aes(x=value,y=param),fill="gray",color="black",shape=21)+
-    geom_smooth(aes(x=value,y=param))+
-    labs(x=driver,y="Parameters")+
-    the_theme+
-    facet_wrap(.~param_id,scales = "free"))
-}
-dev.off()  
-
-
-
-## >> 3)  with 
 # ---------------------- Step 4: Selecting relevant empirical data ----
 
 # #Own made classification of empirical data between shrubs, grasslands or both
