@@ -7,20 +7,14 @@ library(lme4);library(car);library(diptest);library(raster);library(ape)
 library(abctools);library(viridis)
 library(Hmisc);library(ggtext)
 
-
 x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
       "abc", "spatialwarnings", "FME","phaseR","ggpattern",
       "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
-      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis")
+      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis","rsq")
+
 
 #install pacakges if not installed already
 install.packages(setdiff(x, rownames(installed.packages())))
-
-
-x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
-      "abc", "spatialwarnings", "FME","phaseR","ggpattern",
-      "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
-      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis")
 lapply(x, require, character.only = TRUE)
 
 
