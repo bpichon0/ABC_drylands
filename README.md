@@ -2,7 +2,7 @@
 
 Contact: Benoît Pichon, **benoit.pichon0@gmail.com**
 
-Prior to analyses, see the preprint: Benoît Pichon, Sophie Donnet, Isabelle Gounand and Sonia Kefi: Learning from vegetation patterns to infer the resilience of drylands, *bioRxiv*.
+Code to replicate the results of the following preprint: Benoît Pichon, Sophie Donnet, Isabelle Gounand and Sonia Kefi: Learning from vegetation patterns to infer the resilience of drylands, *bioRxiv* 2024.
 
 This repository contains the code used to perform the analyses for both main text and supplementary informations.
 All the code was made on R (*v4.1.0*) and in julia (*v1.7.3*).
@@ -14,7 +14,7 @@ All the code was made on R (*v4.1.0*) and in julia (*v1.7.3*).
 ## `Installing R & Julia dependancies`
 
 
-To install the pacakges needed for the analyses and create the folder architecture used to save the data sets, please load the file `Dryland_shift_function.R` using: 
+To install the pacakges needed for the analyses and create the folder architecture used to save the data sets, please load the file `ABC_drylands_function.R` using: 
 
 ```R
 source(ABC_drylands_function.R)

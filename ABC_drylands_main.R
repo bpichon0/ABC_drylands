@@ -959,11 +959,7 @@ for (which_sumstat in 1:length(all_name)){
   colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
   
   write.table(d_NRMSE_param,paste0("../Data_new/Best_sumstat/RMSE_selecting_sumstat_,",name_removal,".csv"),sep=";")
-  
-  
-  
-  
-  
+
 }
 
 
@@ -1130,11 +1126,26 @@ write.table(x_y_param,"../Data_new/Scale_obs_indentifiability/Retrieving_paramet
 
 
 
-# ---------------------- Step 3: Inference, what we learn ----
+# ---------------------- Step 3: Selecting relevant empirical data ----
+
+#Testing for bimodality in the posterior distribution of parameters
+library(diptest)
+post_param=read.table("../Data_new/posterior_param.csv",sep=";")
+
+d_biocom$bimod=sapply(1:nrow(d_biocom),function(x){
+  if (dip.test(post_param[,x])$p.value<.05 | dip.test(post_param[,x+345])$p.value<.05){
+    return("bimod")
+  }else {
+    return("unimod")
+  }
+})
+write.table(which(d_biocom$bimod!="bimod"),"../Data_new/Keeping_sites.csv",sep=";")
+
+# ---------------------- Step 4: Inference, what we learn ----
 
 
 
-run_abc=function(id,n_sim_kept=50,method_abc="neuralnet"){
+run_abc=function(id,n_sim_kept=100,method_abc="neuralnet"){
   for (id_plot in id){
     `%!in%` = Negate(`%in%`)
     n_param=3
@@ -1376,49 +1387,390 @@ for (i in 1:345){
 dev.off()
 
 
+## >> 1) Running mixed-effect models ----
 
 
+d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
+d_raw=readxl::read_xlsx("../Data_new/biocom_raw.xlsx")
+keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),
+         mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),
+         Plot_n=d_biocom$Plot_n,
+         Aridity=d_biocom$Aridity,
+         Sand=d_biocom$Sand,
+         MF=d_biocom$MF,
+         Cover=d_biocom$Cover)%>%
+  filter(., Site %in% keep_sites)%>%
+  add_column(., 
+             Facilitation=sapply(1:nrow(.),function(x){return(d_raw$Facil[which(d_raw$plotn==.$Plot_n[x])])}),
+             SR=sapply(1:nrow(.),function(x){return(d_raw$SR[which(d_raw$plotn==.$Plot_n[x])])}),
+             Long_cos=sapply(1:nrow(.),function(x){return(cos(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+             Long_sin=sapply(1:nrow(.),function(x){return(sin(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+             Lat=sapply(1:nrow(.),function(x){return(d_raw$Latitude[which(d_raw$plotn==.$Plot_n[x])])}),
+             Elevation=sapply(1:nrow(.),function(x){return(d_raw$ELE_1[which(d_raw$plotn==.$Plot_n[x])])}),
+             Slope=sapply(1:nrow(.),function(x){return(d_raw$SLO[which(d_raw$plotn==.$Plot_n[x])])})
+  )
 
-pdf("../Figures/TEST.pdf",width = 12,height = 5)
+d2=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")%>%
+  group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   abs_mean=mean(pinfer-pcrit,na.rm = T),
+                   abs_sd=sd(pinfer-pcrit,na.rm = T),
+                   relativ_mean=mean((pinfer-pcrit)/pinfer,na.rm = T),
+                   relativ_sd=sd((pinfer-pcrit)/pinfer,na.rm = T),
+                   Size_mean=mean(Size_tipping,na.rm = T),
+                   Size_sd=sd(Size_tipping,na.rm = T))%>%
+  filter(., Site %in% keep_sites)
 
-par(mfrow=c(1,3))
-for (i in 1:345){
-  hist(param_infer_rej[,i],main="p",xlab="",ylab="",col=alpha("blue",.4),
-       xlim=c(min(param_infer_rej[,i],param_infer_rej2[,i]),max(param_infer_rej[,i],param_infer_rej2[,i])))
-  hist(param_infer_rej2[,i],main="p",xlab="",ylab="",col=alpha("red",.4),add=T)
-  hist(param_infer_rej[,i+345],main="q",xlab="",ylab="",col=alpha("blue",.4),
-       xlim=c(min(param_infer_rej[,i+345],param_infer_rej2[,i+345]),max(param_infer_rej[,i+345],param_infer_rej2[,i+345])))
-  hist(param_infer_rej2[,i+345],main="q",xlab="",ylab="",col=alpha("red",.4),add=T)
-  hist(param_infer_rej[,i+690],main="scale",xlab="",ylab="",col=alpha("blue",.4),
-       xlim=c(min(param_infer_rej[,i+690],param_infer_rej2[,i+690]),max(param_infer_rej[,i+690],param_infer_rej2[,i+690])))
-  hist(param_infer_rej2[,i+690],main="scale",xlab="",ylab="",col=alpha("red",.4),add=T)
-  mtext(paste0(mean(param_infer_rej[,i+690])))
+d=cbind(d,d2)
+
+#as the parameters have uncertainty -> Monte Carlo approach
+
+nsim=1000
+d_mod=tibble()
+for (k in 1:nsim){
+  
+  d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
+            q=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_q[x],d$sd_q[x]))}))[,1],
+            Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
+            abs_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$abs_mean[x],d$abs_sd[x]))}))[,1],
+            rela_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$relativ_mean[x],d$relativ_sd[x]))}))[,1],
+            Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
+            Site=d$Site,
+            MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
+            SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
+            Facilitation=(d$Facilitation-mean(d$Facilitation,na.rm=T))/sd(d$Facilitation,na.rm = T),
+            Cover=(d$Cover-mean(d$Cover,na.rm=T))/sd(d$Cover,na.rm = T),
+            Aridity=(d$Aridity-mean(d$Aridity,na.rm=T))/sd(d$Aridity,na.rm = T),
+            Lat=(d$Lat-mean(d$Lat,na.rm=T))/sd(d$Lat,na.rm = T),
+            Long_cos=(d$Long_cos-mean(d$Long_cos,na.rm=T))/sd(d$Long_cos,na.rm = T),
+            Long_sin=(d$Long_sin-mean(d$Long_sin,na.rm=T))/sd(d$Long_sin,na.rm = T),
+            Elevation=(d$Elevation-mean(d$Elevation,na.rm=T))/sd(d$Elevation,na.rm = T),
+            Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
+            Plot_n=d$Plot_n)
+  
+  mod_predictors=gsub("\n     ","","Aridity + MF + Sand + Cover + SR + Facilitation +
+      Lat + Long_cos + Long_sin + Slope + Elevation + ( 1 | Plot_n)")
+  
+  model_p=summary(d2%>% lmer(formula = paste("p ~ ",mod_predictors), data = .))
+  model_q=summary(d2%>% lmer(formula = paste("q ~ ",mod_predictors), data = .))
+  model_abs=summary(d2%>% lmer(formula = paste("abs_dist ~ ",mod_predictors), data = .))
+  model_rela=summary(d2%>% lmer(formula = paste("rela_dist ~ ",mod_predictors), data = .))
+  model_size=summary(d2%>% lmer(formula = paste("Size_tipping ~ ",mod_predictors), data = .))
+  
+  d_mod=rbind(d_mod,tibble(Aridity=c(model_p$coefficients[2,1],model_q$coefficients[2,1],model_abs$coefficients[2,1],
+                                     model_rela$coefficients[2,1],model_size$coefficients[2,1]),
+                           Multifunctionality=c(model_p$coefficients[3,1],model_q$coefficients[3,1],model_abs$coefficients[3,1],
+                                                model_rela$coefficients[3,1],model_size$coefficients[3,1]),
+                           Sand=c(model_p$coefficients[4,1],model_q$coefficients[4,1],model_abs$coefficients[4,1],
+                                  model_rela$coefficients[4,1],model_size$coefficients[4,1]),
+                           Cover=c(model_p$coefficients[5,1],model_q$coefficients[5,1],model_abs$coefficients[5,1],
+                                   model_rela$coefficients[5,1],model_size$coefficients[5,1]),
+                           SR=c(model_p$coefficients[6,1],model_q$coefficients[6,1],model_abs$coefficients[6,1],
+                                model_rela$coefficients[6,1],model_size$coefficients[6,1]),
+                           Facil=c(model_p$coefficients[7,1],model_q$coefficients[7,1],model_abs$coefficients[7,1],
+                                   model_rela$coefficients[7,1],model_size$coefficients[7,1]),
+                           Lat=c(model_p$coefficients[8,1],model_q$coefficients[8,1],model_abs$coefficients[8,1],
+                                 model_rela$coefficients[8,1],model_size$coefficients[8,1]),
+                           Long_cos=c(model_p$coefficients[9,1],model_q$coefficients[9,1],model_abs$coefficients[9,1],
+                                      model_rela$coefficients[9,1],model_size$coefficients[9,1]),
+                           Long_sin=c(model_p$coefficients[10,1],model_q$coefficients[10,1],model_abs$coefficients[10,1],
+                                      model_rela$coefficients[10,1],model_size$coefficients[10,1]),
+                           Slope=c(model_p$coefficients[11,1],model_q$coefficients[11,1],model_abs$coefficients[11,1],
+                                   model_rela$coefficients[11,1],model_size$coefficients[11,1]),
+                           Elevation=c(model_p$coefficients[12,1],model_q$coefficients[12,1],model_abs$coefficients[12,1],
+                                       model_rela$coefficients[12,1],model_size$coefficients[12,1]),
+                           Param=c("p","q","Absolute distance","Relative distance","Size tipping")))
+  
+  
+  print(k)
+  
 }
 
-dev.off()
+write.table(d_mod,"../Data_new/Prediction/Drivers_stability_metrics.csv",sep=";")
 
 
-# ---------------------- Step 4: Selecting relevant empirical data ----
 
-# #Own made classification of empirical data between shrubs, grasslands or both
-# 
-# non_relevant=c(10,11,12,21,52,67,68,69,70,71,72,88:90,92,107:109,111:114,117,121:123,127:129,
-#                136:141,144,147,154:156,159,172:174,184,186:188,198:201,203:205,208:210,241,243,
-#                255,258,283:288,292:294,295:297,301:309,337:339,343:345)
-# 
-# write.table(c(1:345)[-non_relevant],"../Data_new/Keeping_sites.csv",sep=";",row.names = F,col.names = F)
+## >> 2) Evaluating importance ----
 
-library(diptest)
-post_param=read.table("../Data_new/posterior_param.csv",sep=";")
 
-d_biocom$bimod=sapply(1:nrow(d_biocom),function(x){
-  if (dip.test(post_param[,x])$p.value<.05 | dip.test(post_param[,x+345])$p.value<.05){
-    return("bimod")
-  }else {
-    return("unimod")
+Run_model_importance=function(id){
+  
+  list_evalutate_models=expand.grid(Stat_param=c("p","q","rela_dist",
+                                                 "Size_tipping","abs_dist"),
+                                    Seed_id=1:10)
+  
+  stat=list_evalutate_models$Stat_param[id] #geting the same of the response var
+  Seed_id=list_evalutate_models$Seed_id[id] #getting the seed ID
+  
+  d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
+  d_raw=readxl::read_xlsx("../Data_new/biocom_raw.xlsx")
+  keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+  d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),
+           mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),
+           Plot_n=d_biocom$Plot_n,
+           Aridity=d_biocom$Aridity,
+           Sand=d_biocom$Sand,
+           MF=d_biocom$MF,
+           Cover=d_biocom$Cover)%>%
+    filter(., Site %in% keep_sites)%>%
+    add_column(., 
+               Facilitation=sapply(1:nrow(.),function(x){return(d_raw$Facil[which(d_raw$plotn==.$Plot_n[x])])}),
+               SR=sapply(1:nrow(.),function(x){return(d_raw$SR[which(d_raw$plotn==.$Plot_n[x])])}),
+               Long_cos=sapply(1:nrow(.),function(x){return(cos(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+               Long_sin=sapply(1:nrow(.),function(x){return(sin(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+               Lat=sapply(1:nrow(.),function(x){return(d_raw$Latitude[which(d_raw$plotn==.$Plot_n[x])])}),
+               Elevation=sapply(1:nrow(.),function(x){return(d_raw$ELE_1[which(d_raw$plotn==.$Plot_n[x])])}),
+               Slope=sapply(1:nrow(.),function(x){return(d_raw$SLO[which(d_raw$plotn==.$Plot_n[x])])})
+    )
+  
+  
+  d2=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")%>%
+    group_by(., Site,MF,aridity,Sand)%>%
+    dplyr::summarise(., .groups = "keep",
+                     abs_mean=mean(pinfer-pcrit,na.rm = T),
+                     abs_sd=sd(pinfer-pcrit,na.rm = T),
+                     relativ_mean=mean((pinfer-pcrit)/pinfer,na.rm = T),
+                     relativ_sd=sd((pinfer-pcrit)/pinfer,na.rm = T),
+                     Size_mean=mean(Size_tipping,na.rm = T),
+                     Size_sd=sd(Size_tipping,na.rm = T))%>%
+    filter(., Site %in% keep_sites)
+  
+  d=cbind(d,d2)
+  
+  d_importance=tibble()#for keeping all information
+  
+  for (seed in ((1+(Seed_id-1)*100):(Seed_id*100))){
+    set.seed(seed)
+    #as the parameters have uncertainty -> Monte Carlo approach
+    d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
+              q=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_q[x],d$sd_q[x]))}))[,1],
+              Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
+              abs_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$abs_mean[x],d$abs_sd[x]))}))[,1],
+              rela_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$relativ_mean[x],d$relativ_sd[x]))}))[,1],
+              Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
+              Site=d$Site,
+              MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
+              SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
+              Facilitation=(d$Facilitation-mean(d$Facilitation,na.rm=T))/sd(d$Facilitation,na.rm = T),
+              Cover=(d$Cover-mean(d$Cover,na.rm=T))/sd(d$Cover,na.rm = T),
+              Aridity=(d$Aridity-mean(d$Aridity,na.rm=T))/sd(d$Aridity,na.rm = T),
+              Lat=(d$Lat-mean(d$Lat,na.rm=T))/sd(d$Lat,na.rm = T),
+              Long_cos=(d$Long_cos-mean(d$Long_cos,na.rm=T))/sd(d$Long_cos,na.rm = T),
+              Long_sin=(d$Long_sin-mean(d$Long_sin,na.rm=T))/sd(d$Long_sin,na.rm = T),
+              Elevation=(d$Elevation-mean(d$Elevation,na.rm=T))/sd(d$Elevation,na.rm = T),
+              Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
+              Plot_n=d$Plot_n)
+    
+    mod_predictors="Aridity + MF + Sand + Cover + SR + Facilitation +
+        Lat + Long_cos + Long_sin + Slope + Elevation + (1|Plot_n)"
+    
+    
+    d_data_mod=d2%>%melt(., measure.vars=stat)%>%
+      filter(., !is.na(value), !is.na(Facilitation))
+    
+    model_predict=lmer(formula(paste("value ~",mod_predictors)),d_data_mod,
+                       na.action = na.fail ,REML ="FALSE")
+    
+    
+    #we remove potential outliers
+    rm.outliers = romr.fnc(model_predict, d_data_mod, trim=2.5)
+    d_data_out = rm.outliers$data
+    
+    
+    model_predict = lmer(formula(paste("value ~",mod_predictors)), data = d_data_out, 
+                         na.action = na.fail,REML ="FALSE")
+    
+    # #do some model selection
+    select_model=dredge(model_predict, subset = ~ Slope & Elevation &
+                          Long_cos & Long_sin & Lat,
+                        options(na.action = "na.fail"),
+                        extra=c(R2m=function(x) r.squaredGLMM(x)[1],
+                                R2c=function(x) r.squaredGLMM(x)[2])
+    )
+    
+    if (nrow(select_model%>%filter(., AICc<min(AICc)+2))>1){
+      R2=select_model%>%filter(., AICc<min(AICc)+2)
+      
+      #extract the result of model selection
+      result_select=model.avg(select_model, subset = delta <2)
+      #Get the importance of each metric
+      importance_mod=sw(result_select)
+      d_importance=rbind(d_importance,cbind(tibble(Response_var=stat,
+                                                   N_outliers=rm.outliers$n.removed),
+                                            Aggregate_importance(importance_mod))%>%
+                           add_column(., Seed_ID=Seed_id,R2m=mean(R2$R2m),R2c=mean(R2$R2c)))
+      
+    }else{
+      result_select=select_model%>%filter(., AICc==min(AICc))
+      R2=  select_model%>%filter(., AICc==min(AICc))
+      
+      d_importance=rbind(d_importance,cbind(tibble(Response_var=stat,
+                                                   N_outliers=rm.outliers$n.removed),
+                                            Aggregate_importance(result_select,"1mod"))%>%
+                           add_column(., Seed_ID=Seed_id,R2m=mean(R2$R2m),R2c=mean(R2$R2c)))
+    }
+    
+    
   }
-})
-write.table(which(d_biocom$bimod!="bimod"),"../Data_new/Keeping_sites.csv",sep=";")
+  
+  
+  #Saving each DF
+  write.table(d_importance,paste0("../Data_new/Prediction/Importance/Importance_",stat,"_",Seed_id,".csv"),sep=";")
+  
+}
+
+library(parallel)
+
+mclapply(1:50,Run_model_importance,mc.cores = 25)
+
+
+d_importance=tibble()
+for (k in list.files("../Data_new/Prediction/Importance/",".csv")){
+  d_importance=rbind(d_importance,read.table(paste0("../Data_new/Prediction/Importance/",k),sep=";"))
+}
+write.table(d_importance,"../Data_new/Prediction/Importance_drivers_stability_metrics.csv",sep=";")
+
+
+## >> 3) Indirect SEM effects: aborted ----
+
+Run_model_SEM=function(id){
+  
+
+  Seed_id=id #getting the seed ID
+  
+  d=read.table("../Data_new/posterior_param.csv",sep=";",header=T)
+  d_raw=readxl::read_xlsx("../Data_new/biocom_raw.xlsx")
+  keep_sites=read.table("../Data_new/Keeping_sites.csv",sep=";")$x
+  d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),
+           mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),
+           Plot_n=d_biocom$Plot_n,
+           Aridity=d_biocom$Aridity,
+           Sand=d_biocom$Sand,
+           MF=d_biocom$MF,
+           Cover=d_biocom$Cover)%>%
+    filter(., Site %in% keep_sites)%>%
+    add_column(., 
+               Facilitation=sapply(1:nrow(.),function(x){return(d_raw$Facil[which(d_raw$plotn==.$Plot_n[x])])}),
+               SR=sapply(1:nrow(.),function(x){return(d_raw$SR[which(d_raw$plotn==.$Plot_n[x])])}),
+               Long_cos=sapply(1:nrow(.),function(x){return(cos(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+               Long_sin=sapply(1:nrow(.),function(x){return(sin(d_raw$Longitude[which(d_raw$plotn==.$Plot_n[x])]))}),
+               Lat=sapply(1:nrow(.),function(x){return(d_raw$Latitude[which(d_raw$plotn==.$Plot_n[x])])}),
+               Elevation=sapply(1:nrow(.),function(x){return(d_raw$ELE_1[which(d_raw$plotn==.$Plot_n[x])])}),
+               Slope=sapply(1:nrow(.),function(x){return(d_raw$SLO[which(d_raw$plotn==.$Plot_n[x])])})
+    )
+  
+  
+  d2=read.table("../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")%>%
+    group_by(., Site,MF,aridity,Sand)%>%
+    dplyr::summarise(., .groups = "keep",
+                     abs_mean=mean(pinfer-pcrit,na.rm = T),
+                     abs_sd=sd(pinfer-pcrit,na.rm = T),
+                     relativ_mean=mean((pinfer-pcrit)/pinfer,na.rm = T),
+                     relativ_sd=sd((pinfer-pcrit)/pinfer,na.rm = T),
+                     Size_mean=mean(Size_tipping,na.rm = T),
+                     Size_sd=sd(Size_tipping,na.rm = T))%>%
+    filter(., Site %in% keep_sites)
+  
+  d=cbind(d,d2)
+  
+  d_importance=tibble()#for keeping all information
+  
+  for (seed in ((1+(Seed_id-1)*100):(Seed_id*100))){
+    
+    set.seed(seed)
+    
+    #as the parameters have uncertainty -> Monte Carlo approach
+    d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
+              q=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_q[x],d$sd_q[x]))}))[,1],
+              Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
+              abs_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$abs_mean[x],d$abs_sd[x]))}))[,1],
+              rela_dist=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$relativ_mean[x],d$relativ_sd[x]))}))[,1],
+              Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
+              Site=d$Site,
+              MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
+              SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
+              Facilitation=(d$Facilitation-mean(d$Facilitation,na.rm=T))/sd(d$Facilitation,na.rm = T),
+              Cover=(d$Cover-mean(d$Cover,na.rm=T))/sd(d$Cover,na.rm = T),
+              Aridity=(d$Aridity-mean(d$Aridity,na.rm=T))/sd(d$Aridity,na.rm = T),
+              Lat=(d$Lat-mean(d$Lat,na.rm=T))/sd(d$Lat,na.rm = T),
+              Long_cos=(d$Long_cos-mean(d$Long_cos,na.rm=T))/sd(d$Long_cos,na.rm = T),
+              Long_sin=(d$Long_sin-mean(d$Long_sin,na.rm=T))/sd(d$Long_sin,na.rm = T),
+              Elevation=(d$Elevation-mean(d$Elevation,na.rm=T))/sd(d$Elevation,na.rm = T),
+              Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
+              Plot_n=d$Plot_n)
+    
+    
+    for (stability_var in c("rela_dist","Size_tipping","q")){ #for each infered value
+      
+      model_lmer=lm("value ~ Long_cos + Long_sin + Lat + Slope + Elevation + Sand",
+                    data = d2%>%melt(., measure.vars=stability_var)%>%
+                      filter(., !is.na(value),!is.na(Facilitation)),
+                    na.action = na.omit)
+      
+      #we remove potential outliers
+      rm.outliers = romr.fnc(model_lmer, d2%>%melt(., measure.vars=stability_var)%>%
+                               filter(., !is.na(value),!is.na(Facilitation)),
+                             trim=2.5)
+      d_data_out = rm.outliers$data
+      
+      #First run lm on covariates
+      model_lmer=lm("value ~ Long_cos + Long_sin + Lat + Slope + Elevation + Sand",
+                    data = d_data_out%>%filter(., !is.na(value)),
+                    na.action = na.omit)
+      
+      #take the residuals
+      resid_model=residuals(model_lmer) #extract residuals
+      
+      save=d_data_out%>%filter(., !is.na(value),!is.na(Facilitation))%>% #add it to the dataframe 
+        add_column(., Resid_mod=resid_model)
+        
+      
+      #first running the SEM with all data
+      
+      d_sem=save
+      all_d=summary(psem(
+        lmer(Resid_mod ~ (1|Plot_n) + Cover + MF + Aridity + Facilitation + SR, d_sem),
+        lmer(Cover ~ (1|Plot_n) + Aridity + Cover , d_sem),
+        lmer(MF ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(SR ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(Facilitation ~ (1|Plot_n) + Aridity, d_sem)
+      ))
+      
+      
+      #SEM with low aridity
+      
+      d_sem=filter(save,Aridity < 0.7)
+      low_arid=summary(psem(
+        lmer(Resid_mod ~ (1|Plot_n) + Cover + MF + Aridity + Facilitation + SR, d_sem),
+        lmer(Cover ~ (1|Plot_n) + Aridity + Cover , d_sem),
+        lmer(MF ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(SR ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(Facilitation ~ (1|Plot_n) + Aridity, d_sem)
+      ))
+      
+      #SEM with high aridity
+      
+      d_sem=filter(save,Aridity >= 0.7)
+      high_arid=summary(psem(
+        lmer(Resid_mod ~ (1|Plot_n) + Cover + MF + Aridity + Facilitation + SR, d_sem),
+        lmer(Cover ~ (1|Plot_n) + Aridity + Cover , d_sem),
+        lmer(MF ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(SR ~ (1|Plot_n) + Aridity , d_sem),
+        lmer(Facilitation ~ (1|Plot_n) + Aridity, d_sem)
+      ))
+      
+      
+      
+    }
+    
+  }
+  
+}
+
+
+
+
 
 # ---------------------- Step 5: Prediction ----
 
@@ -1468,7 +1820,6 @@ for (site in list.files("../Data_new/Prediction/","Dist")){
     
   }) 
   
-  
   d=rbind(d,tibble(ID_sim=1:length(p_desert),pcrit=p_desert,pinfer=p_infer,qinfer=q_infer,Size_tipping=size_tipping,
                    Site=site_id,
                    aridity=d_biocom$Aridity[site_id],Sand=d_biocom$Sand[site_id],
@@ -1477,7 +1828,7 @@ for (site in list.files("../Data_new/Prediction/","Dist")){
   #displaying the distribution
   
   d2=tibble(abs_dist=p_infer-p_desert,relativ_dist=(p_infer-p_desert)/(p_desert),Size_tipping=size_tipping)
-  
+  print(site)
 
   
 }
@@ -1490,7 +1841,7 @@ write.table(d,"../Data_new/Prediction/Raw_stability_metrics.csv",sep=";")
 
 
 
-# ---------------------- Step 6: Climatic & societal projection ----
+# ---------------------- Step 6: Climatic projections ----
 
 rm(list=ls())
 source("./ABC_drylands_function.R")
@@ -1600,3 +1951,356 @@ write.table(trends_aridity,paste0("../Data_new/Climatic_data/trend_clim_",gsub("
 
 
 
+
+# ---------------------- Step 7: Validation using simulations ----
+## >> 1) Kefi dryland model ----
+#First the distance predicted by the kefi model
+
+
+dist_kefi=tibble()
+for (site in list.files("../Data_new/Models_confirmation/Confirm_kefi/Dist_kefi","Dist")){
+  
+  site_id=as.numeric(gsub(".csv","",strsplit(site,"_")[[1]][3]))
+  
+  pred=read.table(paste0("../Data_new/Models_confirmation/Confirm_kefi/Dist_kefi/",site),sep=",")%>%
+    filter(., V1>0)
+  colnames(pred)=c("f","b","delta","cover")
+  pred$cover[pred$cover<.01]=0
+  
+  if (max(pred$cover)>.05){
+    dist_kefi=rbind(dist_kefi,tibble(Site=site_id,
+                                     size_tipping=min(pred$cover[pred$cover !=0]),
+                                     abs_dist=max(pred$b)-min(pred$b[pred$cover!=0]),
+                                     relativ_dist=(max(pred$b)-min(pred$b[pred$cover!=0]))/min(pred$b[pred$cover!=0]),
+                                     f=unique(pred$f),delta=unique(pred$delta),
+                                     Cover=max(pred$cover)))
+  }
+}
+
+
+dist_eby=tibble();step_size=0.005
+for (site in list.files("../Data_new/Models_confirmation/Confirm_kefi/Dist_Eby","Dist")){
+  site_id=as.numeric(gsub("Eby","",gsub(".csv","",strsplit(site,"_")[[1]][3])))
+  
+  pred=read.table(paste0("../Data_new/Models_confirmation/Confirm_kefi/Dist_Eby/",site),sep=",")%>%
+    filter(., V2>0)
+  colnames(pred)=c("p","q","cover")
+  pred$cover[pred$cover<0.01] = 0
+  
+  if (max(pred$cover)>.05){
+    index=0;pred$ID_sim=NA
+    for (x in 1:nrow(pred)){
+      pred$ID_sim[x]=index
+      if (pred$p[x]==0){
+        index=index+1
+      }
+    }
+    
+    p_desert=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x,cover>0)
+      if (any(d_fil$cover>0)){
+        return(d_fil$p[nrow(d_fil)])
+      }else {
+        return(NA)
+      }
+    }) 
+    
+    p_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$p[1])
+    }) 
+    
+    q_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$q[1])
+    }) 
+    
+    max_cover=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$cover[1])
+    }) 
+    
+    size_tipping=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x,cover>0)
+      if (any(d_fil$cover>0)){
+        return(d_fil$cover[nrow(d_fil)])
+      }else {
+        return(NA)
+      }
+    }) 
+    
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=1:length(p_desert),
+                                   abs_dist=p_infer-p_desert,
+                                   relativ_dist=(p_infer-p_desert)/p_desert,
+                                   size_tipping=size_tipping,
+                                   Cover=max_cover))
+  }else{
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=0,
+                                   abs_dist=0,
+                                   relativ_dist=0,
+                                   size_tipping=0,
+                                   Cover=0))
+  }
+}
+
+#summarize by quantiles, mean and sd
+dist_eby=dist_eby%>%dplyr::arrange(., Site)%>%filter(., Cover !=0)%>%
+  filter(., Cover <.9)
+
+d_eby=dist_eby%>%
+  dplyr::group_by(., Site)%>%
+  dplyr::summarize(., .groups = "keep",
+                   cover_q1=quantile(Cover,.25,na.rm=T),cover_q3=quantile(Cover,.75,na.rm=T),
+                   Cover=mean(Cover,na.rm=T),
+                   abs_q1=quantile(abs_dist,.25,na.rm=T),abs_q3=quantile(abs_dist,.75,na.rm=T),
+                   rela_q1=quantile(relativ_dist,.25,na.rm=T),rela_q3=quantile(relativ_dist,.75,na.rm=T),
+                   abs_dist=median(abs_dist,na.rm=T),mean_abs_dist=mean(abs_dist,na.rm=T),
+                   mean_rela_dist=mean(relativ_dist,na.rm=T),mean_size_tipping=mean(size_tipping,na.rm=T),
+                   sd_rela_dist=sd(relativ_dist,na.rm = T),
+                   relativ_dist=median(relativ_dist,na.rm=T))%>%
+  add_column(., Model="Eby")%>%
+  arrange(., Site)
+
+sd_abs_dist=sapply(unique(dist_eby$Site),function(x){
+  return(sd(dist_eby$abs_dist[which(dist_eby$Site==x)],na.rm = T))
+})
+d_eby$sd_abs_dist=sd_abs_dist
+
+d_kefi=dist_kefi%>%dplyr::select(., -f,-delta)%>%
+  add_column(., abs_q1=0,abs_q3=0,rela_q1=0,rela_q3=0,Model="Kefi")%>%
+  arrange(., Site)
+
+d_kefi=d_kefi%>%
+  filter(., Site %in% unique(d_eby$Site))
+
+# As there is uncertainty around each inferred distance to the desertification point, 
+# we assume that the each inference ~ follow a normal distrib with mean = mean posterior samples
+# and sd = sd posterior samples. We then compute the spearman correlation and its associated p-value
+
+
+
+param_kefi=read.table("../Data_new/Models_confirmation/Confirm_kefi/Parameters_kefi.csv",sep=";")
+colnames(param_kefi)=c("r","d","m","c","f","b","delta")
+d_kefi=cbind(d_kefi,param_kefi[d_kefi$Site,])
+d_eby=cbind(d_eby,param_kefi[d_kefi$Site,])
+
+d_spearman=tibble()
+
+id=1;  n=200
+for (f_ in unique(param_kefi$f)){
+  
+  for (x in 1:n){
+    
+    d1=dplyr::filter(d_kefi,f==f_)
+    d2=dplyr::filter(d_eby,f==f_)
+    
+    #absolute distance
+    abs_eby=sapply(1: nrow(d2),function(x){
+      return(rnorm(1,mean=d2$mean_abs_dist[x],sd=d2$sd_abs_dist[x]))
+    })
+    r_spearman=cor.test(d1$abs_dist,abs_eby,method = "spearman",exact = F)
+    d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,
+                                       Pval=r_spearman$p.value,Type_dist="Abs",
+                                       ID_sim=id))
+    
+    #relative distance
+    rela_eby=sapply(1: nrow(d2),function(x){
+      return(rnorm(1,mean=d2$mean_rela_dist[x],sd=d2$sd_rela_dist[x]))
+    })
+    r_spearman=cor.test(d1$relativ_dist,rela_eby,method = "spearman",exact = F)
+    d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,
+                                       Pval=r_spearman$p.value,Type_dist="Rela",
+                                       ID_sim=id))
+    
+  }
+  id=id+1
+  
+}
+
+saveRDS(list(d_spearman=d_spearman,
+             d_kefi=d_kefi,
+             d_eby=d_eby),
+        "../Data_new/Models_confirmation/Confirm_kefi/d_for_figure.rds")
+
+
+
+## >> 2) Guichard mussel-bed model ----
+
+
+#First the distance predicted by the guichard model
+
+
+dist_guichard=tibble()
+for (site in list.files("../Data_new/Models_confirmation/Confirm_Guichard/Dist_guichard","Dist")){
+  
+  site_id=as.numeric(gsub(".csv","",strsplit(site,"_")[[1]][3]))
+  
+  pred=read.table(paste0("../Data_new/Models_confirmation/Confirm_Guichard/Dist_guichard/",site),sep=",")%>%
+    filter(., V4>0)
+  colnames(pred)=c("d","a0","a2","cover")
+  pred$cover[pred$cover<.01]=0
+  
+  if (max(pred$cover)>.05){
+    
+    pred=pred%>%filter(., cover>0)
+    
+    dist_guichard=rbind(dist_guichard,tibble(Site=site_id,
+                                             size_tipping=min(pred$cover[pred$cover !=0]),
+                                             abs_dist=abs(diff(range(pred$d))),
+                                             relativ_dist=abs(diff(range(pred$d)))/(max(pred$d)),
+                                             a0=unique(pred$a0),a2=unique(pred$a2),
+                                             Cover=max(pred$cover)))
+  }
+}
+
+
+d_guichard=dist_guichard%>%dplyr::select(., -a0,-a2)%>%
+  add_column(., abs_q1=0,abs_q3=0,rela_q1=0,rela_q3=0,Model="Guichard")%>%
+  arrange(., Site)%>%
+  filter(., Cover<.9)
+
+
+dist_eby=tibble();step_size=0.005
+for (site in list.files("../Data_new/Models_confirmation/Confirm_Guichard/Dist_Eby","Dist")){
+  
+  site_id=as.numeric(gsub("Eby","",gsub(".csv","",strsplit(site,"_")[[1]][3])))
+  
+  pred=read.table(paste0("../Data_new/Models_confirmation/Confirm_Guichard/Dist_Eby/",site),sep=",")%>%
+    filter(., V2>0)
+  colnames(pred)=c("p","q","cover")
+  pred$cover[pred$cover<0.01] = 0
+  
+  if (max(pred$cover)>.05){
+    index=0;pred$ID_sim=NA
+    for (x in 1:nrow(pred)){
+      pred$ID_sim[x]=index
+      if (pred$p[x]==0){
+        index=index+1
+      }
+    }
+    
+    p_desert=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x,cover>0)
+      if (any(d_fil$cover>0)){
+        return(d_fil$p[nrow(d_fil)])
+      }else {
+        return(NA)
+      }
+    }) 
+    
+    p_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$p[1])
+    }) 
+    
+    q_infer=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$q[1])
+    }) 
+    
+    max_cover=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x)
+      return(d_fil$cover[1])
+    }) 
+    
+    size_tipping=sapply(unique(pred$ID_sim),function(x){
+      d_fil=filter(pred,ID_sim==x,cover>0)
+      if (any(d_fil$cover>0)){
+        return(d_fil$cover[nrow(d_fil)])
+      }else {
+        return(NA)
+      }
+    }) 
+    
+    
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=1:length(p_desert),
+                                   abs_dist=p_infer-p_desert,
+                                   relativ_dist=(p_infer-p_desert)/p_desert,
+                                   size_tipping=size_tipping,
+                                   Cover=max_cover))
+  }else{
+    dist_eby=rbind(dist_eby,tibble(Site=site_id,ID_sim=0,
+                                   abs_dist=0,
+                                   relativ_dist=0,
+                                   size_tipping=0,
+                                   Cover=0))
+  }
+  
+}
+
+#summarize by quantiles, mean and sd
+dist_eby=dist_eby%>%dplyr::arrange(., Site)%>%filter(., Cover !=0)%>%
+  filter(., Cover <.9)%>%
+  filter(., Site %in% unique(d_guichard$Site))
+
+d_eby=dist_eby%>%
+  dplyr::group_by(., Site)%>%
+  dplyr::summarize(., .groups = "keep",
+                   cover_q1=quantile(Cover,.25,na.rm=T),cover_q3=quantile(Cover,.75,na.rm=T),
+                   Cover=mean(Cover,na.rm=T),
+                   abs_q1=quantile(abs_dist,.25,na.rm=T),abs_q3=quantile(abs_dist,.75,na.rm=T),
+                   rela_q1=quantile(relativ_dist,.25,na.rm=T),rela_q3=quantile(relativ_dist,.75,na.rm=T),
+                   abs_dist=median(abs_dist,na.rm=T),mean_abs_dist=mean(abs_dist,na.rm=T),
+                   mean_rela_dist=mean(relativ_dist,na.rm=T),mean_size_tipping=mean(size_tipping,na.rm=T),
+                   sd_rela_dist=sd(relativ_dist,na.rm = T),
+                   relativ_dist=median(relativ_dist,na.rm=T))%>%
+  add_column(., Model="Eby")%>%
+  arrange(., Site)
+
+sd_abs_dist=sapply(unique(dist_eby$Site),function(x){
+  return(sd(dist_eby$abs_dist[which(dist_eby$Site==x)],na.rm = T))
+})
+d_eby$sd_abs_dist=sd_abs_dist
+
+
+
+
+
+# As there is uncertainty around each inferred distance to the desertification point, 
+# we assume that the each inference ~ follow a normal distrib with mean = mean posterior samples
+# and sd = sd posterior samples. We then compute the spearman correlation and its associated p-value
+
+param_guichard=read.table("../Data_new/Models_confirmation/Confirm_Guichard/Parameters_guichard.csv",sep=";")
+colnames(param_guichard)=c("d","a0","a2")
+d_guichard=cbind(d_guichard,param_guichard[d_guichard$Site,])%>%
+  filter(., Site %in% unique(d_eby$Site))
+d_eby=cbind(d_eby,param_guichard[d_guichard$Site,])
+
+d_spearman=tibble()
+id=1;  n=200
+for (a0_ in unique(param_guichard$a0)){
+  for (a2_ in unique(param_guichard$a2)){
+    
+    
+    for (x in 1:n){
+      
+      d1=dplyr::filter(d_guichard,a0==a0_,a2==a2_)
+      d2=dplyr::filter(d_eby,a0==a0_,a2==a2_)
+      
+      #absolute distance
+      abs_eby=sapply(1: nrow(d2),function(x){
+        return(rnorm(1,mean=d2$mean_abs_dist[x],sd=d2$sd_abs_dist[x]))
+      })
+      r_spearman=cor.test(d1$abs_dist,abs_eby,method = "spearman",exact = F)
+      d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,
+                                         Pval=r_spearman$p.value,Type_dist="Abs",
+                                         ID_sim=id))
+      
+      #relative distance
+      rela_eby=sapply(1: nrow(d2),function(x){
+        return(rnorm(1,mean=d2$mean_rela_dist[x],sd=d2$sd_rela_dist[x]))
+      })
+      r_spearman=cor.test(d1$relativ_dist,rela_eby,method = "spearman",exact = F)
+      d_spearman=rbind(d_spearman,tibble(Stat=r_spearman$estimate,
+                                         Pval=r_spearman$p.value,Type_dist="Rela",
+                                         ID_sim=id))
+      
+    }
+    id=id+1
+  }
+}
+
+saveRDS(list(d_spearman=d_spearman,
+             d_guichard=d_guichard,
+             d_eby=d_eby),
+        "../Data_new/Models_confirmation/Confirm_Guichard//d_for_figure.rds")
