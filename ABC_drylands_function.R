@@ -1,9 +1,12 @@
 x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
       "abc", "spatialwarnings", "FME","phaseR","ggpattern","LMERConvenienceFunctions",
       "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
-      "MuMIn","png","car","ggtext","Hmisc","lme4",
-      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis","rsq")
+      "MuMIn","png","car","ggtext","Hmisc","lme4","car","spdep","psych",
+      "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis","rsq",
+      "gradientForest","extendedForest","rfPermute","A3","semEff","piecewiseSEM"
+)
 
+source("https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R")
 
 #install pacakges if not installed already
 # install.packages(setdiff(x, rownames(installed.packages())))
@@ -15,9 +18,7 @@ lapply(x, require, character.only = TRUE)
 # dir.create("./Figures/Final_figs",showWarnings = F)
 # dir.create("./Figures/Final_figs/SI",showWarnings = F)
 
-
-d_biocom=read.table("../Data_new/biocom_data.csv",sep=";")
-
+d_biocom=read.table("./Data/data_sites.csv",sep=";")
 
 the_theme=theme_classic()+theme(legend.position = "bottom",
                                 strip.background = element_rect(fill="white",color="white"),
@@ -35,6 +36,10 @@ my_pal=function(n){
 }
 
 `%!in%` = Negate(`%in%`)
+
+get_bootstrapped_pval=function(x){
+  return(ifelse(length(which(x>0))/length(x)>.5,length(which(x<0))/length(x),length(which(x>0))/length(x)))
+}
 
 logit=function(x){return(log(x/(1-x)))}
 
@@ -95,28 +100,6 @@ Plot_landscape=function(landscape,txt="",col_img="black"){
   }
 }
 
-Plot_empirical=function(id,true_landscape=F){
-  
-  par(mfrow=c(1,1))
-  
-  if (true_landscape & is.character(id)){
-    
-    img1=readPNG(paste0("../Data/Data_Biocom/png_img/",id))
-    
-    grid::grid.raster(img1)
-    
-  }else {
-    if (is.numeric(id)){
-      d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-      image(t(apply(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))),2,rev)),col=c("white","black"),axes=F)
-      
-    }else {
-      d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-      image(t(apply(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[which(d_biocom$File_ID==gsub(".png","",id))],".txt"))),2,rev)),col=c("white","black"),axes=F)
-    }
-    
-  }
-} 
 
 Plot_hist_simu_obs=function(simu, obs){
   par(mfrow=c(3,3))
@@ -130,26 +113,6 @@ Plot_hist_simu_obs=function(simu, obs){
 
 # Getting images & stat functions ----
 
-Get_empirical_site=function(id){
-  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  return(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))))
-}
-
-Get_path_empirical_raster=function(id){
-  
-  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  land=as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt")))
-  
-  
-  tiff(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"), compression = "lzw")
-  
-  image(land,col=c("white","black"),xaxs="i",yaxs="i")
-  
-  dev.off()    
-  
-  
-  return(paste0("./Decreasing_resolution/Tiff_landscapes/Landscape_",id,".tif"))
-}
 
 Get_sumstat=function(landscape,log_=T){
   
@@ -263,241 +226,9 @@ Filtering_small_patches=function(mat,cutoff=30){
   return (mat_clump_veg)
 }
 
-# Centroid_patches=function(mat){
-#   
-#   d=tibble()
-#   
-#   raster_mat=raster::raster(mat)
-#   
-#   mat_clump=clump(raster_mat) #Get an id for each patch
-#   mat_clump_veg=as.matrix(mat_clump) #transforming into a matrix of number, each number = patch
-#   mat_clump_veg[is.na(mat_clump_veg)]=0
-#   
-#   table_id_patch=table(as.numeric(mat_clump_veg))[-1] #we only take vegetation, no bare soil
-#   
-#   for (i in 2:length(table_id_patch)){ #for each patch, we find the centroid and its size
-#     
-#     d=rbind(d,tibble(Size=length(which(as.numeric(mat_clump_veg)==as.numeric(names(table_id_patch)[i]))),ID=i,
-#                      centroid_x=mean(which(mat_clump_veg==as.numeric(names(table_id_patch)[i]),arr.ind = T)[,2]),
-#                      centroid_y=mean(which(mat_clump_veg==as.numeric(names(table_id_patch)[i]),arr.ind = T)[,1]),
-#                      window=nrow(mat)))
-#   }
-#   
-#   return (d)
-# }
-
-# Analyse_image=function(img_id){
-#   
-#   d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-#   
-#   if (any(paste0(ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<100,
-#                         ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[img_id]),paste0("0",d_biocom$File_ID[img_id])),
-#                         d_biocom$File_ID[img_id]
-#                  )
-#                  ,".png") %in% list.files(paste0("../Data/Data_Biocom/png_img/")))){
-#     img1=readPNG(paste0("../Data/Data_Biocom/png_img/",
-#                         ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<100,
-#                                ifelse(as.numeric(strsplit(d_biocom$File_ID[img_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[img_id]),paste0("0",d_biocom$File_ID[img_id])),
-#                                d_biocom$File_ID[img_id]
-#                                )
-#                         ,".png"))
-#     
-#     grid::grid.raster(img1)
-#     
-#     
-#     plot_i=readline("Do we need to divide the data ?") 
-#     
-#     if(plot_i=="plot"){
-#       Plot_empirical(img_id)
-#       plot_i=readline("Do we need to divide the data ?") 
-#       dev.off(dev.list()["RStudioGD"])
-#       
-#     }
-#     
-#     if (plot_i %in% c("no","non","No","Non","n")){
-#       
-#       plot_j=readline("Herbs or shrubs ?") 
-#       
-#       return(plot_j)
-#       
-#     }else if(plot_i=="stop"){
-#       break
-#     }else { #multiple functional groups
-#       
-#       
-#       img1_tab = data.frame(expand.grid(x = seq.int(nrow(img1)),
-#                                         y = seq.int(ncol(img1))),
-#                             as.data.frame(matrix(img1, ncol = 3)))
-#       names(img1_tab) = c('x', 'y', 'red', 'green', 'blue')
-#       
-#       
-#       
-#       df = gather(img1_tab, channel, value, red, green, blue)
-#       df[ ,'channel'] = factor(df[ ,'channel'], levels = c("red", "green", "blue"),
-#                                ordered = TRUE)
-#       
-#       
-#       
-#       
-#       
-#       #classifying vegetation (2 types) vs bare soil
-#       
-#       km = kmeans(na.omit(img1_tab[ ,c( 'green','blue',"red")]),
-#                   centers = 3) #3 groups
-#       
-#       img1_tab[ ,'clust'] = NA
-#       img1_tab[!is.na(img1_tab[ ,'red']), 'clust'] = km[['cluster']]
-#       
-#       img1_tab[ ,'clust'] = with(img1_tab, as.integer(reorder(as.factor(clust), -green)))
-#       
-#       
-#       print(ggplot(img1_tab) +
-#               geom_raster(aes(x = y, y = x,
-#                               fill = as.factor(clust))) +
-#               coord_fixed() +
-#               theme_minimal() +
-#               scale_fill_manual(name = "Vegetation",
-#                                 values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
-#               scale_y_reverse())
-#       
-#       plot_k=readline("Which vegetation needs to be more clustered ? \n (show or again for seing empirical data") 
-#       
-#       if (plot_k %in% c("again","show")){
-#         grid::grid.raster(img1)
-#         
-#         print(ggplot(img1_tab) +
-#                 geom_raster(aes(x = y, y = x,
-#                                 fill = as.factor(clust))) +
-#                 coord_fixed() +
-#                 theme_minimal() +
-#                 scale_fill_manual(name = "Vegetation",
-#                                   values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
-#                 scale_y_reverse())
-#         
-#         plot_k=readline("Which vegetation needs to be more clustered ? \n (show or again for seing empirical data") 
-#         
-#       }
-#       
-#       
-#       if(plot_k=="stop"){
-#         break
-#       }else{
-#         
-#         
-#         clust_filt = with(img1_tab,
-#                           gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
-#                                        nrow = max(x), ncol = max(y)),
-#                                 sigma = .5)) > .1
-#         
-#         img1_tab[,'clust_filt'] = img1_tab[,"clust"]
-#         
-#         img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
-#         
-#         print(ggplot(img1_tab) +
-#                 geom_raster(aes(x = y, y = x,
-#                                 fill = as.factor(clust_filt))) +
-#                 coord_fixed() +
-#                 theme_minimal() +
-#                 scale_fill_manual(name = "Vegetation",
-#                                   values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
-#                 scale_y_reverse())
-#         
-#         plot_l=readline("Good enought ? (high or low or else)") 
-#         
-#         index_low=index_high=1
-#         while(plot_l %in% c("high","low","more","less")){
-#           
-#           sig=.5
-#           if (plot_l %in% c("high","less")){
-#             
-#             clust_filt = with(img1_tab,
-#                               gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
-#                                            nrow = max(x), ncol = max(y)),
-#                                     sigma = sig)) > 0.1*index_high
-#             
-#             img1_tab[,'clust_filt'] = img1_tab[,"clust"]
-#             
-#             img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
-#             print(ggplot(img1_tab) +
-#                     geom_raster(aes(x = y, y = x,
-#                                     fill = as.factor(clust_filt))) +
-#                     coord_fixed() +
-#                     theme_minimal() +
-#                     scale_fill_manual(name = "Vegetation",
-#                                       values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
-#                     scale_y_reverse())
-#             
-#             index_high=index_high+1
-#             
-#             
-#           }else if(plot_l=="stop"){
-#             break
-#           } else{
-#             
-#             clust_filt = with(img1_tab,
-#                               gblur(matrix(!is.na(clust) & clust == as.numeric(plot_k),
-#                                            nrow = max(x), ncol = max(y)),
-#                                     sigma = sig)) > 0.1/index_low
-#             
-#             img1_tab[,'clust_filt'] = img1_tab[,"clust"]
-#             
-#             img1_tab[which(as.vector(clust_filt)) ,'clust_filt'] = as.numeric(plot_k)
-#             
-#             print(ggplot(img1_tab) +
-#                     geom_raster(aes(x = y, y = x,
-#                                     fill = as.factor(clust_filt))) +
-#                     coord_fixed() +
-#                     theme_minimal() +
-#                     scale_fill_manual(name = "Vegetation",
-#                                       values = c('#F4EAA4', '#0A8E0B',"lightgreen","red"))+
-#                     scale_y_reverse())
-#             
-#             
-#             index_low=index_low+1
-#             
-#           }
-#           
-#           if (index_low >2 || index_high>2){
-#             sig=sig+.5
-#             index_low=1
-#             index_high=1
-#           }
-#           
-#           plot_l=readline("Good enought ? (high or low or else)") 
-#           
-#           
-#           
-#         }
-#         
-#         matrix_2=matrix(as.numeric(img1_tab[,'clust_filt']==2),nrow=sqrt(nrow(img1_tab)),ncol=sqrt(nrow(img1_tab)))
-#         matrix_3=matrix(as.numeric(img1_tab[,'clust_filt']==3),nrow=sqrt(nrow(img1_tab)),ncol=sqrt(nrow(img1_tab)))
-#         
-#         write.table(matrix_2,paste0("../Data/Data_Biocom/type_landscape/landscape_type1_",d_biocom$File_ID[img_id],".csv"),sep=";")
-#         write.table(matrix_3,paste0("../Data/Data_Biocom/type_landscape/landscape_type2_",d_biocom$File_ID[img_id],".csv"),sep=";")
-#         
-#         return("Coexistence")
-#         
-#       }
-#       
-#     }
-#   }else {
-#     return(NA)
-#   }
-#     
-# }
 
 
-Plot_png=function(mat_id){
-  
-  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
-  
-  img_1=readPNG(paste0("../Data/Data_Biocom/png_img/",
-                       ifelse(as.numeric(strsplit(d_biocom$File_ID[mat_id],"-")[[1]][1])<100,
-                              ifelse(as.numeric(strsplit(d_biocom$File_ID[mat_id],"-")[[1]][1])<9,paste0("00",d_biocom$File_ID[mat_id]),paste0("0",d_biocom$File_ID[mat_id])),
-                              d_biocom$File_ID[mat_id]
-                       ),".png"))
-  grid::grid.raster(img_1)
-}
+
 
 Boxcox_and_scale=function(d){
   
@@ -578,3 +309,6 @@ Aggregate_importance=function(importance_mod,n_models="nmod"){
   }
   return(d)
 }
+
+
+

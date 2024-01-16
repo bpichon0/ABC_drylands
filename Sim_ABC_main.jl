@@ -4,7 +4,7 @@ include("./Sim_ABC_functions.jl")
 
 # Code to generate the all simulations from uniform priors 
 # for p and q and different spatial resolution
-# This can take a while depending on the number of cores used (~2 days with 25 cores CPU)
+# This can take a while depending on the number of cores used (~2 days with 50 cores CPU)
 
 
 using Distributed
@@ -25,7 +25,7 @@ end
 @everywhere function Run_sim_model_EWS(N_sim)
 
     n_param = 2
-    n_sim_kept = 15
+    n_sim_kept = 1
     pooling_vec = [1 1 / 2 1 / 3 1 / 4 1 / 5]
     n_keep = 200
     pseudo_param = CSV.read("./Data/Parameters.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
@@ -73,20 +73,11 @@ end
                         else #no changes
                             summary_stat_table[((i-1)*length(pooling_vec)*n_sim_kept+(sub_mat-1)*length(pooling_vec)+x), (n_param+1):size(summary_stat_table)[2]] = Get_summary_stat(land_pooled, xmin_fit=1)
                         end
-
-
-
                     end
-
-
-
                 end
-
             end
-
         end
     end
-
     CSV.write("./Data/Simulations/Simulation_ABC_number_" * repr(N_sim) * ".csv", Tables.table(summary_stat_table), writeheader=false)
 end
 
@@ -101,15 +92,12 @@ pmap(Run_sim_model_EWS, 1:1200) #1200*200 pairs of parameters
 
 
 #endregion
-#region, Step 2: Computing the distance to a tipping point and the hysteresis size
+#region, Step 2: Computing the distance to a tipping point
 
-
-# For each site, we compute the vegetation cover within the modes for p and q
 
 using Distributed
 
-ncores = 60
-addprocs(ncores, exeflags="--project=$(Base.active_project())")
+addprocs(33, exeflags="--project=$(Base.active_project())")
 
 @everywhere begin
     using StatsBase, RCall, Random, LaTeXStrings
@@ -122,55 +110,55 @@ end
 @everywhere function Distance_tipping(id)
 
     step_size = 1 / 200
-    n_sample = 100
-    posteriors = readdlm("./Data_new/posterior_param.csv", ';')[2:end, 2:end]
+    n_sample=100
+    posteriors=readdlm("./Data/posterior_param.csv", ';')[2:end,2:end]
     post_p = posteriors[:, id]
     post_q = posteriors[:, id+345]
-    Keeping_data = zeros(Int((1 / step_size)) * n_sample, 3)
-    index = 1
-    param = zeros(2)
+    Keeping_data = zeros(Int((1/step_size))*n_sample, 3)
+    index=1
+    param=zeros(2)
+    println(id)
     for sample_id in 1:n_sample
 
-        if rand(Distributions.Uniform(0, 1)) < 0.5 #to avoid memory saturation
-            println("")
-            GC.gc()
-            ccall(:malloc_trim, Cvoid, (Cint,), 0)
-            GC.safepoint()
+        if rand(Distributions.Uniform(0, 1)) < .5
+          println("")
+          GC.gc()
+          ccall(:malloc_trim, Cvoid, (Cint,), 0)
+          GC.safepoint()
         end
-        sample_row = rand(1:length(post_p))
+        sample_row=rand(1:length(post_p))
         param[1] = post_p[sample_row]
         param[2] = post_q[sample_row]
 
-        p_to_desert = push!(collect(0:step_size:param[1]), param[1]) #decreasing p with step 1/200
+        p_to_desert = push!(collect(0:step_size:param[1]),param[1])
 
         for pcrit_id in 1:length(p_to_desert)
 
-            param[1] = p_to_desert[pcrit_id]
+            param[1]=p_to_desert[pcrit_id]
 
             Keeping_data[index, 1:2] .= param
             fraction_cover = [0.8, 0.2]
-
+            
             size_landscape = 80
             ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
 
             d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
-                keep_landscape=true, burning_phase=2000, intensity_feedback=6)
+            keep_landscape=true, burning_phase=2000, intensity_feedback=6)
 
             mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
 
             Keeping_data[index, 3] = ifelse(any([length(findall(land1[:, :, k] .== 1)) == 0 for k in 1:size(land1)[3]]), 0, mean_cover)
-
+            
             index += 1
-            println(index)
-        end
+            end
     end
 
-
-    CSV.write("./Data_new/Prediction/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+    CSV.write("./Data/Prediction/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
 end
 
+sites=readdlm("./Data/Keeping_sites.csv",';',Int64)[:,1]
+pmap(Distance_tipping, sites)
 
-pmap(Distance_tipping, 1:345)
 
 
 
@@ -196,7 +184,7 @@ end
     n_sim_kept = 15
     size_vec = [75 125 175 225]
     n_keep = 100
-    pseudo_param = CSV.read("./Data/Parameter_sim.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
+    pseudo_param = CSV.read("./Data/Parameters.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
 
     param = Get_classical_param_Eby()
     fraction_cover = [0.8, 0.2]
@@ -250,27 +238,7 @@ end
 end
 
 
-pmap(Run_sim_model_EWS, 1:10)
-
-
-
-#endregion
-#region, Step 4: Correlating distances to desert state in Kefi model and Eby model
-
-param_space = zeros(27, 7)
-param_space[:, 1] .= 0.0001 #r
-param_space[:, 2] .= 0.2  #d
-param_space[:, 3] .= 0.1  #m
-param_space[:, 4] .= 0.3  #c
-
-index = 1
-for f in [0.5 0.75 0.9], b in [0.4 0.6 0.8], delta in [0.1 0.3 0.5]
-    param_space[index, 5:7] = [f b delta]
-    index += 1
-end
-
-CSV.write("../Data_new/Parameters_kefi.csv", Tables.table(param_space), writeheader=false, delim=";")
-
+pmap(Run_sim_model_EWS, 1:10) #randomly selected parameter sets
 
 
 

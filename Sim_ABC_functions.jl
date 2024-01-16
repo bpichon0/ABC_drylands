@@ -1,4 +1,4 @@
-using StatsBase, RCall, Random, LaTeXStrings,    BenchmarkTools, Images, Tables, CSV,
+using StatsBase, RCall, Random, LaTeXStrings, BenchmarkTools, Images, Tables, CSV,
  LinearAlgebra, Distributions, DataFrames, DelimitedFiles
 
 
