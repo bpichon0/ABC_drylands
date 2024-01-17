@@ -1,6 +1,9 @@
 rm(list=ls())
 source("./ABC_drylands_function.R")
 
+dir.create("./Figures",showWarnings=F)
+dir.create("./Figures/SI",showWarnings=F)
+
 # ---------------------------- Main figures ------------------------------
 
 ## >> Fig. 2 Validation models ----
@@ -1739,8 +1742,3 @@ p=ggarrange(
   labels = letters[1:2],nrow=2
 )
 ggsave("./Figures/SI/Comparison_within_between_sites.pdf",p,width = 6,height = 6)
-
-
-
-
-

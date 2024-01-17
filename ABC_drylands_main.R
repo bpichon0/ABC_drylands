@@ -9,11 +9,11 @@ please run this script to merge all simulations into a single dataframe.
 d_simu=tibble()
 n_param=2
 
-list_sim=list.files("../Data/Simulations/",".csv")
+list_sim=list.files("./Data/Simulations/",".csv")
 
 d=tibble()
 for (sim in list_sim){
-  d=rbind(d,read.table(paste0("../Data/Simulations/","/",sim),sep=",")[,(1):(n_param+14)])%>%
+  d=rbind(d,read.table(paste0("./Data/Simulations/","/",sim),sep=",")[,(1):(n_param+14)])%>%
     filter(., V3>0.03)
 }
 
@@ -44,7 +44,7 @@ Running_ABC=function(id,n_sim_kept=100){
   n_param=3
   
   d_biocom=read.table("./Data/data_sites.csv",sep=";")
-  d_sim=read.table("./Data/All_new_sim.csv",sep=";")%>%
+  d_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
     dplyr::relocate(., Pooling,.after =q )%>%
     filter(., PL_expo>0)
   
@@ -1235,7 +1235,7 @@ for (which_sumstat in 1:length(all_name)){
 ## >> 2.5) Can we recover parameters and scale of observation in simulations ----
 
 dir.create("./Data/Scale_obs_indentifiability",showWarnings = F)
-d_sim=read.table("./Data/All_new_sim.csv",sep=";")%>%
+d_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
   add_column(.,ID_sim=rep(1:(nrow(.)/5),each=5))%>%
   filter(., rho_p>0.03)%>%
   dplyr::relocate(.,Pooling,.after=q)
@@ -2366,6 +2366,3 @@ colnames(test_df) <- c("value", "x", "y")
 simulated_sites=sapply(1:length(list.files("./Data/Prediction/","Dist")),
             function(x){
               return(as.numeric(gsub(".csv","",strsplit(list.files("./Data/Prediction/","Dist")[x],"_")[[1]][3])))})
-
-
-
