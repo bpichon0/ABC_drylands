@@ -10,6 +10,10 @@ dir.create("./Figures/SI",showWarnings=F)
 
 all_d_kefi=readRDS("./Data/Model_confirmation_Kefi/d_for_figure.rds")
 for (k in 1:length(all_d_kefi)){assign(names(all_d_kefi)[k],all_d_kefi[[k]])}
+param_kefi=read.table("./Data/Model_confirmation_Kefi/Parameters_kefi.csv",sep=";")%>%
+  add_column(., Site=1:nrow(.))
+colnames(param_kefi)=c("d","r","c","delta","f","b","m","Site")
+param_kefi=filter(param_kefi, Site%in% d_kefi$Site)
 
 corr_sp=filter(d_spearman, Type_dist=="Rela",ID_sim==1)
 
@@ -71,44 +75,106 @@ ggsave("./Figures/Validation_models_examples.pdf",
 
 
 
-
+plot(param_kefi$b,all_d_kefi$d_eby$abs_dist)
 
 
 ## >> Fig. 3 Drivers of the resilience of drylands ----
 
-d_mod2=readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")
+
+d_partial_res=rbind(
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")$Partial_res_data,
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")$Partial_res_data
+)
+
+
+d_boot_CI=rbind(
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")$Boot_effects,
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")$Boot_effects
+)
+
+d_boot_CI=d_boot_CI%>%
+  dplyr::group_by(., Driver_name,Response)%>%
+  dplyr::summarise(., .groups = "keep",q2=median(Slopes),q1=quantile(Slopes,.025),q3=quantile(Slopes,.975),pval=get_bootstrapped_pval(Slopes))
+
+
 id=1
-for (k in c("Multifunctionality","Aridity","Sand","Soil amelioration")){
-  assign(paste0("p_",id),
-         ggplot(d_mod2$Partial_res_data%>%filter(., Driver_name==k,Response_var=="abs_dist"))+
-           geom_point(aes(x=Driver_value,Resids),shape=21,color="black",fill="#DEC8EE")+the_theme+
-           geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#DEC8EE")+
-           labs(x=k,y="Distance to the tipping point"))
+x_vector=c(-1.5,-1.2,2)
+y_vector=c(-1.1,-1.2,-1.15)
+
+id_annotate=1
+for (k in c("Multifunctionality","Aridity","Facilitation")){
+  
+  assign(paste0("p1_",id),
+         ggplot(d_partial_res%>%filter(., Driver_name==k,Response=="abs_dist"))+
+           geom_point(aes(x=Driver_value,Resids),shape=21,color="grey20",fill="#C9ACDE")+the_theme+
+           geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#C9ACDE")+ 
+           annotate("text",x=x_vector[id_annotate],y=y_vector[id_annotate],label=paste0("n = ",nrow(d_partial_res%>%
+                                                                                                      filter(., Driver_name==k,Response=="abs_dist"))))+
+           labs(x=k,y=title_distance)+
+           theme(axis.title = element_text(size=13)))
+  id_annotate=id_annotate+1
   id=id+1
 }
 
-p_val=d_mod2$Boot_effects%>%filter(., Response_var=="abs_dist")%>%
-  dplyr::group_by(., Driver_name,Response_var)%>%
-  dplyr::summarise(., p_val=get_bootstrapped_pval(Slopes))%>%
-  mutate(., p_val=ifelse(.$p_val<.001,"",.$p_val))
+# p0=ggarrange(ggplot()+theme_void(),p0,ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3))
+p1=ggarrange(p1_1,p1_2,p1_3,ncol=3,align = "v",labels = LETTERS[1:3],vjust = -.5,
+             font.label = list(size = 23))
+p1=ggarrange(ggplot()+theme_void(),p1,nrow=2,heights = c(.1,1))
+p_tot=ggarrange(p1,ggplot()+theme_void(),nrow=2,labels=c("","D"),heights = c(1,1),font.label = list(size = 20))
+ggsave("./Figures/Drivers_resilience_drylands.pdf",
+       p_tot,
+       height = 8,width = 10)
 
-p_5=ggplot(NULL)+
-  geom_violin(data=d_mod2$Boot_effects%>%filter(., Response_var=="abs_dist"),
-              aes(x=Driver_name,y=Slopes),fill="#DEC8EE",width=.5,draw_quantiles =c(.5))+
-  geom_text(data=NULL,aes(x=1:4,y=max(d_mod2$Boot_effects$Slopes)+.02,label=p_val$p_val),size=3.5)+
+#For total and direct effects:
+Direct_sem=read.table("./Data/Direct_effects_without_facilitation.csv",sep=";")
+Total_sem=read.table("./Data/Total_effects_without_facilitation.csv",sep=";")
+
+## >> Fig. 4 Climatic projections ----
+
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
+d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
+clim_trend=read.table("./Data/mean_aridity_trend.csv",sep=";")
+
+# summarizing information in each site
+d_summarized=d%>%
+  dplyr::group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   abs_dis50_log=log(quantile(pinfer-pcrit,na.rm = T,.5)),
+                   abs_dis50=(quantile(pinfer-pcrit,na.rm = T,.5)))%>%
+  add_column(.,ID=1:nrow(.),Cover=d_biocom$Cover[keep_sites])
+
+d_summarized=d_summarized%>%
+  add_column(., Proj_aridity=clim_trend$mean_trend[which(clim_trend$RCP=="rcp85")])
+
+set.seed(123)
+#kmeans with 5 clusters to better interpretation of the clusters
+kmean_sites = kmeans(scale(d_summarized[,c("abs_dis50_log","Proj_aridity")]), 5)
+d_summarized=d_summarized%>%add_column(., cluster_id=as.character(kmean_sites$cluster))
+
+p=ggplot(d_summarized)+
+  geom_point(aes(x=abs_dis50_log,y=Proj_aridity,fill=cluster_id,
+                 size=Site%in%c(119,120,91,134),shape=Site%in%c(119,120,91,134)),
+             color="black")+
+  scale_fill_manual(values=c("#FFB77C","#FF707B","#BC8DFF","#FDE7BB","#9CECE5"))+
+  scale_size_manual(values=c(1.6,3.7))+
+  scale_shape_manual(values=c(21,22))+
+  annotate("text",
+           x=c(-4.8,-4.8,-3,-2.5),
+           y=c(1.5e-3,1e-4,1.5e-3,1e-4),
+           label=c("High risk","Ecological risk","Climatic risk","Low risk"),
+           color=c("#FF707B","#BC8DFF","#FFB77C","#41D8B9"),family="NewCenturySchoolbook")+
   the_theme+
-  geom_hline(yintercept = 0,linetype=9)+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
-  labs(x="",y="Bootstrapped slopes")
+  theme(legend.position="none")+
+  labs(x=expression(paste("Distance to the tipping point",italic(" (Dist"),", log)")),y="Projected aridity change (RCP 8.5)")
 
 
-ggsave("./Figures/Drivers_resilience_drylands.pdf",ggarrange(ggarrange(p_1,p_4,p_3,p_2,nrow=2,ncol=2),
-                 ggarrange(ggplot()+theme_void(),p_5,ggplot()+theme_void(),nrow=3,heights = c(.3,1,.3)),
-                 ncol = 2,labels = letters[1:2],widths = c(1,.6)),height = 6,width = 9)
+p=ggarrange(ggplot()+theme_void(),p,nrow=2,heights =  c(.5,2))
+
+ggsave("./Figures/Mapping_vulnerability.pdf",p,width = 5,height = 5)
 
 # ---------------------------- SI figures ------------------------------
 
-# >> 0) Correlation between predictors ----
+# >> 1) Correlation between predictors ----
 
 d=read.table("./Data/posterior_param.csv",sep=";",header=T)
 keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
@@ -152,6 +218,7 @@ d2=tibble(p=logit(d$median_p),
           rela_dist=scale(d$relativ_median)[,1],
           Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
           Site=d$Site,
+          moran=scale(d_biocom$moran_I[d$Site])[,1],
           MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
           SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
           Soil_A=(d$Soil_A-mean(d$Soil_A,na.rm=T))/sd(d$Soil_A,na.rm = T),
@@ -166,10 +233,10 @@ d2=tibble(p=logit(d$median_p),
           Plot_n=d$Plot_n)
 
 
-corr_pred=corr.test(d2[,c(1:3,5,7,9,10,11:17)],use = "na.or.complete",adjust = "none")
+corr_pred=corr.test(d2[,c(3,5,7,8,11:18)],use = "na.or.complete",adjust = "none")
 
-colnames(corr_pred$r)=rownames(corr_pred$r)=c("Parameter p","Parameter q", "Dist. to tipping point","Sand",
-                                              "Multifunctionality","Soil amelioration","Facilitation","Cover","Aridity",
+colnames(corr_pred$r)=rownames(corr_pred$r)=c("Dist. to desertif. point","Sand","Spatial aggregation (Moran I)",
+                                              "Multifunctionality","Facilitation","Cover","Aridity",
                                               "Lattitude","Long (cos)","Long (sin)","Elevation","Slope")
 
 corr_pred$r=round(corr_pred$r,2)
@@ -195,13 +262,7 @@ ggsave("./Figures/SI/Correlation_predictors.pdf",p,width = 6.5,height = 6.5)
 
 
 
-
-
-
-
-
-
-# >> 1) Examples of the three sites ----
+# >> 2) Examples of the three sites ----
 
 d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
 keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
@@ -251,7 +312,7 @@ p1=ggplot(NULL)+
 ggsave("./Figures/SI/Example_inference_3_sites.pdf",p1,width = 5,height = 3)
 
 
-# >> 2) Relation between cover, q and distance to tipping point ----
+# >> 3) Relation between cover, q and distance to tipping point ----
 
 d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
 post_param=read.table("./Data/posterior_param.csv",sep=";")
@@ -294,7 +355,7 @@ p1=ggplot(d_summarized)+
   the_theme+
   scale_fill_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
   scale_color_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
-  labs(y="Distance to the tipping point (p-pc)",x="Vegetation cover",fill="Median of q")+
+  labs(y="Distance to the tipping point (Dist)",x="Vegetation cover",fill="Median of q")+
   guides(color="none")+ggtitle("Absolute distance")+
   theme(legend.position = c(.2, .7),legend.key.size = unit(.5, 'cm'),axis.text = element_text(size=13),
         axis.title = element_text(size=14))
@@ -306,15 +367,15 @@ p2=ggplot(d_summarized)+
   the_theme+
   scale_fill_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
   scale_color_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
-  labs(y="Distance to the tipping point (p-pc)/pc",x="Vegetation cover",fill="Median of q")+
+  labs(y="Distance to the tipping point \n (relative distance)",x="Vegetation cover",fill="Median of q")+
   guides(color="none")+ggtitle("Relative distance")+
   theme(legend.position = c(.2, .7),legend.key.size = unit(.5, 'cm'),axis.text = element_text(size=13),
         axis.title = element_text(size=14))
 
 ggsave("./Figures/SI/Relation_cover_q_resilience.pdf",
-       ggarrange(p1,p2,nrow=2,labels = letters[1:2]),width = 7,height = 8)
+       ggarrange(p1,p2,nrow=2,labels = LETTERS[1:2],align = "v"),width = 7,height = 8)
 
-# >> 3) Predictors of stability metrics ----
+# >> 4) Correlation estimated parameters and estimated distance to the tipping point ----
 
 keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
 d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
@@ -352,7 +413,8 @@ d_summarized=d_summarized%>%
   add_column(.,p=d2$mean_p,q=d2$mean_q,
              mean_p=d2$mean_p,mean_q=d2$mean_q,
              median_p=d2$median_p,median_q=d2$median_q,
-             sd_p=d2$sd_p,sd_q=d2$sd_q)
+             sd_p=d2$sd_p,sd_q=d2$sd_q,
+             moran_I=d_biocom$moran_I[keep_sites])
 
 
 #ploting the relationships between parameters/cover and predictions
@@ -363,7 +425,7 @@ p1_1=ggplot(d_summarized)+
                       ymax=abs_dis75),fill="#313131",
                   color="black",alpha=.5,shape=21,size=.7)+
   the_theme+
-  labs(x="Posterior median of parameter q",y="Distance to the tipping point (p-pc)")
+  labs(x="Posterior median of parameter q",y="Distance to the \n tipping point (Dist)")
 
 p1_2=ggplot(d_summarized)+
   geom_pointrange(aes(median_p,abs_dis50,
@@ -371,8 +433,15 @@ p1_2=ggplot(d_summarized)+
                       ymax=abs_dis75),fill="#313131",
                   color="black",alpha=.5,shape=21,size=.7)+
   the_theme+
-  labs(x="Posterior median of parameter p",y="Distance to the tipping point (p-pc)")
+  labs(x="Posterior median of parameter p",y="Distance to the \n tipping point (Dist)")
 
+p1_3=ggplot(d_summarized)+
+  geom_pointrange(aes(moran_I,abs_dis50,
+                      ymin=abs_dis25,
+                      ymax=abs_dis75),fill="#313131",
+                  color="black",alpha=.5,shape=21,size=.7)+
+  the_theme+
+  labs(x="Moran I (Spatial auto-correlation)",y="Distance to the \n tipping point (Dist)")
 
 p2_1=ggplot(d_summarized)+
   geom_point(aes(median_q,Cover),fill="#313131",
@@ -386,15 +455,21 @@ p2_2=ggplot(d_summarized)+
   the_theme+
   labs(x="Posterior median of parameter p",y="Vegetation cover")
 
-p_tot=ggarrange(p1_2,p1_1,p2_2,p2_1,nrow=2,ncol=2,labels=c(letters[1],"",letters[2],""))
+p2_3=ggplot(d_summarized)+
+  geom_point(aes(moran_I,Cover),fill="#313131",
+             color="black",alpha=.5,shape=21,size=3)+
+  the_theme+
+  labs(x="Moran I (Spatial auto-correlation)",y="Vegetation cover")
 
-ggsave("./Figures/SI/Predictors_stability.pdf",p_tot,width = 8,height = 6)
+p_tot=ggarrange(p1_2,p1_1,p1_3,p2_2,p2_1,p2_3,nrow=2,ncol=3,labels = c("A","","","B","",""))
 
-# >> 4) Bootstrapped AIC ----
+ggsave("./Figures/SI/Predictors_stability.pdf",p_tot,width = 11,height = 6)
+
+# >> 5) Bootstrapped AIC (q, cover, q+cover) ----
 d_mod=read.table("./Data/Cover_vs_spatial_structure_data_uncertainty.csv",sep=";")%>%
   mutate(.,  Predictor=recode_factor( Predictor,
-                                      "Cover + Spatial \n structure"="Cover + parameter q",
-                                      "Spatial \n structure"="Parameter q"))
+                                      "Cover + Spatial \n structure"="Cover + Moran I",
+                                      "Spatial \n structure"="Moran I"))
 
 p1=ggplot(d_mod%>%
             melt(., measure.vars=c("AIC"))%>%
@@ -416,148 +491,39 @@ p1=ggplot(d_mod%>%
 
 ggsave("./Figures/SI/Bootstraped_AIC_q_cover.pdf",p1,width = 6,height = 3)
 
-# >> 5) Replicating figure 3 with facilitation ----
+# >> 6) Replicating figure 3 with the relative distance ----
 
-d_mod2=readRDS("./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")
+
+d_partial_res=rbind(
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")$Partial_res_data,
+  readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")$Partial_res_data
+)
+
 id=1
-for (k in unique(d_mod2$Partial_res_data$Response)){
-  assign(paste0("p_",id),
-         ggplot(d_mod2$Partial_res_data%>%filter(., Response==k))+
-           geom_point(aes(x=Driver_value,Resids),shape=21,color="black",fill="#DEC8EE")+the_theme+
+for (k in c("Multifunctionality","Facilitation","Aridity")){
+  
+  assign(paste0("p1_",id),
+         ggplot(d_partial_res%>%filter(., Driver_name==k,Response=="rela_dist"))+
+           geom_point(aes(x=Driver_value,Resids),shape=21,color="grey20",fill="#DEC8EE")+the_theme+
            geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#DEC8EE")+
-           labs(x="Facilitation by nurses",y=k))
+           labs(x=k,y="Relative distance to \n the tipping point")+theme(axis.title = element_text(size=13)))
+  
   id=id+1
 }
 
-p_val=d_mod2$Boot_effects%>%
-  dplyr::group_by(., Driver_name,Response)%>%
-  dplyr::summarise(., p_val=get_bootstrapped_pval(Slopes))%>%
-  mutate(., p_val=ifelse(.$p_val<.001,"",.$p_val))
-
-p_4=ggplot(NULL)+
-  geom_violin(data=d_mod2$Boot_effects%>%filter(., Driver_name !="Species richness"),
-              aes(x=Response,y=Slopes,group=Response),fill="#DEC8EE",width=.5,draw_quantiles =c(.5))+
-  geom_text(data=NULL,aes(x=1:3,y=min(d_mod2$Boot_effects$Slopes)-.02,label=p_val$p_val),size=3.5)+
-  the_theme+
-  geom_hline(yintercept = 0,linetype=9)+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
-  labs(x="",y="Bootstrapped slopes")
-
-
-
-p_1=ggarrange(ggplot()+theme_void(),p_1,ggplot()+theme_void(),ncol=3,widths = c(.5,1,.5),labels = "a")
-p_4=ggarrange(ggplot()+theme_void(),p_4,ggplot()+theme_void(),ncol=3,widths = c(.3,1,.3),labels = "c")
-p_2=ggarrange(p_2,p_3,ncol = 2,labels = "b")
-ggsave("./Figures/SI/Drivers_resilience_drylands_with_facilitation.pdf",
-       ggarrange(p_1,p_2,p_4,nrow= 3,heights = c(1,1,1.3)),
-         height = 10,width = 6)
-
-# >> 6) Replicating figure 3 with relative distance, q or vegetation cover ----
-
-d_mod2=readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")
-id=1
-for (k in c("Multifunctionality","Aridity","Sand","Soil amelioration")){
-  assign(paste0("p_",id),
-         ggplot(d_mod2$Partial_res_data%>%filter(., Driver_name==k,Response_var=="rela_dist"))+
-           geom_point(aes(x=Driver_value,Resids),shape=21,color="black",fill="#DEC8EE")+the_theme+
-           geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#DEC8EE")+
-           labs(x=k,y="Distance to the tipping point (relative)"))
-  id=id+1
-}
-
-p_val=d_mod2$Boot_effects%>%filter(., Response_var=="rela_dist")%>%
-  dplyr::group_by(., Driver_name,Response_var)%>%
-  dplyr::summarise(., p_val=get_bootstrapped_pval(Slopes))%>%
-  mutate(., p_val=ifelse(.$p_val<.001,"",.$p_val))
-
-p_5=ggplot(NULL)+
-  geom_violin(data=d_mod2$Boot_effects%>%filter(., Response_var=="rela_dist"),
-              aes(x=Driver_name,y=Slopes),fill="#DEC8EE",width=.5,draw_quantiles =c(.5))+
-  geom_text(data=NULL,aes(x=1:4,y=min(d_mod2$Boot_effects$Slopes)-.02,label=p_val$p_val),size=3.5)+
-  the_theme+
-  geom_hline(yintercept = 0,linetype=9)+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
-  labs(x="",y="Bootstrapped slopes")
-
+p1=ggarrange(p1_1,p1_2+theme(axis.title.y = element_blank()),
+             p1_3+theme(axis.title.y = element_blank()),ncol=3)
 
 ggsave("./Figures/SI/Drivers_resilience_drylands_relative_distance.pdf",
-       ggarrange(ggarrange(p_1,p_4,p_3,p_2,nrow=2,ncol=2),
-                 ggarrange(ggplot()+theme_void(),p_5,ggplot()+theme_void(),nrow=3,heights = c(.3,1,.3)),
-                 ncol = 2,labels = letters[1:2],widths = c(1,.6)),height = 6,width = 9)
-
-
-#With aggregation parameter (q)
-d_mod2=readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")
-id=1
-for (k in c("Multifunctionality","Aridity","Sand","Soil amelioration")){
-  assign(paste0("p_",id),
-         ggplot(d_mod2$Partial_res_data%>%filter(., Driver_name==k,Response_var=="q"))+
-           geom_point(aes(x=Driver_value,Resids),shape=21,color="black",fill="#DEC8EE")+the_theme+
-           geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#DEC8EE")+
-           labs(x=k,y="Aggregation parameter (q)"))
-  id=id+1
-}
-
-p_val=d_mod2$Boot_effects%>%filter(., Response_var=="q")%>%
-  dplyr::group_by(., Driver_name,Response_var)%>%
-  dplyr::summarise(., p_val=get_bootstrapped_pval(Slopes))%>%
-  mutate(., p_val=ifelse(.$p_val<.001,"",.$p_val))
-
-p_5=ggplot(NULL)+
-  geom_violin(data=d_mod2$Boot_effects%>%filter(., Response_var=="q"),
-              aes(x=Driver_name,y=Slopes),fill="#DEC8EE",width=.5,draw_quantiles =c(.5))+
-  geom_text(data=NULL,aes(x=1:4,y=min(d_mod2$Boot_effects$Slopes)-.02,label=p_val$p_val),size=3.5)+
-  the_theme+
-  geom_hline(yintercept = 0,linetype=9)+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
-  labs(x="",y="Bootstrapped slopes")
-
-
-ggsave("./Figures/SI/Drivers_resilience_drylands_with_q.pdf",
-       ggarrange(ggarrange(p_1,p_4,p_3,p_2,nrow=2,ncol=2),
-                 ggarrange(ggplot()+theme_void(),p_5,ggplot()+theme_void(),nrow=3,heights = c(.3,1,.3)),
-                 ncol = 2,labels = letters[1:2],widths = c(1,.6)),height = 6,width = 9)
-
-
-#with vegetation cover 
-
-d_mod2=readRDS("./Data/Drivers_stability_metrics_data_uncertainty_without_facilitation.rds")
-id=1
-for (k in c("Multifunctionality","Aridity","Sand","Soil amelioration")){
-  assign(paste0("p_",id),
-         ggplot(d_mod2$Partial_res_data%>%filter(., Driver_name==k,Response_var=="Cover"))+
-           geom_point(aes(x=Driver_value,Resids),shape=21,color="black",fill="#DEC8EE")+the_theme+
-           geom_smooth(aes(x=Driver_value,Resids),method = "lm",se = T,color="black",fill="#DEC8EE")+
-           labs(x=k,y="Vegetation cover"))
-  id=id+1
-}
-
-p_val=d_mod2$Boot_effects%>%filter(., Response_var=="Cover")%>%
-  dplyr::group_by(., Driver_name,Response_var)%>%
-  dplyr::summarise(., p_val=get_bootstrapped_pval(Slopes))%>%
-  mutate(., p_val=ifelse(.$p_val<.001,"",.$p_val))
-
-p_5=ggplot(NULL)+
-  geom_violin(data=d_mod2$Boot_effects%>%filter(., Response_var=="Cover"),
-              aes(x=Driver_name,y=Slopes),fill="#DEC8EE",width=.5,draw_quantiles =c(.5))+
-  geom_text(data=NULL,aes(x=1:4,y=min(d_mod2$Boot_effects$Slopes)-.02,label=p_val$p_val),size=3.5)+
-  the_theme+
-  geom_hline(yintercept = 0,linetype=9)+
-  theme(axis.text.x = element_text(angle=60,hjust=1))+
-  labs(x="",y="Bootstrapped slopes")
-
-
-ggsave("./Figures/SI/Drivers_resilience_drylands_with_cover.pdf",
-       ggarrange(ggarrange(p_1,p_4,p_3,p_2,nrow=2,ncol=2),
-                 ggarrange(ggplot()+theme_void(),p_5,ggplot()+theme_void(),nrow=3,heights = c(.3,1,.3)),
-                 ncol = 2,labels = letters[1:2],widths = c(1,.6)),height = 6,width = 9)
+       p1,
+       height = 4,width = 8)
 
 
 # >> 7) Posteriors: median and bimodality ----
 
 #Bimodality posterior
 
-site=11
+site=88
 post=read.table("./Data/posterior_param.csv",sep=";")[,c(site,site+345)]
 
 p_land1=ggplot(Get_empirical_site(site)%>%melt(.))+
@@ -583,37 +549,58 @@ ggsave("./Figures/SI/Example_bimodal_distrib.pdf",
                    ggplot()+theme_void(),
                    p_land1,ggplot()+theme_void(),ncol=3,widths =c(.3,1,.3)),
          p_post1,labels = c("","B"),nrow = 2,heights = c(1,1.3)),
-       width = 12,height = 6)
+       width = 6,height = 6)
 
 
 #Posterior median
 d=read.table("./Data/posterior_param.csv",sep=";",header=T)
 keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
-d=tibble(Site=keep_sites, 
-         Cover=d_biocom$Cover[keep_sites],
-         Median_p=apply(d[,keep_sites],2,median),
-         Median_q=apply(d[,keep_sites+345],2,median),
-         Median_eta=apply(d[,keep_sites+690],2,median))
+
+d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),median_p=apply(d[,1:345],2,median),
+         mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),median_q=apply(d[,346:690],2,median),
+         median_eta=apply(d[,691:1035],2,median),
+         Cover=d_biocom$Cover)%>%
+  dplyr::filter(., Site %in% keep_sites)%>%
+  dplyr::select(.,-Site)
+
+d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")%>%
+  dplyr::group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   abs_median=median(pinfer-pcrit,na.rm = T),
+                   relativ_median=median((pinfer-pcrit)/pcrit,na.rm = T))%>%
+  dplyr::filter(., Site %in% keep_sites)
+
+d=cbind(d,d2)
+
+
+p4=ggplot(d)+
+  geom_point(aes(x=median_p,y=median_q,color=(log(abs_median)),fill=(log(abs_median))),shape=21)+
+  scale_color_viridis_c(option = "A",labels=c("  Close","Far"),breaks=c(-5,-2))+
+  scale_fill_viridis_c(option = "A",labels=c("  Close","Far"),breaks=c(-5,-2))+
+  the_theme+
+  labs(x="Median of estimated p",y="Median of estimated q",
+       fill="Distance to the \n tipping point (Dist)  ",
+       color="Distance to the \n tipping point (Dist)  ")+
+  theme(axis.title = element_text(size=13),
+        legend.title = element_text(size=13),
+        legend.text = element_text(size=13))
 
 p=ggarrange(
   ggplot(d)+
-    geom_histogram(aes(x=Median_p))+
+    geom_histogram(aes(x=median_p))+
     the_theme+
     labs(x="Median of p",y="Number of sites"),
   ggplot(d)+
-    geom_histogram(aes(x=Median_q))+
+    geom_histogram(aes(x=median_q))+
     the_theme+
     labs(x="Median of q",y="Number of sites"),
   ggplot(d)+
-    geom_histogram(aes(x=Median_eta))+
+    geom_histogram(aes(x=median_eta))+
     the_theme+
     labs(x="Median of the scale parameter",y="Number of sites"),
-  ggplot(d)+
-    geom_point(aes(x=Median_p,Median_q,color=Cover,fill=Cover))+
-    the_theme+
-    scale_fill_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
-    scale_color_gradientn(colours = colorRampPalette(c("#D3EFD3","#90C390","#47A747","#126312"))(100))+
-    labs(x="Median of p",y="Median of q"),ncol = 2,nrow=2
+  p4,
+  ncol = 2,nrow=2,
+  labels = LETTERS[1:4]
 )
 
 ggsave("./Figures/SI/Posterior_median.pdf",p,width = 8,height = 7)
@@ -701,14 +688,14 @@ p=ggplot(NULL) +
   geom_point(data=d_biocom,aes(x=Longitude,y=Lattitude,color=Aridity),size=3)+
   the_theme+
   scale_color_gradientn(colors = my_pal(4))+
-  labs(x="Longitude",y="Lattitue")
+  labs(x="Longitude",y="Lattitue",color="Aridity level")
 
 ggsave("./Figures/SI/Map_empirical_sites.pdf",p,width = 6,height = 4)
 
 
 
 
-## Density of summary statistics: ecosystem type, type patterns
+## Density of summary statistics
 
 #Pair correlation metrics used
 
@@ -727,10 +714,12 @@ p=ggpairs(d_biocom%>%add_column(., for_color=1)%>%dplyr::select(., -Cover)%>%
 ggsave(paste0("./Figures/SI/Pair_corr_metrics.pdf"),p,width = 12,height = 12)
 
 
+
 # PCA on simulations by coloring by the parameter value p, q
 
-d=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
+d=read.table("./Data/Simulations.csv",sep=";",header=T,header=T)%>%
   dplyr::sample_n(., 20000)
+colnames(d)[3:(ncol(d)-1)]=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation","SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
 
 sumstat_name=colnames(d)[3:13]
 res.comp=imputePCA(d[,which(colnames(d) %in% sumstat_name)],ncp=3,scale = T) 
@@ -755,6 +744,7 @@ save_vPC=vPCs
 
 axes_for_plot=tibble(x=c(1,1,2),y=c(2,3,3))
 
+
 for (i in 1:3){
   assign(paste0("p1_",i),
          d%>%
@@ -762,11 +752,11 @@ for (i in 1:3){
            ggplot(.) +
            geom_hline(yintercept = 0, lty = 2) +
            geom_vline(xintercept = 0, lty = 2) +
-           geom_text(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
-                     aes(x=PC1*9,y=PC2*9,label=rownames(vPCs)), size=4)+
+           geom_point(aes(x = PC1, y = PC2, color = p,fill=p),alpha=.5)+
+           geom_text_repel(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
+                           aes(x=PC1*9,y=PC2*9,label=rownames(vPCs)), size=4)+
            geom_segment(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
                         aes(x = 0, y = 0, xend = PC1*8, yend = PC2*8+random_vertical_distrib), arrow = arrow(length = unit(1/2, 'picas')), color = "grey30")+
-           geom_point(aes(x = PC1, y = PC2, color = p,fill=p),alpha=.5)+
            scale_color_viridis_c()+
            scale_fill_viridis_c()+
            labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
@@ -778,7 +768,7 @@ for (i in 1:3){
            ylim(9*min(vPCs[,paste0("PC",axes_for_plot$y[i])])-2,2+9*max(vPCs[,paste0("PC",axes_for_plot$y[i])]))
          
          
-         )
+  )
 }
 
 for (i in 1:3){
@@ -788,11 +778,11 @@ for (i in 1:3){
            ggplot(.) +
            geom_hline(yintercept = 0, lty = 2) +
            geom_vline(xintercept = 0, lty = 2) +
-           geom_text(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
-                     aes(x=PC1*7,y=PC2*7,label=rownames(vPCs)), size=4)+
+           geom_point(aes(x = PC1, y = PC2, color = q,fill=q),alpha=.5)+
            geom_segment(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
                         aes(x = 0, y = 0, xend = PC1*6, yend = PC2*6+random_vertical_distrib), arrow = arrow(length = unit(1/2, 'picas')), color = "grey30")+
-           geom_point(aes(x = PC1, y = PC2, color = q,fill=q),alpha=.5)+
+           geom_text_repel(data=vPCs%>%mutate(., PC1=save_vPC[,axes_for_plot$x[i]],PC2=save_vPC[,axes_for_plot$y[i]]),
+                           aes(x=PC1*7,y=PC2*7,label=rownames(vPCs)), size=4)+
            scale_color_viridis_c()+
            scale_fill_viridis_c()+
            labs(x=paste0("PC ",axes_for_plot$x[i]," (",round(res.pca$eig[axes_for_plot$x[i],2], 1)," %)"),
@@ -802,7 +792,7 @@ for (i in 1:3){
            guides(color = guide_legend(override.aes = list(size = 3)),fill="none",size="none")+
            xlim(9*min(vPCs[,paste0("PC",axes_for_plot$x[i])])-2,2+9*max(vPCs[,paste0("PC",axes_for_plot$x[i])]))+
            ylim(9*min(vPCs[,paste0("PC",axes_for_plot$y[i])])-2,2+9*max(vPCs[,paste0("PC",axes_for_plot$y[i])]))  
-         )
+  )
 }
 
 
@@ -822,13 +812,13 @@ d=read.table("./Data/NRMSE/RMSE_param_BoxCox_rejection_optim_lambda_yes_N1_1000.
 
 mean_rmse_rej=d%>%
   melt(.)%>%
- dplyr::group_by(.,variable)%>%
+  dplyr::group_by(.,variable)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)%>%
   add_column(., Method="BoxCox & Rejection")
 
 p2=ggplot(d%>%melt(.)%>%add_column(., Method="BoxCox & Rejection")%>%
-           dplyr::rename(., "Parameter"="variable"))+
+            dplyr::rename(., "Parameter"="variable"))+
   geom_jitter(aes(x=Method,y=value),color="gray",alpha=.5,width =.05,height=0)+
   geom_point(data=mean_rmse_rej,aes(x=Method,y=mean_rmse),
              color="white",fill="black",shape=24,size=2.5)+
@@ -888,6 +878,38 @@ p=ggarrange(p2,p1,ncol=2,widths = c(1,3),labels = LETTERS[1:2])
 ggsave(paste0("./Figures/SI/Optimization_inference_preprocessing.pdf"),p,width = 8,height = 6)
 
 
+## Optimization of the ABC method: PLS versus no-PLS
+
+d=rbind(read.table(paste0("./Data/NRMSE/RMSE_hidden_preprocessing_PLS_10_Nnet_10.csv"),sep=";")%>%
+          add_column(., PLS="Yes"),
+        read.table(paste0("./Data/NRMSE/RMSE_hidden_preprocessing_NoPLS_10_Nnet_10.csv"),sep=";")%>%
+          add_column(., PLS="No"))
+
+
+
+mean_rmse=d%>%
+  melt(., id.vars=c("PLS"))%>%
+  dplyr::group_by(.,variable,PLS)%>%
+  dplyr::summarise(., .groups = "keep",mean_rmse=mean(value))%>%
+  dplyr::rename(., "Parameter"="variable")
+
+
+p=ggplot(d%>%melt(., id.vars=c("PLS"))%>%
+           dplyr::rename(., "Parameter"="variable"))+
+  geom_jitter(aes(x=PLS,y=value,color=as.factor(PLS)),
+              position = position_jitterdodge(jitter.width = 0.3,jitter.height = 0),alpha=.5)+
+  geom_point(data=mean_rmse,aes(x=PLS,y=mean_rmse),
+             color="white",fill="black",shape=24,size=2.5)+
+  labs(x="Using PLS during pre-processing",y="NRMSE",color="")+
+  facet_grid(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
+  the_theme+
+  
+  theme(strip.text.x = element_text(size=10),legend.position = "none")+
+  scale_color_manual(values=c("#C46FC5","#80BD5C","#568DC5","#DE6450","#898C86"))
+
+ggsave(paste0("./Figures/SI/Optimization_PLS.pdf"),p,width = 6,height = 3)
+
+
 
 
 
@@ -909,7 +931,7 @@ for (i in 1:nrow(all_sim)){
 
 mean_rmse=d%>%
   melt(., id.vars=c("N_hidden","N_rep_net"))%>%
- dplyr::group_by(.,variable,N_rep_net,N_hidden)%>%
+  dplyr::group_by(.,variable,N_rep_net,N_hidden)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value))%>%
   dplyr::rename(., "Parameter"="variable")%>%
   mutate(., N_hidden=as.character(N_hidden))
@@ -950,7 +972,7 @@ for (k in list_f){
 
 mean_rmse=d%>%
   melt(., id.vars=c("Nkept"))%>%
- dplyr::group_by(.,variable,Nkept)%>%
+  dplyr::group_by(.,variable,Nkept)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)
 
@@ -982,7 +1004,7 @@ for (k in list_f){
 
 mean_rmse=d%>%
   melt(., id.vars=c("Nkept"))%>%
- dplyr::group_by(.,variable,Nkept)%>%
+  dplyr::group_by(.,variable,Nkept)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)
 
@@ -1019,7 +1041,7 @@ for (i in 1:length(list_f)){
 
 mean_rmse=d%>%
   melt(., id.vars=c("Name"))%>%
- dplyr::group_by(.,variable,Name)%>%
+  dplyr::group_by(.,variable,Name)%>%
   dplyr::summarise(., .groups = "keep",mean_rmse=mean(value,na.rm=T))%>%
   dplyr::rename(., Parameter=variable)
 
@@ -1035,13 +1057,44 @@ p=ggplot(d%>%
   theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
   guides(color = guide_legend(override.aes = list(size = 3)))+
   #scale_color_manual(values=my_pal(9))+
-  scale_color_manual(values=c("gray","red"))+
+  scale_color_manual(values=c("gray",alpha("red",.7)))+
   theme(legend.position = "none")
 
 ggsave(paste0("./Figures/SI/Combination_sumstats.pdf"),p,width = 7,height = 4)
 
 
 
+
+
+d=tibble()
+list_f=list.files("./Data/Inferrence/","NRMSE_param_rej")
+all_name=c("No CV PSD","No Exponent p.l.","No PLR & \n Exponent p.l.","No PLR",
+           "No CV PSD, PLR & \n Exponent p.l.","No CV PSD, PLR \n Exponent p.l. & PLR")
+
+d_all_sumstat=read.table(paste0("./Data/Inferrence/NRMSE_param_rej_all.csv"),sep=";")
+for (i in 1:(length(list_f))){
+  post=read.table(paste0("./Data/Inferrence/",list_f[i+1]),sep=";")
+  d=rbind(d,data.frame(Name=all_name[i],p=apply(post[1:345],2,median)-apply(d_all_sumstat[1:345],2,median),
+                       q=apply(post[346:690],2,median)-apply(d_all_sumstat[346:690],2,median),Site=1:345))
+}
+
+
+p=ggplot(d%>%
+           melt(., id.vars=c("Name","Site"))%>%
+           dplyr::rename(., Parameter=variable))+
+  geom_line(aes(x=Name,y=value,group=Site),
+            color="gray",lwd=.3,alpha=.4)+
+  geom_violin(aes(x=Name,y=value,color=interaction(Name)),width=3)+
+  labs(x="",y="Change in parameter values compared \n with all spatial statistics",color="")+
+  facet_wrap(.~Parameter,labeller = label_bquote(cols="Parameter"==.(as.character(Parameter))))+
+  the_theme+
+  theme(strip.text.x = element_text(size=10),axis.text.x = element_text(angle=60,hjust=1),legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 3)))+
+  scale_color_manual(values=colorRampPalette(colors=c("#C46FC5","#80BD5C"))(7))+
+  theme(legend.position = "none")
+
+
+ggsave(paste0("./Figures/SI/Combination_sumstats_on_p_q.pdf"),p,width = 10,height = 5)
 
 
 # >> 10) Spatial resolution & system size ---- 
@@ -1053,8 +1106,8 @@ stat_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
   melt(., id.vars=c("Pooling","Id_sim"))%>%
   filter(., variable %!in% c("p","q"))%>%
   dplyr::mutate(., variable=recode_factor(variable,
-                                   "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering","skewness"="Skewness","variance"="Variance",
-                                   "moran_I"="Autocorrelation","Spectral_ratio"="SDR"
+                                          "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering","skewness"="Skewness","variance"="Variance",
+                                          "moran_I"="Autocorrelation","Spectral_ratio"="SDR"
   ))
 
 set.seed(123)
@@ -1062,11 +1115,11 @@ p=ggplot(NULL)+
   geom_line(data=stat_sim%>%filter(., Id_sim %in% sample(unique(.$Id_sim),50)),
             aes(x=Pooling,y=value,group=Id_sim),color="gray50",alpha=.3,lwd=.3)+
   geom_line(data=stat_sim%>%
-          dplyr::group_by(., Pooling,variable)%>%
-             dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
-           aes(x=Pooling,y=mean_value,group=interaction(variable)),lwd=1,color="red")+
-  geom_point(data=stat_sim%>%
               dplyr::group_by(., Pooling,variable)%>%
+              dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
+            aes(x=Pooling,y=mean_value,group=interaction(variable)),lwd=1,color="red")+
+  geom_point(data=stat_sim%>%
+               dplyr::group_by(., Pooling,variable)%>%
                dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
              aes(x=Pooling,y=mean_value),color="red",fill="white",shape=21,size=2.5)+
   facet_wrap(.~variable,scales = "free",nrow = 4)+
@@ -1138,17 +1191,17 @@ for (i in 1:3){
                 filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
   
   assign(paste0("p_",i),ggplot(d_fil)+
-    geom_point(aes(x=value_obs,y=value_sim,color=as.factor(Scale_obs)),alpha=.75)+the_theme+
-    labs(x="True parameter value",y="Estimated parameter value",color=TeX("$\\eta"))+
-    scale_color_manual(values=my_pal(5))+
-    geom_abline(slope=1,intercept = 0,color="black")+
-    theme(title = element_text(size=10)))
+           geom_point(aes(x=value_obs,y=value_sim,color=as.factor(Scale_obs)),alpha=.75)+the_theme+
+           labs(x="True parameter value",y="Estimated parameter value",color=TeX("$\\eta"))+
+           scale_color_manual(values=my_pal(5))+
+           geom_abline(slope=1,intercept = 0,color="black")+
+           theme(title = element_text(size=10)))
   
 }
 p_tot=ggarrange(p1,ggarrange(p_1+ggtitle("Parameter p"),
                              p_2+ggtitle("Parameter q"),
                              p_3+ggtitle(TeX("$\\eta$")),common.legend = T,ncol=3),
-                nrow=2,labels=letters[1:2])
+                nrow=2,labels=LETTERS[1:2])
 
 ggsave("./Figures/SI/Consistency_inference_param_scale.pdf",p_tot,width = 9,height = 7)
 
@@ -1193,11 +1246,11 @@ p=ggplot(NULL)+
   
   geom_line(data=stat_sim%>%
               dplyr::group_by(., System_size,variable)%>%
-               dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
-             aes(x=System_size,y=mean_value),color="red",lwd=1)+
+              dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
+            aes(x=System_size,y=mean_value),color="red",lwd=1)+
   
   geom_point(data=stat_sim%>%
-              dplyr::group_by(., System_size,variable)%>%
+               dplyr::group_by(., System_size,variable)%>%
                dplyr::summarise(., .groups = "keep",mean_value=mean(value,na.rm = T)),
              aes(x=System_size,y=mean_value),color="red",fill="white",shape=21,size=2.5)+
   facet_wrap(.~variable,scales = "free",nrow = 3)+
@@ -1214,7 +1267,8 @@ ggsave("./Figures/SI/Change_statistics_system_size.pdf",p,width = 8,height = 6)
 
 
 # Density data & model
-stat_sim=read.table("./Data/Simulations.csv",sep=";",header = T)%>%
+stat_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
+  sample_n(., 30000)%>%
   mutate(., Pooling=recode_factor(Pooling,"1"="Model, no change",
                                   "2" = "Model, x2","3" = "Model, x3","4" = "Model, x4","5" = "Model, x5"))
 d_biocom=read.table("./Data/data_sites.csv",sep=";")
@@ -1224,7 +1278,7 @@ all_d=rbind(stat_sim[,-c(1:2)],
               add_column(.,Pooling='Data'))
 
 p=ggplot(all_d%>%
-         melt(., id.vars=c("Pooling"))%>%
+           melt(., id.vars=c("Pooling"))%>%
            mutate(., variable=recode_factor(variable,
                                             "rho_p"="Cover","nb_neigh"="# neighbors","clustering"= "Clustering",
                                             "skewness"="Skewness","variance"="Variance",
@@ -1286,12 +1340,12 @@ ggsave(paste0("./Figures/SI/PCA_raw_model_data.pdf"),p,width = 11,height = 5)
 
 
 d_biocom=read.table("./Data/data_sites.csv",sep=";")
-d_sim=read.table("./Data/Simulations.csv",sep=";",header = T)%>%
+d_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
   mutate(., Pooling=recode_factor(Pooling,"1"="Model, no change",
                                   "2" = "Model, x2","3" = "Model, x3","4" = "Model, x4","5" = "Model, x5"))
 
 set.seed(123)
-d=rbind(stat_sim[,-c(1:2,15)],
+d=rbind(d_sim[,-c(1:2,15)],
         d_biocom[,c(14:24)]%>%
           add_column(.,Pooling='Data'))
 sumstat_name=colnames(d)[1:11]
@@ -1343,6 +1397,7 @@ ggsave(paste0("./Figures/SI/PCA_spatial_resolution_model_and_data.pdf"),p,width 
 
 # >> 13) ABC-Posteriors ----
 
+
 ## Observed versus simulated spatial statistics ----
 
 keeping_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
@@ -1379,26 +1434,23 @@ ggsave("./Figures/SI/Inference_stats.pdf",p,width = 10,height = 8)
 
 
 ## Empirical priors ----
-
-
 d=read.table("./Data/Simulations.csv",sep=";",header = T)
 
 p1=ggplot(d,aes(x=p,y=q))+geom_density_2d_filled(alpha=.7)+labs(x="Parameter p",y="Parameter q")+the_theme+theme(legend.position = "none")
 
-p21=ggplot(d)+geom_density(aes(p),fill="grey")+the_theme+labs(x="Parameter p",y="Density")+
+p21=ggplot(d)+geom_density(aes(p),fill="gray30")+the_theme+labs(x="Parameter p",y="Density")+
   ggtitle("Parameter p")
-p22=ggplot(d)+geom_density(aes(q),fill="grey")+the_theme+labs(x="Parameter q",y="Density")+
+p22=ggplot(d)+geom_density(aes(q),fill="gray30")+the_theme+labs(x="Parameter q",y="Density")+
   ggtitle("Parameter q")
 
-p_tot=ggarrange(p1,ggarrange(p21,p22,nrow=2),labels = letters[1:2],widths = c(1,.7))
+p_tot=ggarrange(p1,ggarrange(p21,p22,nrow=2),labels = LETTERS[1:2],widths = c(1,.7))
 ggsave("./Figures/SI/Empirical_priors.pdf",p_tot,width = 9,height = 5)
 
 # >> 14) Validating ---- 
 ## Validation predictions using Kefi dryland vegetation model ----
-  
+
 all_d_kefi=readRDS("./Data/Model_confirmation_Kefi/d_for_figure.rds")
 for (k in 1:length(all_d_kefi)){assign(names(all_d_kefi)[k],all_d_kefi[[k]])}
-param_kefi=read.table("./Data/Model_confirmation_Kefi/Parameters_kefi.csv",sep=";")
 
 
 pos_x=.25
@@ -1415,23 +1467,23 @@ for (k in unique(d_spearman$ID_sim)){
     filter(.,f ==unique(.$f)[k])
   
   assign(paste0("p1_",k),ggplot(d_fig)+
-    geom_pointrange(aes(x=true_dist_rela,y=relativ_dist,ymax=rela_q3,ymin=rela_q1),
-                    color="black",fill="white",shape=23,lwd=.8,size=1)+
-    the_theme+
-    theme(strip.text.x = element_blank())+
-    labs(x="Distance in the dryland model",y="Distance by the inference approach")+
-    ggtitle(paste0("r (Spearman) = ",round(median(corr_sp$Stat),2),
-                   " (",round(quantile(corr_sp$Stat,.05),2),
-                   ", ",round(quantile(corr_sp$Stat,.95),2),
-                   ")"))+
-    theme(title = element_text(size=10),
-          axis.title.x = element_text(colour = "#FF3B3B",size=12),
-          axis.title.y = element_text(colour = "#8F45C7",size=12),
-          axis.text.x = element_text(size=12),
-          axis.text.y = element_text(size=12))+
-      annotate("text",label=ifelse(k==1,"Low facilitation",ifelse(k==2,"Medium facilitation","High facilitation")),
-               x= min(d_fig$true_dist_rela) + pos_x * diff(range(d_fig$true_dist_rela)),
-               y=min(d_fig$relativ_dist) + pos_y1 * diff(range(d_fig$relativ_dist))))
+           geom_pointrange(aes(x=true_dist_rela,y=relativ_dist,ymax=rela_q3,ymin=rela_q1),
+                           color="black",fill="white",shape=23,lwd=.8,size=1)+
+           the_theme+
+           theme(strip.text.x = element_blank())+
+           labs(x="Distance in the dryland model",y="Relative distance \n to the tipping point")+
+           ggtitle(paste0("r (Spearman) = ",round(median(corr_sp$Stat),2),
+                          " (",round(quantile(corr_sp$Stat,.05),2),
+                          ", ",round(quantile(corr_sp$Stat,.95),2),
+                          ")"))+
+           theme(title = element_text(size=10),
+                 axis.title.x = element_text(colour = "#FF3B3B",size=12),
+                 axis.title.y = element_text(colour = "#8F45C7",size=12),
+                 axis.text.x = element_text(size=12),
+                 axis.text.y = element_text(size=12))+
+           annotate("text",label=ifelse(k==1,"Low facilitation",ifelse(k==2,"Medium facilitation","High facilitation")),
+                    x= min(d_fig$true_dist_rela) + pos_x * diff(range(d_fig$true_dist_rela)),
+                    y=min(d_fig$relativ_dist) + pos_y1 * diff(range(d_fig$relativ_dist))))
   
   
   
@@ -1448,7 +1500,7 @@ for (k in unique(d_spearman$ID_sim)){
                            color="black",fill="white",shape=23,lwd=.8,size=1)+
            the_theme+
            theme(strip.text.x = element_blank())+
-           labs(x="Distance in the dryland model",y="Distance by the inference approach")+
+           labs(x="Distance in the dryland model",y=title_distance)+
            ggtitle(paste0("r (Spearman) = ",round(median(corr_sp$Stat),2),
                           " (",round(quantile(corr_sp$Stat,.05),2),
                           ", ",round(quantile(corr_sp$Stat,.95),2),
@@ -1466,7 +1518,7 @@ for (k in unique(d_spearman$ID_sim)){
 }
 
 p_tot=ggarrange(ggarrange(p2_1,p2_2,p2_3,ncol=3),
-                ggarrange(p1_1,p1_2,p1_3,ncol=3),nrow=2,labels = letters[1:2])
+                ggarrange(p1_1,p1_2,p1_3,ncol=3),nrow=2,labels = LETTERS[1:2],align = "hv")
 
 ggsave("./Figures/SI/Dryland_model_dist_tipping.pdf",p_tot,width = 10,height = 7)
 
@@ -1525,13 +1577,10 @@ p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3,common.legend 
 ggsave("./Figures/SI/Dryland_model_xystat.pdf",p,width = 10,height = 8)
 
 
-
-
 ## Validating predictions using Guichard mussel bed model ----
 
 all_d_guichard=readRDS("./Data/Model_confirmation_Guichard/d_for_figure.rds")
 for (k in 1:length(all_d_guichard)){assign(names(all_d_guichard)[k],all_d_guichard[[k]])}
-param_guichard=read.table("./Data/Model_confirmation_Guichard/Parameters_guichard.csv",sep=";")
 
 model_comb=expand.grid(a0=unique(d_eby$a0),a2=unique(d_eby$a2))
 
@@ -1557,7 +1606,7 @@ for (k in unique(d_spearman$ID_sim)){
                            color="black",fill="white",shape=23,lwd=.8,size=1)+
            the_theme+
            theme(strip.text.x = element_blank())+
-           labs(x="Distance in the mussel model",y="Distance by the inference approach")+
+           labs(x="Distance in the mussel model",y="Relative distance \n to the tipping point")+
            ggtitle(paste0("r (Spearman) = ",round(median(corr_sp$Stat),2),
                           " (",round(quantile(corr_sp$Stat,.05),2),
                           ", ",round(quantile(corr_sp$Stat,.95),2),
@@ -1574,7 +1623,7 @@ for (k in unique(d_spearman$ID_sim)){
            annotate("text",label=ifelse(unique(d_fig$a2)==unique(d_eby$a2)[2],"High recovery","Low recovery"),
                     x= min(d_fig$true_dist_rela) + pos_x * diff(range(d_fig$true_dist_rela)),
                     y=min(d_fig$relativ_dist) + pos_y21 * diff(range(d_fig$relativ_dist))))
-         
+  
   
   
   corr_sp=filter(d_spearman, Type_dist=="Abs",ID_sim==k)
@@ -1590,7 +1639,7 @@ for (k in unique(d_spearman$ID_sim)){
                            color="black",fill="white",shape=23,lwd=.8,size=1)+
            the_theme+
            theme(strip.text.x = element_blank())+
-           labs(x="Distance in the mussel model",y="Distance by the inference approach")+
+           labs(x="Distance in the mussel model",y=title_distance)+
            ggtitle(paste0("r (Spearman) = ",round(median(corr_sp$Stat),2),
                           " (",round(quantile(corr_sp$Stat,.05),2),
                           ", ",round(quantile(corr_sp$Stat,.95),2),
@@ -1612,7 +1661,7 @@ for (k in unique(d_spearman$ID_sim)){
 }
 
 p_tot=ggarrange(ggarrange(p2_1,p2_2,p2_3,p2_4,p2_5,p2_6,ncol=3,nrow=2),
-                ggarrange(p1_1,p1_2,p1_3,p1_4,p1_5,p1_6,ncol=3,nrow=2),nrow=2,labels = letters[1:2])
+                ggarrange(p1_1,p1_2,p1_3,p1_4,p1_5,p1_6,ncol=3,nrow=2),nrow=2,labels = LETTERS[1:2])
 
 ggsave("./Figures/SI/Mussel_model_dist_tipping.pdf",p_tot,width = 10,height = 12)
 
@@ -1654,91 +1703,178 @@ p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3,common.legend 
 ggsave("./Figures/SI/Mussel_model_xystats.pdf",p,width = 10,height = 8)
 
 
-## Validating predictions using null model without spatial structure ----
+## Relating parameters in the two models with infered distance ----
+all_d_kefi=readRDS("./Data/Model_confirmation_Kefi/d_for_figure.rds")
+for (k in 1:length(all_d_kefi)){assign(names(all_d_kefi)[k],all_d_kefi[[k]])}
+param_kefi=read.table("./Data/Model_confirmation_Kefi/Parameters_kefi.csv",sep=";")%>%
+  add_column(., Site=1:nrow(.))
+colnames(param_kefi)=c("d","r","c","delta","f","b","m","Site")
+param_kefi=filter(param_kefi, Site%in% d_kefi$Site)
 
-# comparizon on how much we fitted the statistics from the landscapes without spatial structure
+all_d_guichard=readRDS("./Data/Model_confirmation_Guichard/d_for_figure.rds")
+for (k in 1:length(all_d_guichard)){assign(names(all_d_guichard)[k],all_d_guichard[[k]])}
+param_guichard=read.table("./Data/Model_confirmation_Guichard/Parameters_guichard.csv",sep=";")%>%
+  add_column(., Site=1:nrow(.))%>%
+  filter(., Site%in%d_eby$Site)
+colnames(param_guichard)=c("d","a0","a2","Site")
 
-x_y_stat=read.table("./Data/Models_confirmation/Confirm_null/x_y_stat.csv",sep=";")
+p1=ggplot(NULL)+
+  geom_line(aes(x=param_kefi$b,y=all_d_kefi$d_eby$abs_dist,
+                group=as.factor(param_kefi$f)),color="grey",lwd=.5)+
+  geom_point(aes(x=param_kefi$b,y=all_d_kefi$d_eby$abs_dist,
+                 fill=as.factor(param_kefi$f),color=as.factor(param_kefi$f)),shape=21,size=3)+
+  the_theme+
+  scale_fill_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_color_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  labs(x="Recruitment of vegetation (b)",y="Distance to the \n tipping point (Dist)",
+       fill="Facilitation parameter (f)",color="Facilitation parameter (f)")
 
-list_plots=list()
-name_plot=c("Cover","# neighbors","Clustering","Skewness","Variance","Autocorrelation",
-            "SDR","PLR","Exponent p.l.","CV PSD","Frac. max")
-index=1
-for (i in c(1:11)){
-  d_fil=cbind(filter(x_y_stat%>%
-                       melt(., id.vars=c("Site_ID","Method","Type")),variable==colnames(x_y_stat)[i])%>%
-                filter(., Type=="Sim")%>%dplyr::rename(., value_sim=value),
-              filter(x_y_stat%>%
-                       melt(., id.vars=c("Site_ID","Method","Type")),variable==colnames(x_y_stat)[i])%>%
-                filter(., Type=="Obs")%>%dplyr::rename(., value_obs=value)%>%dplyr::select(., value_obs))
-  
-  list_plots[[index]]=ggplot(d_fil)+
-    geom_point(aes(x=value_obs,y=value_sim),alpha=.75,size=3,color="gray")+the_theme+
-    labs(x="",y="",color="")+
-    geom_abline(slope=1,intercept = 0,color="black")+
-    ggtitle(name_plot[i])+
-    theme(title = element_text(size=10))+
-    guides(color = guide_legend(override.aes = list(size = 3)))+
-    theme(legend.text = element_text(size=13))
-  
-  index=index+1
+p2=ggplot(NULL)+
+  geom_line(aes(x=param_guichard$d,y=all_d_guichard$d_eby$abs_dist,
+                group=interaction(as.factor(param_guichard$a0),as.factor(param_guichard$a2))),color="grey",lwd=.5)+
+  geom_point(aes(x=param_guichard$d,y=all_d_guichard$d_eby$abs_dist,
+                 color=as.factor(param_guichard$a0),
+                 fill=as.factor(param_guichard$a0),
+                 shape=as.factor(param_guichard$a2)),size=3)+
+  the_theme+
+  scale_fill_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_color_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_shape_manual(values=c(21,22))+
+  labs(x="Mortality rate of mussels (d)",y="Distance to the \n tipping point (Dist)",
+       color="Density-dependent mortality (a0)",fill="Density-dependent mortality (a0)",
+       shape="Density-dependent colonization (a2)")+
+  theme(legend.box = "vertical")
+
+p=ggarrange(p1,p2,nrow=2,labels = LETTERS[1:2],heights = c(1,1.15))
+
+ggsave("./Figures/SI/Models_parameters_estimated_distance.pdf",p,width =6,height = 8)
+
+## Relating parameters in the two models with estimated parameters in the minimal model ----
+
+all_d_kefi=readRDS("./Data/Model_confirmation_Kefi/d_for_figure.rds")
+for (k in 1:length(all_d_kefi)){assign(names(all_d_kefi)[k],all_d_kefi[[k]])}
+param_kefi=read.table("./Data/Model_confirmation_Kefi/Parameters_kefi.csv",sep=";")%>%
+  add_column(., Site=1:nrow(.))
+colnames(param_kefi)=c("d","r","c","delta","f","b","m","Site")
+param_kefi=filter(param_kefi, Site%in% d_kefi$Site)
+param_eby_kefi=read.table("./Data/Model_confirmation_Kefi/param_rej.csv",sep=";")
+param_eby_kefi=tibble(Median_p=apply(param_eby_kefi[,1:60], 2,median),
+                      Median_q=apply(param_eby_kefi[,61:120], 2,median),
+                      Site=1:60)%>%
+  filter(., Site%in% d_kefi$Site)%>%
+  add_column(., b=param_kefi$b,f=param_kefi$f)%>%
+  filter(., Median_p!=0)
+
+
+
+
+all_d_guichard=readRDS("./Data/Model_confirmation_Guichard/d_for_figure.rds")
+for (k in 1:length(all_d_guichard)){assign(names(all_d_guichard)[k],all_d_guichard[[k]])}
+param_guichard=read.table("./Data/Model_confirmation_Guichard/Parameters_guichard.csv",sep=";")%>%
+  add_column(., Site=1:nrow(.))%>%
+  filter(., Site%in%d_eby$Site)
+colnames(param_guichard)=c("d","a0","a2","Site")
+param_eby_guichard=read.table("./Data/Model_confirmation_Guichard/param_rej.csv",sep=";")
+param_eby_guichard=tibble(Median_p=apply(param_eby_guichard[,1:60], 2,median),
+                          Median_q=apply(param_eby_guichard[,61:120], 2,median),
+                          Site=1:60)%>%
+  filter(., Site%in% d_guichard$Site)%>%
+  add_column(., d=param_guichard$d,
+             a0=param_guichard$a0,
+             a2=param_guichard$a2)%>%
+  filter(., Median_p!=0)
+
+p1=ggplot(param_eby_kefi)+
+  geom_line(aes(x=b,y=Median_p,
+                group=as.factor(f)),color="grey",lwd=.5)+
+  geom_point(aes(x=b,y=Median_p,
+                 fill=as.factor(f),color=as.factor(f)),shape=21,size=3)+
+  the_theme+
+  scale_fill_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_color_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  labs(x="Recruitment of vegetation (b)",y="Median of posterior \n distribution of p",
+       fill="Facilitation parameter (f)",color="Facilitation parameter (f)")
+
+p2=ggplot(param_eby_guichard)+
+  geom_line(aes(x=d,y=Median_p,
+                group=interaction(as.factor(a0),as.factor(a2))),color="grey",lwd=.5)+
+  geom_point(aes(x=d,y=Median_p,
+                 color=as.factor(a0),
+                 fill=as.factor(a0),
+                 shape=as.factor(a2)),size=3)+
+  the_theme+
+  scale_fill_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_color_manual(values=c("#AAECEB","#66B38C","#2211F9"))+
+  scale_shape_manual(values=c(21,22))+
+  labs(x="Mortality rate of mussels (d)",y="Median of posterior \n distribution of p",
+       color="Density-dependent mortality (a0)",fill="Density-dependent mortality (a0)",
+       shape="Density-dependent colonization (a2)")+
+  theme(legend.box = "vertical")
+
+p=ggarrange(p1,p2,nrow=2,labels = LETTERS[1:2],heights = c(1,1.15))
+
+ggsave("./Figures/SI/Models_parameters_estimated_parameters.pdf",p,width =6,height = 8)
+
+
+
+
+# >> 15) Clusters climatic trends and distance to tipping ----
+
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
+d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
+clim_trend=read.table("./Data/mean_aridity_trend.csv",sep=";")
+
+# summarizing information in each site
+d_summarized=d%>%
+  dplyr::group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   abs_dis50_log=log(quantile(pinfer-pcrit,na.rm = T,.5)),
+                   abs_dis50=(quantile(pinfer-pcrit,na.rm = T,.5)))%>%
+  add_column(.,ID=1:nrow(.),Cover=d_biocom$Cover[keep_sites],Facilitation=d_biocom$Facilitation[keep_sites])
+
+d_summarized=d_summarized%>%
+  add_column(., Proj_aridity=clim_trend$mean_trend[which(clim_trend$RCP=="rcp85")])
+
+
+set.seed(123)
+kmean_sites = kmeans(scale(d_summarized[,c("abs_dis50_log","Proj_aridity")]), 5)
+
+
+name_driver=c("Multifunctionality","Current aridity level","Facilitation","Distance to the tipping point \n (Dist, log-transformed)",
+              "Yearly trend in aridity aridity \n (1950-2100)","Vegetation cover")
+id_plot=1
+for (k in c("MF","aridity","Facilitation","abs_dis50_log","Proj_aridity","Cover")){
+  assign(paste0("p_",id_plot),ggplot(d_summarized%>%
+                                       add_column(., cluster_id=as.character(kmean_sites$cluster))%>%
+                                       mutate(., cluster_id=recode_factor(cluster_id,
+                                                                          "1"="Climatic risk, \n medium ecological risk",
+                                                                          "2"= "High risk",
+                                                                          "3"="Ecological risk",
+                                                                          '4'='Climatic risk, \n low ecological risk',
+                                                                          "5"="Low risk"))%>%
+                                       melt(., measure.vars=k))+
+           geom_boxplot(aes(x=cluster_id,y=value,group=cluster_id,fill=as.character(cluster_id)))+
+           geom_jitter(aes(x=cluster_id,y=value,fill=as.character(cluster_id)),height = 0,width = .2,shape=21)+
+           the_theme+
+           labs(x="",y=name_driver[id_plot],)+
+           theme(axis.text.x = element_text(angle=60,hjust=1),legend.position = "none")+  
+           scale_fill_manual(values=c("#FDE7BB","#FFB77C","#BC8DFF","#FF707B","#9CECE5")))
+  id_plot=id_plot+1
 }
 
-p=annotate_figure(ggarrange(plotlist=list_plots,ncol = 4,nrow = 3,common.legend = T,legend="bottom"),
-                  left=text_grob("Stats in Contact process (closest selected simulations)",rot=90,color="black",size=15,face ="bold",vjust=1,family = "NewCenturySchoolbook"),
-                  bottom = text_grob("Stats in the null vegatation landscapes (virtual observation)",color="black",size=15,face="bold",vjust=-1,family = "NewCenturySchoolbook"))
 
-ggsave("./Figures/SI/Null_xystats.pdf",p,width = 10,height = 8)
-
-
-
-
-
-d_median=read.table("./Data/Similarity_within_sites_median.csv",sep=";")
-d_ABC=read.table("./Data/Similarity_within_sites_ABC_uncertainty.csv",sep=";")
-
-p1=d_median%>%
-  melt(., id.vars=c("Plot_n"))%>%
-  mutate(., variable=recode_factor(variable,
-                                   "NRMSE_p"="Parameter q",
-                                   "NRMSE_q"="Parameter p",
-                                   "NRMSE_rela"="Relative distance",
-                                   "NRMSE_abs"="Absolute distance"))%>%
-  ggplot(.)+
-  geom_violin(aes(x=variable,y=value,fill=variable),
-              color="transparent",alpha=.5,width=.3)+
-  geom_boxplot(aes(x=variable,y=value,fill=variable),
-               width=.1,alpha=.5,color="black")+
-  the_theme+
-  labs(x="",y="RMSE within / between sites")+
-  geom_hline(yintercept = 1,color="black")+
-  scale_color_manual(values=c("#A6D67E","#237F2E","#D0A3E8","#8C26C3"))+
-  scale_fill_manual(values=c("#A6D67E","#237F2E","#D0A3E8","#8C26C3"))+
-  theme(legend.position = "none")
-
-p2=d_ABC%>%
-  dplyr::group_by(.,Plot_n)%>%
-  melt(., id.vars=c("Plot_n","ID_rep"))%>%
-  mutate(., variable=recode_factor(variable,
-                                   "NRMSE_p"="Parameter q",
-                                   "NRMSE_q"="Parameter p",
-                                   "NRMSE_rela"="Relative distance",
-                                   "NRMSE_abs"="Absolute distance"))%>%
-  ggplot(.)+
-  geom_violin(aes(x=variable,y=value,fill=variable),
-              color="transparent",alpha=.5,width=.3)+
-  geom_boxplot(aes(x=variable,y=value,fill=variable),
-               width=.1,alpha=.5,color="black",outlier.shape = NA)+
-  the_theme+
-  labs(x="",y="RMSE within / between sites")+
-  geom_hline(yintercept = 1,color="black")+
-  scale_color_manual(values=c("#A6D67E","#237F2E","#D0A3E8","#8C26C3"))+
-  scale_fill_manual(values=c("#A6D67E","#237F2E","#D0A3E8","#8C26C3"))+
-  theme(legend.position = "none")
-
-p=ggarrange(
-  p1+ggtitle("With posterior median"),
-  p2+ggtitle("With posterior uncertainty"),
-  labels = letters[1:2],nrow=2
+p_tot=ggarrange(
+  ggarrange(p_4+theme(axis.text.x = element_blank(),
+                      axis.ticks.x = element_blank()),p_1,
+            heights = c(.7,1),nrow=2,align = "v"),
+  ggarrange(p_5+theme(axis.text.x = element_blank(),
+                      axis.ticks.x = element_blank()),p_2,
+            heights = c(.7,1),nrow=2,align = "v"),
+  ggarrange(p_6+theme(axis.text.x = element_blank(),
+                      axis.ticks.x = element_blank()),p_3,
+            heights = c(.7,1),nrow=2,align = "v"),ncol=3,align = "h"
 )
-ggsave("./Figures/SI/Comparison_within_between_sites.pdf",p,width = 6,height = 6)
+
+ggsave("./Figures/SI/Clusters_characteristics.pdf",p_tot,width = 9,height = 6)
+
+

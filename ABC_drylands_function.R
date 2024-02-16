@@ -24,7 +24,8 @@ the_theme=theme_classic()+theme(legend.position = "bottom",
                                 strip.background = element_rect(fill="white",color="white"),
                                 strip.text.y = element_text(size = 10, angle = -90, face = "italic"),
                                 strip.text.x = element_text(size = 10, face = "italic"),
-                                legend.text = element_text(size = 10),text = element_text(family = "NewCenturySchoolbook"))
+                                legend.text = element_text(size = 10))
+title_distance=expression(paste("Distance to the tipping point",italic(" (Dist)")))
 
 # Useful functions ----
 my_pal=function(n){

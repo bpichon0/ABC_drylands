@@ -53,18 +53,18 @@ These methodological analyses are nevertheless not needed for the rest of the an
 
 ### Step 3: Statistical analyses 
 
-To replicate statistical analyses, please run Step 3 to 5 in the `ABC_drylands_main.R` file (respectively fitting mixed-effects linear models, comparing predictive power of vegetation cover and *q*, and analysing the site effects).
+To replicate statistical analyses, please run Step 3 to 6 in the `ABC_drylands_main.R` file (respectively fitting mixed-effects linear models, Running the SEM, comparing predictive power of vegetation cover and/or spatial structure of vegetation, and analysing climatic data).
 
 ### Step 4: Comparison to other models 
 
 Last, to replicate the comparison of our approach with other models, we provide a complete framework through a *bash (.sh)* file in `./Data/Model_confirmation_Guichard` and `./Data/Model_confirmation_Kefi`.
 The framework draws the parameters, performs the simulations with the two models, infers the parameters, and estimates the distance to the tipping point by our approach and in the two models (mussel-bed and dryland vegetation). 
-Then, to postprocess these simulations, you can run Step 6 of the `ABC_drylands_main.R` file.
+Then, to postprocess these simulations, you can run Step 7 of the `ABC_drylands_main.R` file.
 
 ## `Replicating the figures`
 
 The file `Make_figs.R` plot the figures. As we provide all the data to replicate each figure, everything can be runed without replicating the different analyses. The file is organized in different chunks of code, that can be seen by pressing *Alt+O*.
-This allows to replicate the figures below (among others displayed in supplementary).
+We give the main figures in the Figure folder but all supplementary figures can be replicated using `Make_figs.R`.
 
 ## `Reading the paper`
 
@@ -72,8 +72,4 @@ To have more information about these figures, read the following preprint: Beno√
 
 <p align="center">
     <img src="https://github.com/bpichon0/ABC_drylands/blob/master/Example/Validation_simulations.jpg" width="800">
-</p>
-
-<p align="center">
-    <img src="https://github.com/bpichon0/ABC_drylands/blob/master/Example/Drivers_distance_tipping.jpg" width="800">
 </p>

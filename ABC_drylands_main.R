@@ -1296,7 +1296,7 @@ write.table(x_y_param,"./Data/Scale_obs_indentifiability/Retrieving_parameters_d
 
 
 # ---------------------- Step 3: Running mixed effects models ----
-## >> 4.1) Without facilitation ----
+## >> 1) Without facilitation ----
 
 boot_function_lm = function(formula, data, indices) {
   d = data[indices,] 
@@ -1305,7 +1305,7 @@ boot_function_lm = function(formula, data, indices) {
 }
 
 d=read.table("./Data/posterior_param.csv",sep=";",header=T)
-keep_sites=read.table("./Data/Keeping_sites_biocom.csv",sep=";")$V1
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
 d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),median_p=apply(d[,1:345],2,median),
          mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),median_q=apply(d[,346:690],2,median),
          Plot_n=d_biocom$Plot_n,
@@ -1343,13 +1343,12 @@ d=cbind(d,d2)
 d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
           q=logit(d$median_q),
           Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
-          abs_dist=scale(d$abs_median)[,1],
-          rela_dist=scale(d$relativ_median)[,1],
+          abs_dist=scale(log(d$abs_median))[,1],
+          rela_dist=scale(log(d$relativ_median))[,1],
           Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
           Site=d$Site,
           MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
           SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
-          Soil_A=(d$Soil_A-mean(d$Soil_A,na.rm=T))/sd(d$Soil_A,na.rm = T),
           Facilitation=(d$Facilitation-mean(d$Facilitation,na.rm=T))/sd(d$Facilitation,na.rm = T),
           Cover=(d$Cover-mean(d$Cover,na.rm=T))/sd(d$Cover,na.rm = T),
           Aridity=(d$Aridity-mean(d$Aridity,na.rm=T))/sd(d$Aridity,na.rm = T),
@@ -1361,34 +1360,35 @@ d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p
           Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
           Plot_n=d$Plot_n)
 
-mod_predictors=gsub("\n     ","","Aridity + MF + Sand + Soil_A +
+mod_predictors=gsub("\n     ","","Aridity + MF + Sand + 
                     Lat + Long_cos + Long_sin + Slope + Elevation + ( 1 | Plot_n)")
 d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
 d_info_model=list(global_R2=tibble(),R2_partial_res=tibble(),Vif=tibble(),Moran=tibble(),Effects=tibble())
 
-for (response_var in c("Cover","q","abs_dist","rela_dist")){
+for (response_var in c("abs_dist","rela_dist")){
   
   model_abs=(lmer(formula = paste(response_var," ~ ",mod_predictors), data = d2)) #fitting the model
   
   mcp.fnc(model_abs) #checking model assumptions
   
   #ARIDITY
-
+  
   resid_mod=visreg::visreg(fit = model_abs,xvar="Aridity",plot=F) 
   boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Aridity)
   
   d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
                                     tibble(Driver_name="Aridity",
-                                           Response_var=response_var,
-                                           R2=rsq(lm(data=resid_mod$res,visregRes~Aridity))))
+                                           Response=response_var,
+                                           R2=rsq(lm(data=resid_mod$res,visregRes~Aridity)),
+                                           pval=get_bootstrapped_pval(boot_AI$t[,1])))
   
   d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
                                tibble(Driver_value=resid_mod$res$Aridity,
                                       Driver_name="Aridity",
-                                      Response_var=response_var,
+                                      Response=response_var,
                                       Resids=resid_mod$res$visregRes))
   
-  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Aridity",Response_var=response_var))
+  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Aridity",Response=response_var))
   
   
   # Multifunctionality 
@@ -1398,68 +1398,31 @@ for (response_var in c("Cover","q","abs_dist","rela_dist")){
   
   d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
                                     tibble(Driver_name="Multifunctionality",
-                                           Response_var=response_var,
-                                           R2=rsq(lm(data=resid_mod$res,visregRes~MF))))
+                                           Response=response_var,
+                                           R2=rsq(lm(data=resid_mod$res,visregRes~MF)),
+                                           pval=get_bootstrapped_pval(boot_AI$t[,1])))
   
   d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
                                tibble(Driver_value=resid_mod$res$MF,
                                       Driver_name="Multifunctionality",
-                                      Response_var=response_var,
+                                      Response=response_var,
                                       Resids=resid_mod$res$visregRes))
   
-  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Multifunctionality",Response_var=response_var))
+  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Multifunctionality",Response=response_var))
   
-  
-  # Sand soil content 
-  
-  resid_mod=visreg::visreg(fit = model_abs,xvar="Sand",plot=F) 
-  boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Sand)
-  
-  d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
-                                    tibble(Driver_name="Sand",
-                                           Response_var=response_var,
-                                           R2=rsq(lm(data=resid_mod$res,visregRes~Sand))))
-  
-  d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
-                               tibble(Driver_value=resid_mod$res$Sand,
-                                      Driver_name="Sand",
-                                      Response_var=response_var,
-                                      Resids=resid_mod$res$visregRes))
-  
-  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Sand",Response_var=response_var))
-  
-
-  
-  # Soil amelioration 
-  
-  resid_mod=visreg::visreg(fit = model_abs,xvar="Soil_A",plot=F) 
-  boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Soil_A)
-  
-  d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
-                                    tibble(Driver_name="Soil amelioration",
-                                           Response_var=response_var,
-                                           R2=rsq(lm(data=resid_mod$res,visregRes~Soil_A))))
-  
-  d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
-                               tibble(Driver_value=resid_mod$res$Soil_A,
-                                      Driver_name="Soil amelioration",
-                                      Response_var=response_var,
-                                      Resids=resid_mod$res$visregRes))
-  
-  d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Soil amelioration",Response_var=response_var))
   
   #Properties model
   
   #R2  
   d_info_model$global_R2=rbind(d_info_model$global_R2,tibble(Response=response_var,
-                                               R2m=r.squaredGLMM(model_abs)[1],
-                                               R2c=r.squaredGLMM(model_abs)[2]))
-
+                                                             R2m=r.squaredGLMM(model_abs)[1],
+                                                             R2c=r.squaredGLMM(model_abs)[2]))
+  
   #vif
   d_info_model$Vif=rbind(d_info_model$Vif,tibble(Response=response_var,
                                                  Vif=vif(model_abs),
                                                  Name_pred=names(vif(model_abs))))
-
+  
   #Spatial autocorr
   save=d2
   
@@ -1472,8 +1435,8 @@ for (response_var in c("Cover","q","abs_dist","rela_dist")){
     nb.col.knn = knn2nb(col.knn)
     Moran_test=moran.test(save$Resid, nb2listw(nb.col.knn))
     d_info_model$Moran=rbind(d_info_model$Moran,tibble(Response=response_var,
-                                                   p_val=Moran_test$p.value,
-                                                   Sp_scale=sp_scale))
+                                                       p_val=Moran_test$p.value,
+                                                       Sp_scale=sp_scale))
   }
   
   d_info_model$Effects=rbind(d_info_model$Effects,tibble(Response=response_var,
@@ -1486,7 +1449,7 @@ saveRDS(d_mod,"./Data/Drivers_stability_metrics_data_uncertainty_without_facilit
 
 
 
-## >> 4.2) With facilitation ----
+## >> 2) With facilitation ----
 
 boot_function_lm = function(formula, data, indices) {
   d = data[indices,] 
@@ -1495,7 +1458,7 @@ boot_function_lm = function(formula, data, indices) {
 }
 
 d=read.table("./Data/posterior_param.csv",sep=";",header=T)
-keep_sites=read.table("./Data/Keeping_sites_biocom.csv",sep=";")$V1
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
 d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),median_p=apply(d[,1:345],2,median),
          mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),median_q=apply(d[,346:690],2,median),
          Plot_n=d_biocom$Plot_n,
@@ -1532,9 +1495,117 @@ d=cbind(d,d2)
 d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
           q=logit(d$median_q),
           Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
-          abs_dist=scale(d$abs_median)[,1],
+          abs_dist=scale(log(d$abs_median))[,1],
+          rela_dist=scale(log(d$relativ_median))[,1],
+          Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
+          Site=d$Site,
+          MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
+          SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
+          Soil_A=(d$Soil_A-mean(d$Soil_A,na.rm=T))/sd(d$Soil_A,na.rm = T),
+          Facilitation=(d$Facilitation-mean(d$Facilitation,na.rm=T))/sd(d$Facilitation,na.rm = T),
+          Cover=(d$Cover-mean(d$Cover,na.rm=T))/sd(d$Cover,na.rm = T),
+          Aridity=(d$Aridity-mean(d$Aridity,na.rm=T))/sd(d$Aridity,na.rm = T),
+          Lat=(d$Lat-mean(d$Lat,na.rm=T))/sd(d$Lat,na.rm = T),
+          Long_cos=(d$Long_cos-mean(d$Long_cos,na.rm=T))/sd(d$Long_cos,na.rm = T),
+          Long_sin=(d$Long_sin-mean(d$Long_sin,na.rm=T))/sd(d$Long_sin,na.rm = T),
+          Elevation=(d$Elevation-mean(d$Elevation,na.rm=T))/sd(d$Elevation,na.rm = T),
+          Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
+          Plot_n=d$Plot_n)%>%
+  filter(., !is.na(Facilitation))
+
+mod_predictors=gsub("\n     ","","Aridity + MF + Sand + Facilitation +
+                    Lat + Long_cos + Long_sin + Slope + Elevation + ( 1 | Plot_n)")
+
+model_abs=(lmer(formula = paste("abs_dist ~ ",mod_predictors), data = d2)) #fitting the model
+model_rela=(lmer(formula = paste("rela_dist ~ ",mod_predictors), data = d2)) #fitting the model
+model_q=(lmer(formula = paste("q ~ ",mod_predictors), data = d2)) #fitting the model
+model_cover=(lmer(formula = paste("Cover ~ ",mod_predictors), data = d2)) #fitting the model
+
+d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
+
+# Facilitation: distance
+
+resid_mod=visreg::visreg(fit = model_abs,xvar="Facilitation",plot=F) 
+boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+
+d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
+                                  tibble(Driver_name="Facilitation",
+                                         Response="abs_dist",
+                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation)),
+                                         pval=get_bootstrapped_pval(boot_AI$t[,1])))
+
+d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
+                             tibble(Driver_value=resid_mod$res$Facilitation,
+                                    Driver_name="Facilitation",
+                                    Response="abs_dist",
+                                    Resids=resid_mod$res$visregRes))
+
+# Facilitation: relative distance
+
+resid_mod=visreg::visreg(fit = model_rela,xvar="Facilitation",plot=F) 
+boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+
+d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
+                                  tibble(Driver_name="Facilitation",
+                                         Response="rela_dist",
+                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation)),
+                                         pval=get_bootstrapped_pval(boot_AI$t[,1])))
+
+d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
+                             tibble(Driver_value=resid_mod$res$Facilitation,
+                                    Driver_name="Facilitation",
+                                    Response="rela_dist",
+                                    Resids=resid_mod$res$visregRes))
+
+
+saveRDS(d_mod,"./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")
+saveRDS(d_info_model,"./Data/Properties_models.rds")
+
+
+# ---------------------- Step 4: Running the SEM ----
+
+d=read.table("./Data/posterior_param.csv",sep=";",header=T)
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
+d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),median_p=apply(d[,1:345],2,median),
+         mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),median_q=apply(d[,346:690],2,median),
+         Plot_n=d_biocom$Plot_n,
+         Aridity=d_biocom$Aridity,
+         Sand=d_biocom$Sand,
+         MF=d_biocom$MF,
+         Soil_A=d_biocom$Soil_A,
+         Slope=d_biocom$Slope,
+         Moran_I=d_biocom$moran_I,
+         Facilitation=d_biocom$Facilitation,
+         SR=d_biocom$SR,
+         Long_cos=d_biocom$Long_cos,
+         Long_sin=d_biocom$Long_sin,
+         Lat=d_biocom$Lat,
+         Elevation=d_biocom$Elevation,
+         Cover=d_biocom$Cover)%>%
+  dplyr::filter(., Site %in% keep_sites)
+
+d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")%>%
+  dplyr::group_by(., Site,MF,aridity,Sand)%>%
+  dplyr::summarise(., .groups = "keep",
+                   abs_mean=mean(pinfer-pcrit,na.rm = T),
+                   abs_median=median(pinfer-pcrit,na.rm = T),
+                   abs_sd=sd(pinfer-pcrit,na.rm = T),
+                   relativ_mean=mean((pinfer-pcrit)/pcrit,na.rm = T),
+                   relativ_median=median((pinfer-pcrit)/pcrit,na.rm = T),
+                   relativ_sd=sd((pinfer-pcrit)/pcrit,na.rm = T),
+                   Size_mean=mean(Size_tipping,na.rm = T),
+                   Size_sd=sd(Size_tipping,na.rm = T))%>%
+  dplyr::filter(., Site %in% keep_sites)
+
+d=cbind(d,d2)
+
+
+d2=tibble(p=logit(d$median_p),
+          q=logit(d$median_q),
+          abs_dist=scale(log(d$abs_median))[,1],
           rela_dist=scale(d$relativ_median)[,1],
           Sand=(d$Sand-mean(d$Sand,na.rm=T))/sd(d$Sand,na.rm = T),
+          Moran_I=(d$Moran_I-mean(d$Moran_I,na.rm=T))/sd(d$Moran_I,na.rm = T),
           Site=d$Site,
           MF=(d$MF-mean(d$MF,na.rm=T))/sd(d$MF,na.rm = T),
           SR=(d$SR-mean(d$SR,na.rm=T))/sd(d$SR,na.rm = T),
@@ -1549,76 +1620,93 @@ d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p
           Slope=(d$Slope-mean(d$Slope,na.rm=T))/sd(d$Slope,na.rm = T),
           Plot_n=d$Plot_n)
 
-mod_predictors=gsub("\n     ","","Aridity + MF + Sand + Soil_A + Facilitation +
-                    Lat + Long_cos + Long_sin + Slope + Elevation + ( 1 | Plot_n)")
+d_sem=d2
 
-model_abs=(lmer(formula = paste("abs_dist ~ ",mod_predictors), data = d2)) #fitting the model
-model_q=(lmer(formula = paste("q ~ ",mod_predictors), data = d2)) #fitting the model
-model_cover=(lmer(formula = paste("Cover ~ ",mod_predictors), data = d2)) #fitting the model
+k="abs_dist"
 
-d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
+#We first control for all covariates and extract the residuals
+model_lmer=lm("value ~ Long_cos + Long_sin + Lat + Elevation",
+              data = d2%>%melt(., measure.vars=k)%>%filter(., !is.na(value)),
+              na.action = na.fail)
 
-# Facilitation: distance
+resid_model=residuals(model_lmer) #extract residuals of the distance to the tipping point after controlling for all covariates
 
-resid_mod=visreg::visreg(fit = model_abs,xvar="Facilitation",plot=F) 
-boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+save=d2[as.numeric(names(resid_model)),]%>% #add it to the dataframe 
+  add_column(., Resid_mod=resid_model)
 
-d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
-                                  tibble(Driver_name="Facilitation",
-                                         Response_var="abs_dist",
-                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation))))
+d_sem=save
+SEM_distance=psem(
+  lm(Resid_mod ~ Cover + Moran_I, d_sem),
+  lmer(Cover ~ (1|Plot_n) + Aridity  + MF, d_sem),
+  lmer(Moran_I ~ (1|Plot_n) + Aridity  + MF, d_sem),
+  lm(MF ~ Aridity, d_sem),
+  Moran_I%~~%Cover
+)
+summary(SEM_distance)
 
-d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
-                             tibble(Driver_value=resid_mod$res$Facilitation,
-                                    Driver_name="Facilitation",
-                                    Response="Distance",
-                                    Resids=resid_mod$res$visregRes))
+SEM_distance_boot = bootEff(SEM_distance, R = 1000, seed = 13, parallel = "snow",ran.eff = "Plot_n",ncpus = 50)
+saveRDS(SEM_distance_boot,"./Data/SEM_boot_without_facilitation.rds")
 
-# Facilitation: q
+SEM_distance_boot=readRDS("./Data/SEM_boot_without_facilitation.rds")
+Effects = semEff(SEM_distance_boot)
 
-d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Facilitation",Response="Distance"))
+#Getting information about indirect effects through direct and total effects
+#Aggregating in a tibble
 
-resid_mod=visreg::visreg(fit = model_q,xvar="Facilitation",plot=F) 
-boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+Direct_effects=tibble()
+for (predictors in c("Resid.mod","Moran.I","Cover","MF")){
+  effect_pred=Effects$`Bootstrapped Effects`[[predictors]]
+  if (predictors %in% c("MF")){
+    Direct_effects=rbind(Direct_effects,
+                         tibble(q1=apply(effect_pred$Direct,2,quantile,.025)[2],
+                                q3=apply(effect_pred$Direct,2,quantile,.975)[2],
+                                q2=apply(effect_pred$Direct,2,median)[2],
+                                pval=apply(effect_pred$Direct,2,get_bootstrapped_pval)[2],
+                                Term=names(apply(effect_pred$Direct,2,quantile,.025)[2]),
+                                Response=predictors))
+    
+  }else{
+    Direct_effects=rbind(Direct_effects,
+                         tibble(q1=apply(effect_pred$Direct[,-1],2,quantile,.025),
+                                q3=apply(effect_pred$Direct[,-1],2,quantile,.975),
+                                q2=apply(effect_pred$Direct[,-1],2,median),
+                                pval=apply(effect_pred$Direct[,-1],2,get_bootstrapped_pval),
+                                Term=names(apply(effect_pred$Direct[,-1],2,quantile,.025)),
+                                Response=predictors))
+  }
+}
 
-d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
-                                  tibble(Driver_name="Facilitation",
-                                         Response_var="q",
-                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation))))
 
-d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
-                             tibble(Driver_value=resid_mod$res$Facilitation,
-                                    Driver_name="Facilitation",
-                                    Response="Aggregation \n vegetation (q)",
-                                    Resids=resid_mod$res$visregRes))
-
-# Facilitation: cover
-
-d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Facilitation",Response="Aggregation \n vegetation (q)"))
-
-resid_mod=visreg::visreg(fit = model_cover,xvar="Facilitation",plot=F) 
-boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
-
-d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
-                                  tibble(Driver_name="Facilitation",
-                                         Response_var="Cover",
-                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation))))
-
-d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
-                             tibble(Driver_value=resid_mod$res$Facilitation,
-                                    Driver_name="Facilitation",
-                                    Response="Vegetation cover",
-                                    Resids=resid_mod$res$visregRes))
-
-d_mod$Boot_effects=rbind(d_mod$Boot_effects,tibble(Slopes=boot_AI$t[,1],Driver_name="Facilitation",Response="Vegetation cover"))
-
-saveRDS(d_mod,"./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")
-saveRDS(d_info_model,"./Data/Properties_models.rds")
+effect_on_moran=Effects$`Bootstrapped Effects`$Moran.I
+effect_on_cov=Effects$`Bootstrapped Effects`$Cover
+effect_on_dist=Effects$`Bootstrapped Effects`$Resid.mod
 
 
 
+Total_effects=rbind(tibble(q1=apply(effect_on_moran$Total[,-1],2,quantile,.025),
+                           q3=apply(effect_on_moran$Total[,-1],2,quantile,.975),
+                           q2=apply(effect_on_moran$Total[,-1],2,median),
+                           pval=apply(effect_on_moran$Total[,-1],2,get_bootstrapped_pval),
+                           Term=names(apply(effect_on_moran$Total[,-1],2,quantile,.025)),
+                           Response="Moran.I"),
+                    tibble(q1=apply(effect_on_cov$Total[,-1],2,quantile,.025),
+                           q3=apply(effect_on_cov$Total[,-1],2,quantile,.975),
+                           q2=apply(effect_on_cov$Total[,-1],2,median),
+                           pval=apply(effect_on_cov$Total[,-1],2,get_bootstrapped_pval),
+                           Term=names(apply(effect_on_cov$Total[,-1],2,quantile,.025)),
+                           Response="Cover"),
+                    tibble(q1=apply(effect_on_dist$Total[,-1],2,quantile,.025),
+                           q3=apply(effect_on_dist$Total[,-1],2,quantile,.975),
+                           q2=apply(effect_on_dist$Total[,-1],2,median),
+                           pval=apply(effect_on_dist$Total[,-1],2,get_bootstrapped_pval),
+                           Term=names(apply(effect_on_dist$Total[,-1],2,quantile,.025)),
+                           Response="Distance"))
 
-# ---------------------- Step 4: Bootstrap AIC q cover ----
+
+write.table(Total_effects,"./Data/Total_effects_without_facilitation.csv",sep=";")
+write.table(Direct_effects,"./Data/Direct_effects_without_facilitation.csv",sep=";")
+
+# ---------------------- Step 5: Bootstrap AIC Moran I/Cover ----
 
 #with data uncertainty
 d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
@@ -1656,8 +1744,9 @@ d=d%>%
 
 d2=tibble(p=logit(d$median_p),
           q=logit(d$median_q),
-          abs_dist=scale(d$abs_dis50)[,1],
-          rela_dist=scale(d$relativ_dis50)[,1],
+          moran_I=scale(d_biocom$moran_I[keep_sites])[,1],
+          abs_dist=scale(log(d$abs_dis50))[,1],
+          rela_dist=scale(log(d$relativ_dis50))[,1],
           Site=d$Site,
           Cover=scale(d$Cover)[,1],
           Plot_n=d$Plot_n)
@@ -1675,13 +1764,13 @@ for (k in 1:n_boot){
   model_abs_cover=(data_sampled%>% lmer(formula = paste("abs_dist ~ Cover + ( 1 | Plot_n)"), data = .))
   model_rela_cover=(data_sampled%>% lmer(formula = paste("rela_dist ~ Cover + ( 1 | Plot_n)"), data = .))
   
-  #models for q+cover
-  model_abs_both=(data_sampled%>% lmer(formula = paste("abs_dist ~ q + Cover + ( 1 | Plot_n)"), data = .))
-  model_rela_both=(data_sampled%>% lmer(formula = paste("rela_dist ~ q + Cover + ( 1 | Plot_n)"), data = .))
+  #models for moran_I+cover
+  model_abs_both=(data_sampled%>% lmer(formula = paste("abs_dist ~ moran_I + Cover + ( 1 | Plot_n)"), data = .))
+  model_rela_both=(data_sampled%>% lmer(formula = paste("rela_dist ~ moran_I + Cover + ( 1 | Plot_n)"), data = .))
   
-  #models for q
-  model_abs_q=(data_sampled%>% lmer(formula = paste("abs_dist ~ q + ( 1 | Plot_n)"), data = .))
-  model_rela_q=(data_sampled%>% lmer(formula = paste("rela_dist ~ q + ( 1 | Plot_n)"), data = .))
+  #models for moran_I
+  model_abs_q=(data_sampled%>% lmer(formula = paste("abs_dist ~ moran_I + ( 1 | Plot_n)"), data = .))
+  model_rela_q=(data_sampled%>% lmer(formula = paste("rela_dist ~ moran_I + ( 1 | Plot_n)"), data = .))
   
   AIC_abs=AIC(model_abs_cover,model_abs_both,model_abs_q)
   AIC_rela=AIC(model_rela_cover,model_rela_both,model_rela_q)
@@ -1696,200 +1785,56 @@ write.table(d_AIC,"./Data/Cover_vs_spatial_structure_data_uncertainty.csv",sep="
 
 
 
-# ---------------------- Step 5: Similarity inference within site ----
+# ---------------------- Step 6: Climatic projections ----
 
-keep_sites=read.table("./Data/Keeping_sites_biocom.csv",sep=";")$V1
-d=read.table("./Data/posterior_param.csv",sep=";") #posterior
-d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";") #predicted metrics
-d_biocom=read.table("./Data/biocom_data.csv",sep=";")%>%
-  filter(., c(1:nrow(.)) %in% keep_sites)
+#climatic data downloaded from https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-biodiversity-cmip5-global?tab=form
+#Then climatic data have to be put in ./Data/Climatic_data/
+#dir.create("./Data/Climatic_data/",showWarnings = F)
 
-d_summarized=cbind(d2%>%
-                     dplyr::group_by(., Site,MF,aridity,Sand)%>%
-                     dplyr::summarise(., .groups = "keep",
-                                      mean_rela=mean((pinfer-pcrit)/pcrit,na.rm = T),
-                                      sd_rela=sd((pinfer-pcrit)/pcrit,na.rm = T),
-                                      mean_abs=mean((pinfer-pcrit)/pcrit,na.rm = T),
-                                      sd_abs=sd((pinfer-pcrit)/pcrit,na.rm = T),
-                                      median_abs=median((pinfer-pcrit),na.rm = T),
-                                      median_rela=median((pinfer-pcrit)/pcrit,na.rm = T),
-                                      mean_size=mean((pinfer-pcrit)/pcrit,na.rm = T),
-                                      sd_size=sd((pinfer-pcrit)/pcrit,na.rm = T))%>%
-                     filter(., Site %in% keep_sites),
-                   tibble(mean_p=colMeans(d)[keep_sites],
-                          mean_q=colMeans(d)[keep_sites+345],
-                          median_p=apply(d,2,median)[keep_sites],
-                          median_q=apply(d,2,median)[keep_sites+345],
-                          p_sd=apply(d,2,sd,na.rm=T)[keep_sites],
-                          q_sd=apply(d,2,sd,na.rm=T)[keep_sites+345]))%>%
-  add_column(., Plot_n=d_biocom$Plot_n[.$Site])
+d_biocom=read.table("./Data/data_sites.csv",sep=";")
+keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
 
-d_ABC=d_median=tibble()
-for (k in unique(d_biocom$Plot_n)){ #each site
-  
-  
-  #using ABC uncertainty
-  for (rep_id in 1:100){
+climatic_data=tibble()
+
+model_id=1
+for (rcp_scena in c("rcp45","rcp85")){
+  for (model_clim in list.files("./Data/Climatic_data/dataset-sis-biodiversity-cmip5-global-721133b9-99f3-4fba-8c97-07f22b5cd737/",pattern = rcp_scena)){
     
     
-    #First parameters 
+    nc_data_aridity=rast(paste0("./Data/Climatic_data/dataset-sis-biodiversity-cmip5-global-721133b9-99f3-4fba-8c97-07f22b5cd737/",
+                                model_clim))
+    dryland_sf = st_as_sf(d_biocom[keep_sites,], coords = c("Longitude", "Lattitude"), crs = 4326)
     
+    aridity_values = raster::extract(nc_data_aridity, dryland_sf,method="bilinear")[,-1]
     
-    p_site=sapply(which(d_biocom$Plot_n==k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_p[x],
-                   sd = d_summarized$p_sd[x]))
-    }) #get the values of p
-    
-    q_site=sapply(which(d_biocom$Plot_n==k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_q[x],
-                   sd = d_summarized$q_sd[x]))
-    }) #get the values of p
-    
-    p_other=sapply(which(d_biocom$Plot_n!=k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_p[x],sd=d_summarized$p_sd[x]))
-    }) #get the values of p aside this site
-    q_other=sapply(which(d_biocom$Plot_n!=k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_q[x],sd=d_summarized$q_sd[x]))
-    }) #get the values of q aside this site
-    
-    RMSE_p_within = mean(sapply(1:length(p_site),function(x){
-      return(sqrt(sum((p_site-p_site[x])**2,na.rm = T)/length(p_site) ))})) #NRMSE of p within
-    
-    RMSE_q_within = mean(sapply(1:length(q_site),function(x){
-      return(sqrt(sum((q_site-q_site[x])**2,na.rm = T)/length(q_site) ))})) #NRMSE of q within
-    
-    RMSE_p_all = mean(sapply(1:length(p_site),function(x){
-      return(sqrt(sum((p_other-p_site[x])**2,na.rm = T)/length(p_other) ))})) #NRMSE of p between
-    RMSE_q_all = mean(sapply(1:length(q_site),function(x){
-      return(sqrt(sum((q_other-q_site[x])**2,na.rm = T)/length(q_other) ))})) #NRMSE of q between
-    
-    NRMSE_p=RMSE_p_within/RMSE_p_all
-    NRMSE_q=RMSE_q_within/RMSE_q_all
-    
-    
-    
-    #second for resilience related predictions
-    
-    #1) relative distance
-    
-    dist_site=sapply(which(d_biocom$Plot_n==k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_rela[x],
-                   sd = d_summarized$sd_rela[x]))
-    }) #get the values of distance to desert state within the site
-    
-    dist_other=sapply(which(d_biocom$Plot_n!=k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_rela[x],sd=d_summarized$sd_rela[x]))
-    }) #get the values of distance aside this site
-    
-    if (any (dist_other<0)){
-      dist_other=dist_other[-which(dist_other<0)] #can happen
+    fun=function(x) {
+      if (any(is.na(x))){
+        NA
+      }else{
+        lin_mod=lm(x ~ as.numeric(seq(1950, 2100, by=1)[1:ncol(aridity_values)]));
+        summary(lin_mod)$coefficients[2]
+      }
     }
     
-    RMSE_dist_within = mean(sapply(1:length(dist_site),function(x){
-      return(sqrt(sum((dist_site-dist_site[x])**2,na.rm = T)/length(dist_site) ))})) #NRMSE of p within
-    
-    RMSE_dist_all = mean(sapply(1:length(dist_site),function(x){
-      return(sqrt(sum((dist_other-dist_site[x])**2,na.rm = T)/length(dist_other) ))})) #NRMSE of p between
-    
-    NRMSE_rela=RMSE_dist_within/RMSE_dist_all
-    
-    #2) absolute distance
-    
-    dist_site=sapply(which(d_biocom$Plot_n==k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_abs[x],
-                   sd = d_summarized$sd_abs[x]))
-    }) #get the values of distance to desert state within the site
-    
-    dist_other=sapply(which(d_biocom$Plot_n!=k),function(x){
-      return(rnorm(1,mean=d_summarized$mean_abs[x],sd=d_summarized$sd_abs[x]))
-    }) #get the values of distance aside this site
-    
-    if (any (dist_other<0)){
-      dist_other=dist_other[-which(dist_other<0)] #can happen
-    }
-    
-    RMSE_dist_within = mean(sapply(1:length(dist_site),function(x){
-      return(sqrt(sum((dist_site-dist_site[x])**2,na.rm = T)/length(dist_site) ))})) #NRMSE of p within
-    
-    RMSE_dist_all = mean(sapply(1:length(dist_site),function(x){
-      return(sqrt(sum((dist_other-dist_site[x])**2,na.rm = T)/length(dist_other) ))})) #NRMSE of p between
-    
-    NRMSE_abs=RMSE_dist_within/RMSE_dist_all
-    
-    
-    
-    d_ABC=rbind(d_ABC,tibble(NRMSE_p=NRMSE_p,NRMSE_q=NRMSE_q,
-                             NRMSE_abs=NRMSE_abs,
-                             NRMSE_rela=NRMSE_rela,
-                             Plot_n=k,ID_rep=rep_id))
-    
+    trends_aridity = as.data.frame(apply(aridity_values,1,fun))
+    colnames(trends_aridity)=c("trend")
+    climatic_data=rbind(climatic_data,trends_aridity%>%add_column(., model=model_id,Site_ID=1:293,RCP=rcp_scena))
+    model_id=model_id+1
   }
-  
-  #Using the posterior median
-  #First parameters 
-  
-  
-  p_site=d_summarized$median_p[which(d_summarized$Plot_n==k)]
-  q_site=d_summarized$median_q[which(d_summarized$Plot_n==k)]
-  
-  p_other=d_summarized$median_p[-which(d_summarized$Plot_n==k)]
-  q_other=d_summarized$median_q[-which(d_summarized$Plot_n==k)]
-  
-  RMSE_p_within = mean(sapply(1:length(p_site),function(x){
-    return(sqrt(sum((p_site-p_site[x])**2,na.rm = T)/length(p_site) ))})) #NRMSE of p within
-  
-  RMSE_q_within = mean(sapply(1:length(q_site),function(x){
-    return(sqrt(sum((q_site-q_site[x])**2,na.rm = T)/length(q_site) ))})) #NRMSE of q within
-  
-  RMSE_p_all = mean(sapply(1:length(p_site),function(x){
-    return(sqrt(sum((p_other-p_site[x])**2,na.rm = T)/length(p_other) ))})) #NRMSE of p between
-  RMSE_q_all = mean(sapply(1:length(q_site),function(x){
-    return(sqrt(sum((q_other-q_site[x])**2,na.rm = T)/length(q_other) ))})) #NRMSE of q between
-  
-  NRMSE_p=RMSE_p_within/RMSE_p_all
-  NRMSE_q=RMSE_q_within/RMSE_q_all
-  
-  
-  
-  #second for resilience related predictions
-  
-  #1) relative distance
-  
-  dist_site=d_summarized$median_rela[which(d_summarized$Plot_n==k)]
-  dist_other=d_summarized$median_rela[-which(d_summarized$Plot_n==k)]
-  
-  RMSE_dist_within = mean(sapply(1:length(dist_site),function(x){
-    return(sqrt(sum((dist_site-dist_site[x])**2,na.rm = T)/length(dist_site) ))})) #NRMSE of p within
-  
-  RMSE_dist_all = mean(sapply(1:length(dist_site),function(x){
-    return(sqrt(sum((dist_other-dist_site[x])**2,na.rm = T)/length(dist_other) ))})) #NRMSE of p between
-  
-  NRMSE_rela=RMSE_dist_within/RMSE_dist_all
-  
-  #2) absolute distance
-  
-  dist_site=d_summarized$median_abs[which(d_summarized$Plot_n==k)]
-  dist_other=d_summarized$median_abs[-which(d_summarized$Plot_n==k)]
-  
-  RMSE_dist_within = mean(sapply(1:length(dist_site),function(x){
-    return(sqrt(sum((dist_site-dist_site[x])**2,na.rm = T)/length(dist_site) ))})) #NRMSE of p within
-  
-  RMSE_dist_all = mean(sapply(1:length(dist_site),function(x){
-    return(sqrt(sum((dist_other-dist_site[x])**2,na.rm = T)/length(dist_other) ))})) #NRMSE of p between
-  
-  NRMSE_abs=RMSE_dist_within/RMSE_dist_all
-  
-  d_median=rbind(d_median,tibble(NRMSE_p=NRMSE_p,NRMSE_q=NRMSE_q,
-                                 NRMSE_abs=NRMSE_abs,
-                                 NRMSE_rela=NRMSE_rela,
-                                 Plot_n=k))
 }
 
-write.table(d_median,"./Data/Similarity_within_sites_median.csv",sep=";")
-write.table(d_ABC,"./Data/Similarity_within_sites_ABC_uncertainty.csv",sep=";")
+#compute mean trend
 
-# ---------------------- Step 6: Validation using simulations ----
-## >> 6.1) Kefi dryland model ----
+mean_trend=climatic_data%>%
+  dplyr::group_by(., Site_ID,RCP)%>%
+  dplyr::summarise(., .groups = "keep",mean_trend=mean(trend))
+
+write.table(mean_trend,"./Data/Climatic_data/mean_aridity_trend.csv",sep=";")
+
+
+
+# ---------------------- Step 7: Validation using simulations ----
+## >> 1) Kefi dryland model ----
 #First the distance predicted by the kefi model
 
 
@@ -2060,7 +2005,7 @@ saveRDS(list(d_spearman=d_spearman,
 
 
 
-## >> 6.2) Guichard mussel-bed model ----
+## >> 2) Guichard mussel-bed model ----
 
 
 #First the distance predicted by the guichard model
@@ -2269,100 +2214,3 @@ saveRDS(list(d_spearman=d_spearman,
              d_guichard=d_guichard,
              d_eby=d_eby),
         "./Data/Model_confirmation_Guichard/d_for_figure.rds")
-
-
-
-
-# ---------------------- Step 7: Bifurcation diagram with q ----
-
-d=read.table("./Data/posterior_param.csv",sep=";",header=T)
-keep_sites=read.table("./Data/Keeping_sites_biocom.csv",sep=";")$V1
-d=tibble(Site=1:345,mean_p=apply(d[,1:345],2,mean),sd_p=apply(d[,1:345],2,sd),median_p=apply(d[,1:345],2,median),
-         mean_q=apply(d[,346:690],2,mean),sd_q=apply(d[,346:690],2,sd),median_q=apply(d[,346:690],2,median),
-         Plot_n=d_biocom$Plot_n,
-         Aridity=d_biocom$Aridity,
-         Sand=d_biocom$Sand,
-         MF=d_biocom$MF,
-         Soil_A=d_biocom$Soil_A,
-         Slope=d_biocom$Slope,
-         Facilitation=d_biocom$Facilitation,
-         SR=d_biocom$SR,
-         Long_cos=d_biocom$Long_cos,
-         Long_sin=d_biocom$Long_sin,
-         Lat=d_biocom$Lat,
-         Elevation=d_biocom$Elevation,
-         Cover=d_biocom$Cover)%>%
-  dplyr::filter(., Site %in% keep_sites)
-
-
-d2=read.table("./Data/Resilience_metrics_1_neigh_with_q.csv",sep=";")%>%
-  dplyr::group_by(., Site,MF,aridity,Sand)%>%
-  dplyr::summarise(., .groups = "keep",
-                   abs_median=median(qinfer-qcrit,na.rm = T),
-                   row_at_desert=min(row_at_desert,na.rm = T)
-  )%>% #when decreasing q, we don't go necessarly t
-  dplyr::filter(., Site %in% keep_sites,row_at_desert !=1)
-
-d_with_q=cbind(d%>%filter(., Site%in%d2$Site),d2)%>%arrange(., Site)
-
-
-d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")%>%
-  dplyr::group_by(., Site,MF,aridity,Sand)%>%
-  dplyr::summarise(., .groups = "keep",
-                   abs_median=median(pinfer-pcrit,na.rm = T))%>%
-  dplyr::filter(., Site %in% d_with_q$Site)
-
-d_with_p=cbind(d%>%filter(., Site%in%d2$Site),d2)%>%arrange(., Site)
-
-
-p=ggplot(NULL)+
-  geom_point(aes(x=d_with_p$abs_median,y=d_with_q$abs_median))+
-  the_theme+
-  labs(x="Absolute distance to the tipping point (decreasing p)",
-       y="Absolute distance to the tipping point (decreasing q)")+
-  geom_abline(slope = 1,intercept = 0,color="red")
-
-
-
-
-# ---------------------- Step 8: Climatic projections ----
-
-library(stars)     
-library(sf)        
-library(raster)
-
-for (file_ in list.files("./Data/Climatic_data",pattern = ".nc")[-c(1,2)]){
-  
-  nc_data_aridity = raster::rotate(raster(paste0("./Data/Climatic_data/aidm_0.5_rcp45_yreof_tsreg_200601-210012.nc"))) 
-  dryland_sf = st_as_sf(d_biocom[keep_sites,], coords = c("Longitude", "Lattitude"), crs = 4326)
-  
-  aridity_values = raster::extract(aridity_years, dryland_sf,method="bilinear")
-  
-  
-  fun=function(x) { 
-    if (any(is.na(x))){
-      NA
-    }else{
-      lin_mod=lm(x ~ as.numeric(seq(1950, 2100, by=1)[1:ncol(aridity_years)]));
-      summary(lin_mod)$coefficients[2]
-    }
-  }
-  
-  aridity_years=extract(aridity_years, SpatialPoints(d_biocom[,c("Longitude","Lattitude")]))
-  
-  trends_aridity = apply(aridity_years,1,fun)
-  
-  write.table(trends_aridity,paste0("./Data/Climatic_data/trend_clim_",gsub(".nc","",file_),".csv"),sep=";")
-
-}
-
-test=nc_data_aridity
-test_spdf <- as(test, "SpatialPixelsDataFrame")
-test_df <- as.data.frame(test_spdf)
-colnames(test_df) <- c("value", "x", "y")
-
-
-
-simulated_sites=sapply(1:length(list.files("./Data/Prediction/","Dist")),
-            function(x){
-              return(as.numeric(gsub(".csv","",strsplit(list.files("./Data/Prediction/","Dist")[x],"_")[[1]][3])))})
