@@ -2,10 +2,9 @@ rm(list=ls())
 source("./ABC_drylands_function.R")
 
 # ---------------------- Step 0: Merging simulations ----
-"
-Once simulations are made (using the Sim_ABC_main.jl file),
-please run this script to merge all simulations into a single dataframe.
-"
+#Once simulations are made (using the Sim_ABC_main.jl file),
+#please run this script to merge all simulations into a single dataframe.
+
 d_simu=tibble()
 n_param=2
 
@@ -36,7 +35,7 @@ write.table(d,"./Data/Simulations.csv",sep=";")
 
 # ---------------------- Step 1: Inference, running ABC ----
 ## >> 1.1) Inference parameters ----
-
+#Running the esimtation of parameters of all sites
 
 Running_ABC=function(id,n_sim_kept=100){
   method_abc="rejection"
@@ -221,7 +220,7 @@ mclapply(1:8,Running_ABC,mc.cores = 8)
 
 ## >> 1.2) Selecting relevant empirical data ----
 
-#Testing for bimodality in the posterior distribution of parameters
+#Testing for bimodality in the posterior distribution of parameters, keeping only a fraction of all sites
 library(diptest)
 post_param=read.table("./Data/posterior_param.csv",sep=";")
 
@@ -237,7 +236,8 @@ write.table(which(d_biocom$bimod!="bimod"),"./Data/Keeping_sites.csv",sep=";")
 
 ## >> 1.3) Inference distance to the tipping point: merging bifurcation diagrams ----
 
-# First Step 2 of Sim_ABC_main.jl called "Computing the distance to a tipping point"
+# First, run the Step 2 of Sim_ABC_main.jl called "Computing the distance to a tipping point"
+# Then, run the code below to aggregate the outputs
 
 d=tibble();step_size=0.005
 
@@ -302,528 +302,7 @@ write.table(d,"./Data/Resilience_metrics_1_neigh.csv",sep=";")
 
 
 # ---------------------- Step 2: Methodology around inference ----
-## >> 2.1) Optimizing pre and post-processing methods ----
-#we play on both the lambda of the boxcox method and the size of the sample for
-#stage 1 of the two step pre-processing procedure
-
-dir.create("./Data/NRMSE",showWarnings = F)
-
-d_all=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
-  filter(., Pooling==1)%>%
-  dplyr::select(., -Pooling)%>%
-  filter(., !is.na(PLR), !is.na(PL_expo)) #to avoid problems. this correspond to very high cover landscapes
-
-rownames(d_all)=1:nrow(d_all)
-
-N_for_cross_validation = 100
-set.seed(123)
-nrow_for_sample=sample(c(1:nrow(d_all)),N_for_cross_validation,replace = F)
-
-for (optim_lambda in c(T,F)){
-  
-  for (size_step1 in c(1000,3000)){
-    
-    for (method_abc in c("loclinear","neuralnet")){
-      
-      for (preprocessing in c("BoxCox","None")){#c("PLS_BoxCox","BoxCox","None")){
-        
-        mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
-        
-
-        d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-        
-        for (n in 1:N_for_cross_validation){
-          
-          matrix_param=d_all[,1:2]
-          matrix_sumstat=d_all[,3:(ncol(d_all))]
-          save_sumstat=matrix_sumstat
-          
-          n_cross=nrow_for_sample[n]
-          
-          if (preprocessing %in% c("BoxCox", "PLS_BoxCox")){ #Applying the two step procedure used in Siren MEE paper : Don't know whether it make sense in our case. TO discuss Monday
-            
-            if (optim_lambda==T){
-              for (x in 1:ncol(matrix_sumstat)) if (colnames(matrix_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
-                
-                b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-                lambda_x=b$x[which.max(b$y)]
-                if (lambda_x !=0){ #to avoid errors
-                  matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-                }
-                
-              }else {
-                b=boxcox(lm(matrix_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)    
-                lambda_x=b$x[which.max(b$y)]
-                if (lambda_x !=0){ #to avoid errors
-                  matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-                }
-              }
-              
-            } else {
-              for (x in 1:ncol(matrix_sumstat)) if (colnames(matrix_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
-                matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(.5)) -1)/(.5)
-              }else {matrix_sumstat[,x] = (matrix_sumstat[,x]^(.5) -1)/(.5)}
-            }
-            
-            #Second we scale
-            for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-            
-            if (preprocessing=="PLS_BoxCox"){
-              #and finally, we perform the first PLS
-              
-              pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+cv_psd+fmax_psd,
-                         data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
-              
-              
-              n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-              
-              if (n_comp_pls > 1){
-                mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-              } else if (n_comp_pls==1){ #otherwise we take the whole components
-                mat_sumstat_pls=as.data.frame(matrix(pls_1$scores[,1:n_comp_pls],ncol=1))
-              } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-              
-              
-            } else {mat_sumstat_pls=matrix_sumstat}
-            
-            if (any(is.na(mat_sumstat_pls[n_cross,]))){
-              
-              which_na=which(is.na(mat_sumstat_pls[n_cross,]))
-              
-              cross_valid1=abc(target = mat_sumstat_pls[n_cross,-which_na],
-                              param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,-which_na], #removing the target data
-                              tol = size_step1/(nrow(mat_sumstat_pls)),method = "rejection") #we keep the 1000 closest simulations for the first step
-              
-            }else {
-              cross_valid1=abc(target = mat_sumstat_pls[n_cross,],
-                              param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
-                              tol = size_step1/(nrow(mat_sumstat_pls)),method = "rejection") #we keep the 1000 closest simulations for the first step
-            }
-            
-            if (nrow(cross_valid1$unadj.values) > size_step1){
-              row_addi=sample(1:nrow(cross_valid1$unadj.values),abs(size_step1-nrow(cross_valid1$unadj.values)))
-              cross_valid1$unadj.values=cross_valid1$unadj.values[-row_addi,]
-              cross_valid1$ss=cross_valid1$unadj.values[-row_addi,]
-            }
-            
-            #Keeping size_step1 simulations and doing the same steps again: normality, scaling and PLS
-            
-            mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid1$ss)),3:(ncol(d_all))] #we keep information with the true values
-            mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
-            
-            #again, first box cox
-            
-            
-            if (optim_lambda==T){
-              for (x in 1:ncol(mat_sumstat_step1)) if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
-                
-                b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-                lambda_x=b$x[which.max(b$y)]
-                
-                if (lambda_x !=0){ #to avoid errors
-                  mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-                }
-                
-                
-              }else {
-                b=boxcox(lm(mat_sumstat_step1[,x]+.5 ~ 1),plotit = F,eps = .05)    
-                lambda_x=b$x[which.max(b$y)]
-                if (lambda_x !=0){ #to avoid errors
-                  mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-                }
-                
-              }
-              
-            } else {
-              for (x in 1:ncol(mat_sumstat_step1)) if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
-                mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(.5)) -1)/(.5)
-              }else {mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(.5) -1)/(.5)}
-            }
-            
-            #and normalization
-            for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-            
-            
-            if (preprocessing=="PLS_BoxCox"){
-              
-              pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+cv_psd+fmax_psd,
-                         data=as.data.frame(cbind(rbind(cross_valid1$unadj.values,matrix_param[n_cross,]),
-                                                  mat_sumstat_step1)), scale=TRUE, validation="CV")
-              n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-              
-              
-              if (n_comp_pls > 1){
-                mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-              } else if (n_comp_pls==1){ #otherwise we take the whole components
-                mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
-              } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
-              
-            } else {
-              
-              mat_sumstat_pls2=mat_sumstat_step1
-              
-            }
-            
-            
-            if (any(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))){
-              
-              which_na=which(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))
-              
-              cross_valid2=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),-which_na],
-                               param = cross_valid1$unadj.values,
-                               sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),-which_na], #removing the target data
-                               tol = 100/(nrow(mat_sumstat_pls2)),method = method_abc,transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                               logit.bounds = matrix(c(0,1),2,2,byrow = T)) 
-              
-            }else {
-              cross_valid2=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
-                               param = cross_valid1$unadj.values,
-                               sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                               tol = 100/(nrow(mat_sumstat_pls2)),method = method_abc,transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                               logit.bounds = matrix(c(0,1),2,2,byrow = T)) 
-            }
-            
-            
-            
-            cross_valid2$ss=d_all[as.numeric(rownames(cross_valid2$ss)),3:(ncol(d_all))] #we keep information with the true values
-            
-            
-          } else { #no pls and boxcox
-            
-            if (any(is.na(matrix_sumstat[n_cross,]))){
-              
-              which_na=which(is.na(matrix_sumstat[n_cross,]))
-              
-              cross_valid2=abc(target = matrix_sumstat[n_cross,-which_na],
-                               param = matrix_param[-n_cross,],
-                               sumstat = matrix_sumstat[-n_cross,-which_na], #removing the target data
-                               tol = 100/(nrow(matrix_param)),method = method_abc,transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                               logit.bounds = matrix(c(0,1),2,2,byrow = T)) 
-              
-            }else {
-              cross_valid2=abc(target = matrix_sumstat[n_cross,],
-                               param = matrix_param[-n_cross,],
-                               sumstat = matrix_sumstat[-n_cross,], #removing the target data
-                               tol = 100/(nrow(matrix_param)),method = method_abc,transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                               logit.bounds = matrix(c(0,1),2,2,byrow = T)) 
-            }
-            
-          }    
-          
-          
-          matrix_sumstat=save_sumstat
-          
-          
-          if (names(cross_valid2)[1]=="unadj.values")names(cross_valid2)[1] = "adj.values"
-          
-          cross_valid2$adj.values=cross_valid2$adj.values
-          #Matrix of correlation between parameters & sumstats
-          mat_cor_param[,,n]=cor(cross_valid2$adj.values)
-          
-          
-          #we save the mean posterior distribution for each and the true observed parameters
-          d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid2$adj.values)))%>%add_column(., Type="Sim"))
-          d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-          
-          #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-          d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid2$ss)))%>%add_column(., Type="Sim"))
-          d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-
-          
-          #We compute the mean squared error (RMSE) 
-          RMSE = sapply(1:ncol(cross_valid2$adj.values),function(x){
-            sqrt(sum((cross_valid2$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid2$adj.values) )
-          }
-          )
-          
-          #normalize it by the RMSE under the prior distribution
-          RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-            sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-          }
-          )
-          NRMSE = RMSE/RMSE_prior
-          
-          d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-          
-          
-          #We repeat the same for the summary statistics observed
-          RMSE = sapply(1:ncol(cross_valid2$ss),function(x){
-            sqrt(sum((cross_valid2$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid2$ss) )
-          }
-          )
-          
-          RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-            sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-          }
-          )
-          NRMSE = RMSE/RMSE_prior
-          
-          d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-          
-        } #end loop Nvirtual data
-        
-        colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-        
-        write.table(d_NRMSE_param,paste0("./Data/NRMSE/RMSE_param_",preprocessing,
-                                         "_",method_abc,"_optim_lambda_",ifelse(optim_lambda,"yes","no"),"_N1_",size_step1,".csv"),sep=";")
-        
-        colnames(d_NRMSE_sumstat)=colnames(d_cross_sumstat)
-        
-        write.table(d_NRMSE_sumstat,paste0("./Data/NRMSE/RMSE_sumstat_",preprocessing,
-                                           "_",method_abc,"_optim_lambda_",ifelse(optim_lambda,"yes","no"),"_N1_",size_step1,".csv"),sep=";")
-        
-        
-
-        
-        
-        
-      }
-    }
-  }
-}
-
-
-
-
-
-## >> 2.2) Optimizing the structure of the neural-network ----
-
-dir.create("./Data/NRMSE",showWarnings = F)
-
-
-d_all=read.table("./Data/Simulations.csv",sep=";",header = T)%>%
-  filter(., Pooling==1)%>%
-  dplyr::select(., -Pooling)%>%
-  filter(., !is.na(PLR), !is.na(PL_expo)) #to avoid problems. this correspond to very high cover landscapes
-
-rownames(d_all)=1:nrow(d_all)
-
-
-N_for_cross_validation = 100
-nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
-
-for (method_pre in c("NoPLS")){#c("PLS","NoPLS")){
-  
-  for (size_hidden in seq(5,25,by=5)){
-    
-    for (rep_network in c(10,20,30)){
-      
-      mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
-      
-      
-      d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
-      
-      for (n in 1:N_for_cross_validation){
-        
-        matrix_param=d_all[,1:2]
-        matrix_sumstat=d_all[,3:(ncol(d_all))]
-        save_sumstat=matrix_sumstat
-        
-        n_cross=nrow_for_sample[n]
-        
-        for (x in 1:ncol(matrix_sumstat)) if (colnames(matrix_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
-          
-          b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
-          }
-          
-        }else {
-          b=boxcox(lm(matrix_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
-          }
-        }
-        
-        
-        #Second we scale
-        for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
-        
-        #and finally, we perform the first PLS
-        if (method_pre=="PLS"){
-          
-          pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+cv_psd+fmax_psd,
-                     data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
-          n_comp_pls=selectNcomp(pls_1,method = "onesigma")
-          
-          
-          if (n_comp_pls > 1){
-            mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
-          } else if (n_comp_pls==1){ #otherwise we take the whole components
-            mat_sumstat_pls=matrix(pls_1$scores[,1:n_comp_pls],ncol=1)
-          } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
-          
-          
-        } else {
-          mat_sumstat_pls=matrix_sumstat
-        }
-        
-        if (any(is.na(mat_sumstat_pls[n_cross,]))){
-          
-          which_na=which(is.na(mat_sumstat_pls[n_cross,]))
-          
-          cross_valid=abc(target = mat_sumstat_pls[n_cross,-which_na],
-                          param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,-which_na], #removing the target data
-                          tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-          
-        }else {
-          cross_valid=abc(target = mat_sumstat_pls[n_cross,],
-                          param = matrix_param[-n_cross,],sumstat = mat_sumstat_pls[-n_cross,], #removing the target data
-                          tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
-        }
-        
-        
-        #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
-        
-        mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
-        mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
-        
-        #again, first box cox
-        
-        for (x in 1:ncol(mat_sumstat_step1)) if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
-          
-          b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
-          lambda_x=b$x[which.max(b$y)]
-          
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
-          }
-          
-          
-        }else {
-          b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)
-          lambda_x=b$x[which.max(b$y)]
-          if (lambda_x !=0){ #to avoid errors
-            mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
-          }
-          
-        }
-        
-        #and normalization
-        for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
-        
-        
-        
-        if (method_pre=="PLS"){
-          
-          pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+cv_psd+fmax_psd,
-                     data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
-                                              mat_sumstat_step1)), scale=TRUE, validation="CV")
-          
-          
-          n_comp_pls=selectNcomp(pls_2,method = "onesigma")
-          
-          
-          if (n_comp_pls > 1){
-            mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
-          } else if (n_comp_pls==1){ #otherwise we take the whole components
-            mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
-          } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
-          
-        } else {
-          mat_sumstat_pls2=mat_sumstat_step1
-        }
-        
-        if (any(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))){
-          
-          which_na=which(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))
-          
-          cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),-which_na],
-                          param = cross_valid$unadj.values,
-                          sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),-which_na], #removing the target data
-                          tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                          logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                          numnet = rep_network,sizenet = size_hidden)
-          
-        }else {
-          cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
-                          param = cross_valid$unadj.values,
-                          sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                          tol = 100/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                          logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                          numnet = rep_network,sizenet = size_hidden)
-        }
-        
-        
-        cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
-        
-        matrix_sumstat=save_sumstat
-        
-        if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
-        
-        cross_valid$adj.values=cross_valid$adj.values
-        #Matrix of correlation between parameters & sumstats
-        mat_cor_param[,,n]=cor(cross_valid$adj.values)
-        
-        
-        #We plot the differences in posterior distribution/true parameter
-        
-        if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
-          cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
-                                                                 | is.nan(cross_valid$adj.values[,2])),]
-          
-        }
-        
-        
-        #we save the mean posterior distribution for each and the true observed parameters
-        d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
-        d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
-        
-        #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
-        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
-        d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
-        
-        
-        #We compute the mean squared error (RMSE)
-        RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
-          sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
-        }
-        )
-        
-        #normalize it by the RMSE under the prior distribution
-        RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
-          sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
-        }
-        )
-        NRMSE = RMSE/RMSE_prior
-        
-        d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
-        
-        
-        #We repeat the same for the summary statistics observed
-        RMSE = sapply(1:ncol(cross_valid$ss),function(x){
-          sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
-        }
-        )
-        
-        RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
-          sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
-        }
-        )
-        NRMSE = RMSE/RMSE_prior
-        
-        d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
-        
-      } #end loop Nvirtual data
-      
-      colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
-      
-      write.table(d_NRMSE_param,paste0("./Data/NRMSE/RMSE_hidden_preprocessing_",method_pre,"_",
-                                       size_hidden,"_Nnet_",rep_network,".csv"),sep=";")
-      
-      
-      
-    }
-  }
-}
-
-
-
-
-
-## >> 2.3) Influence of the number of simulation kept ----
+## >> 2.1) Influence of the number of simulation kept ----
 
 dir.create("./Data/NRMSE",showWarnings = F)
 d_all=read.table("./Data/Simulations.csv",sep=";",header = T)%>%
@@ -1023,7 +502,9 @@ for (NA_kept in c(50,100,150,200,250)){
 
 
 
-## >> 2.4) Selecting the best summary statistics ----
+## >> 2.2) Selecting the best summary statistics ----
+
+#Testing different subsets of summary statistics
 
 dir.create("./Data/Best_sumstat",showWarnings = F)
 
@@ -1232,7 +713,9 @@ for (which_sumstat in 1:length(all_name)){
 
 
 
-## >> 2.5) Can we recover parameters and scale of observation in simulations ----
+## >> 2.3) Can we recover parameters and scale of observation in simulations ----
+
+#Validation of the ABC approach using simulations from the minimal model
 
 dir.create("./Data/Scale_obs_indentifiability",showWarnings = F)
 d_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
@@ -1297,6 +780,8 @@ write.table(x_y_param,"./Data/Scale_obs_indentifiability/Retrieving_parameters_d
 
 # ---------------------- Step 3: Running mixed effects models ----
 ## >> 1) Without facilitation ----
+
+#LME models without facilitation in the dataset
 
 boot_function_lm = function(formula, data, indices) {
   d = data[indices,] 
@@ -1451,6 +936,8 @@ saveRDS(d_mod,"./Data/Drivers_stability_metrics_data_uncertainty_without_facilit
 
 ## >> 2) With facilitation ----
 
+#LME models with facilitation in the dataset
+
 boot_function_lm = function(formula, data, indices) {
   d = data[indices,] 
   fit = lm(formula, data=d) 
@@ -1563,6 +1050,8 @@ saveRDS(d_info_model,"./Data/Properties_models.rds")
 
 
 # ---------------------- Step 4: Running the SEM ----
+
+# Performing the SEM analysis
 
 d=read.table("./Data/posterior_param.csv",sep=";",header=T)
 keep_sites=read.table("./Data/Keeping_sites.csv",sep=";")$V1
@@ -1708,6 +1197,8 @@ write.table(Direct_effects,"./Data/Direct_effects_without_facilitation.csv",sep=
 
 # ---------------------- Step 5: Bootstrap AIC Moran I/Cover ----
 
+#TEsting whether cover and/or spatial autocrrelation best predict the distance to the desertification point
+
 #with data uncertainty
 d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
 post_param=read.table("./Data/posterior_param.csv",sep=";")
@@ -1788,7 +1279,7 @@ write.table(d_AIC,"./Data/Cover_vs_spatial_structure_data_uncertainty.csv",sep="
 # ---------------------- Step 6: Climatic projections ----
 
 #climatic data downloaded from https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-biodiversity-cmip5-global?tab=form
-#Then climatic data have to be put in ./Data/Climatic_data/
+#Then climatic data have to be put in ./Data/Climatic_data/ folder
 #dir.create("./Data/Climatic_data/",showWarnings = F)
 
 d_biocom=read.table("./Data/data_sites.csv",sep=";")
