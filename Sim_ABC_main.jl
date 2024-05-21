@@ -25,7 +25,7 @@ end
 @everywhere function Run_sim_model_EWS(N_sim)
 
     n_param = 2
-    n_sim_kept = 1
+    n_sim_kept = 10
     pooling_vec = [1 1 / 2 1 / 3 1 / 4 1 / 5]
     n_keep = 200
     pseudo_param = CSV.read("./Data/Parameters.csv", DataFrame, header=1, delim=';')[((N_sim-1)*n_keep+1):(N_sim*n_keep), :]
@@ -84,14 +84,9 @@ end
 
 pmap(Run_sim_model_EWS, 1:1200) #1200*200 pairs of parameters
 
-
-
-
-
-
-
-
 #endregion
+
+
 #region, Step 2: Computing the distance to a tipping point
 
 
@@ -139,7 +134,7 @@ end
             Keeping_data[index, 1:2] .= param
             fraction_cover = [0.8, 0.2]
             
-            size_landscape = 80
+            size_landscape = 100
             ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
 
             d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
@@ -164,7 +159,7 @@ pmap(Distance_tipping, sites)
 
 
 #endregion
-#region, Step 3: Sensitivity to system site (# of pixels)
+#region, Step 3: Sensitivity to system size (# of pixels)
 
 
 
@@ -240,6 +235,170 @@ end
 
 pmap(Run_sim_model_EWS, 1:10) #randomly selected parameter sets
 
+#endregion
+
+
+
+#region, Step 4: Bifurcation diagrams with q
+
+using Distributed
+
+addprocs(40, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Random, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+end
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+
+@everywhere function Distance_tipping(id)
+
+    step_size = 1 / 200
+    n_sample=100
+    posteriors=readdlm("./Data/posterior_param.csv", ';')[2:end,2:end]
+    post_p = posteriors[:, id]
+    post_q = posteriors[:, id+345]
+    Keeping_data = zeros(Int((1/step_size))*n_sample, 3)
+    index=1
+    param=zeros(2)
+    for sample_id in 1:n_sample
+
+        sample_row=rand(1:length(post_q))
+        param[1] = post_p[sample_row]
+        param[2] = post_q[sample_row]
+
+        q_to_desert = push!(collect(0:step_size:param[2]),param[2])
+
+        for qcrit_id in 1:length(q_to_desert)
+
+
+            if rand(Distributions.Uniform(0, 1)) < .5
+              println("")
+              GC.gc()
+              ccall(:malloc_trim, Cvoid, (Cint,), 0)
+              GC.safepoint()
+            end
+
+            param[2]=q_to_desert[qcrit_id]
+
+            Keeping_data[index, 1:2] .= param
+            fraction_cover = [0.8, 0.2]
+            
+            size_landscape = 100
+            ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+
+            d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=2000, intensity_feedback=1)
+
+            mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
+
+            Keeping_data[index, 3] = ifelse(any([length(findall(land1[:, :, k] .== 1)) == 0 for k in 1:size(land1)[3]]), 0, mean_cover)
+            
+            index += 1
+            println(index)
+            end
+    end
+
+
+    CSV.write("./Data/Prediction_with_q/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+end
+
+
+sites=readdlm("./Data/Keeping_sites.csv",';',Int64)[:,1]
+print(sites)
+pmap(Distance_tipping, sites)
 
 
 #endregion
+
+
+
+#region, Step 5: Bifurcation diagrams with q and p simultaneously
+
+
+
+using Distributed
+
+addprocs(40, exeflags="--project=$(Base.active_project())")
+
+@everywhere begin
+    using StatsBase, RCall, Random, LaTeXStrings
+    using BenchmarkTools, Images, Tables, CSV, LinearAlgebra, Distributions, DataFrames
+end
+
+@everywhere include("./Drylands_ABC_functions.jl")
+
+
+@everywhere function Distance_tipping(id)
+
+    step_size = 1 / 400
+    n_sample=100
+    posteriors=readdlm("./Data/posterior_param.csv", ';')[2:end,2:end]
+    post_p = posteriors[:, id]
+    post_q = posteriors[:, id+345]
+    Keeping_data = zeros(Int((1/step_size))*n_sample, 3)
+    index=1
+    param=zeros(2)
+    for sample_id in 1:n_sample
+
+sample_row=rand(1:length(post_q))
+        param[1] = post_p[sample_row]
+        param[2] = post_q[sample_row]
+
+        q_to_desert = push!(collect(0:step_size:param[2]),param[2])
+        p_to_desert = push!(collect(0:step_size:param[1]),param[1])
+      	
+      	if length(q_to_desert)>length(p_to_desert)
+      	  p_to_desert=vcat(p_to_desert,zeros(length(q_to_desert)-length(p_to_desert)))
+      	elseif length(q_to_desert)<length(p_to_desert)
+      	  q_to_desert=vcat(q_to_desert,zeros(length(p_to_desert)-length(q_to_desert)))
+      	end
+
+        for qcrit_id in 1:length(p_to_desert)
+
+
+
+            if rand(Distributions.Uniform(0, 1)) < .5
+              println("")
+              GC.gc()
+              ccall(:malloc_trim, Cvoid, (Cint,), 0)
+              GC.safepoint()
+            end
+
+            param[2]=max(q_to_desert[qcrit_id],0)
+            param[1]=max(p_to_desert[qcrit_id],0)
+
+            Keeping_data[index, 1:2] .= param
+            fraction_cover = [0.8, 0.2]
+            
+            size_landscape = 100
+            ini_land = Get_initial_lattice_Eby(frac=fraction_cover, size_mat=size_landscape)
+
+            d1, land1 = IBM_Eby_model(time_t=50, param=copy(param), landscape=copy(ini_land),
+            keep_landscape=true, burning_phase=2000, intensity_feedback=1)
+
+            mean_cover = mean([length(findall(land1[:, :, k] .== 1)) / (size(land1)[1] * size(land1)[2]) for k in 1:size(land1)[3]])
+
+            Keeping_data[index, 3] = ifelse(any([length(findall(land1[:, :, k] .== 1)) == 0 for k in 1:size(land1)[3]]), 0, mean_cover)
+            
+            index += 1
+            println(index)
+            end
+    end
+
+
+    CSV.write("./Data/Prediction_with_q_p/Dist_tipping_" * repr(id) * ".csv", Tables.table(Keeping_data), writeheader=false)
+end
+
+
+sites=readdlm("./Data/Keeping_sites.csv",';',Int64)[:,1]
+print(sites)
+pmap(Distance_tipping, sites)
+
+
+#endregion
+
+
+

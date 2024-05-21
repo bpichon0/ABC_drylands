@@ -1,7 +1,44 @@
 rm(list=ls())
 source("./ABC_drylands_function.R")
 
-# ---------------------- Step 0: Merging simulations ----
+# ---------------------- Step 0: Analyzing the MF of the model ----
+
+p_q_grid=expand.grid(p=seq(0,1,length.out=200),
+                     q=seq(0,1,length.out=200))
+
+d=tibble()
+for (row_id in 1:nrow(p_q_grid)){
+  param=c(p_q_grid$p[row_id],
+             p_q_grid$q[row_id])
+  ini=.5
+  dyn=as.data.frame(ode(func = ODE_MF,y = ini,times = seq(0,2000,1),
+                        parms = param,method = "ode45"))
+  d=rbind(d,tibble(Cover=last(dyn[,2]),p=param[1],q=param[2]))
+  
+}
+
+
+d=d%>%
+  mutate(., 
+         Cover_bis=sapply(1:nrow(.),function(x){
+  return(ifelse(.$Cover[x]<0.05,NA,.$Cover[x]))}),
+         Branch="forward"
+  )
+
+for (q_id in unique(d$q)[c(1,100,140)]){
+  for (p_id in seq(0,1,length.out=200)){
+    param=c(p_id,q_id)
+    ini=.001
+    dyn=as.data.frame(ode(func = ODE_MF,y = ini,times = seq(0,2000,1),
+                          parms = param,method = "ode45"))
+    d=rbind(d,tibble(Cover=last(dyn[,2]),p=param[1],q=param[2],Cover_bis=NA,Branch="backward"))
+  }
+  
+}
+
+write.table(d,"./Data/Mean_field_data.csv",sep=";")
+
+# ---------------------- Step 0bis: Merging simulations ----
 #Once simulations are made (using the Sim_ABC_main.jl file),
 #please run this script to merge all simulations into a single dataframe.
 
@@ -153,8 +190,7 @@ Running_ABC=function(id,n_sim_kept=100){
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),-which_na], #removing the target data
                       tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
-                      numnet = 10,sizenet = 15)
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T))
       
       x_y_stat=rbind(x_y_stat,target[-which_na]%>%
                        add_column(., PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
@@ -170,8 +206,7 @@ Running_ABC=function(id,n_sim_kept=100){
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),], #removing the target data
                       tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),3,2,byrow = T),
-                      numnet = 10,sizenet = 15)
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T))
       
       x_y_stat=rbind(x_y_stat,target%>%
                        add_column(., Site_ID=empirical_id,Method="rejection",Type="Obs"))
@@ -301,6 +336,75 @@ for (site in list.files("./Data/Prediction/","Dist")){
 write.table(d,"./Data/Resilience_metrics_1_neigh.csv",sep=";")
 
 
+
+
+
+# First, run the Step 5 of Sim_ABC_main.jl called "Computing the distance to a tipping point"
+# Then, run the code below to aggregate the outputs
+
+d=tibble();step_size=0.005
+d_biocom=read.table("./Data/data_sites.csv",sep=";")
+for (site in list.files("./Prediction/","Dist")){
+  
+  site_id=as.numeric(gsub(".csv","",strsplit(site,"_")[[1]][3]))
+  
+  pred=read.table(paste0("./Data/Prediction_with_p_and_q/",site),sep=",")#%>%filter(., V1!=0)
+  colnames(pred)=c("p","q","cover")
+  
+  index=0;pred$ID_sim=NA
+  for (x in 1:(nrow(pred))){
+    if (pred$p[x]==0 & pred$q[x]==0){
+      index=index+1
+    }
+    pred$ID_sim[x]=index
+  }
+  pred=pred%>%filter(., p!=0)
+  p_desert=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    if (any(d_fil$cover>0)){
+      return(d_fil$p[min(which(d_fil$cover !=0))]-step_size)
+    }else {
+      return(NA)
+    }
+  }) 
+  
+  p_infer=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    return(d_fil$p[nrow(d_fil)])
+  }) 
+  
+  q_infer=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    return(d_fil$q[nrow(d_fil)])
+  }) 
+  
+  size_tipping=sapply(unique(pred$ID_sim),function(x){
+    d_fil=filter(pred,ID_sim==x)
+    if (any(d_fil$cover>0)){
+      return(d_fil$cover[which(d_fil$p==d_fil$p[min(which(d_fil$cover !=0))])])
+    }else {
+      return(NA)
+    }
+    
+  }) 
+  
+  d=rbind(d,tibble(ID_sim=1:length(p_desert),pcrit=p_desert,pinfer=p_infer,qinfer=q_infer,Size_tipping=size_tipping,
+                   Site=site_id,
+                   aridity=d_biocom$Aridity[site_id],Sand=d_biocom$Sand[site_id],
+                   MF=d_biocom$MF[site_id]))
+  
+  #displaying the distribution
+  
+  d2=tibble(abs_dist=p_infer-p_desert,relativ_dist=(p_infer-p_desert)/(p_desert),Size_tipping=size_tipping)
+  print(site)
+  
+  
+}
+
+write.table(d,"./Resilience_metrics_with_p_q.csv",sep=";")
+
+
+
 # ---------------------- Step 2: Methodology around inference ----
 ## >> 2.1) Influence of the number of simulation kept ----
 
@@ -424,17 +528,15 @@ for (NA_kept in c(50,100,150,200,250)){
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),-which_na],
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),-which_na], #removing the target data
-                      tol = NA_kept/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                      numnet = 10,sizenet = 10)
+                      tol = NA_kept/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
       
     }else {
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                      tol = NA_kept/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                      numnet = 10,sizenet = 10)
+                      tol = NA_kept/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
     }
     
     
@@ -513,14 +615,16 @@ d_all=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
   dplyr::select(., -Pooling)
 
 rownames(d_all)=1:nrow(d_all)
+matrix_param=d_all[,1:2]
+matrix_sumstat=d_all[,3:(ncol(d_all))]
 
 N_for_cross_validation = 100
 set.seed(123)
 nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
 
-size_hidden=10
-rep_network=10
-all_name=c("All","no_PLR","no_PL_expo","no_PLR_PL","no_cv","no_fmax","no_fmax_cv","no_PL_cv","no_cv_PL_PLR")
+all_name=c("All","no_PLR","no_PL_expo","no_PLR_PL","no_cv",
+           "no_fmax","no_fmax_cv","no_PL_cv","no_cv_PL_PLR",
+           "Subset_stats","Robust_resolution")
 list_sumstat=list(c(1:ncol(matrix_sumstat)),
                   c(1:ncol(matrix_sumstat))[-c(8)],
                   c(1:ncol(matrix_sumstat))[-c(9)],
@@ -529,7 +633,9 @@ list_sumstat=list(c(1:ncol(matrix_sumstat)),
                   c(1:ncol(matrix_sumstat))[-c(11)],
                   c(1:ncol(matrix_sumstat))[-c(10:11)],
                   c(1:ncol(matrix_sumstat))[-c(9:10)],
-                  c(1:ncol(matrix_sumstat))[-c(8:10)])
+                  c(1:ncol(matrix_sumstat))[-c(8:10)],
+                  c(1:ncol(matrix_sumstat))[c(1,6,8,10)],
+                  c(1:ncol(matrix_sumstat))[c(1,4,8:11)])
 
 
 for (which_sumstat in 1:length(all_name)){
@@ -629,17 +735,15 @@ for (which_sumstat in 1:length(all_name)){
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),-which_na],
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),-which_na], #removing the target data
-                      tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                      numnet = rep_network,sizenet = size_hidden)
+                      tol = 100/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
       
     }else {
       cross_valid=abc(target = mat_sumstat_pls2[nrow(mat_sumstat_pls2),],
                       param = cross_valid$unadj.values,
                       sumstat = mat_sumstat_pls2[-nrow(mat_sumstat_pls2),], #removing the target data
-                      tol = 75/nrow(mat_sumstat_pls2),method = "neuralnet",transf = rep("logit",2), #as parameters are proba, we perform logit regression
-                      logit.bounds = matrix(c(0,1),2,2,byrow = T),
-                      numnet = rep_network,sizenet = size_hidden)
+                      tol = 100/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
     }
     
     cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),2+summary_stat_kept] #we keep information with the true values
@@ -709,11 +813,277 @@ for (which_sumstat in 1:length(all_name)){
 }
 
 
+# Spatial statistics importance abctools following 10.2202/1544-6115.1389
+
+Run_function=function(id){
+  d_sim=as.data.frame(read.table("./Data/Simulations.csv",sep=";"))
+
+  param=d_sim[,c("p","q")]
+  simstats=d_sim[, 4:14]
+
+  d_best_stats=tibble()
+
+  for (id_sample in 1:10){
+    set.seed(1000*id+id_sample)
+    obsstats=matrix(d_sim[sample(1:nrow(d_sim),size = 1), 4:14],
+                    nrow = 1)
+    ASchoice=AS.select(obsstats, param, simstats)$best
+
+    d_best_stats=rbind(d_best_stats,as_tibble(t(1:11 %in% ASchoice)))
+  }
+  colnames(d_best_stats)=colnames(simstats)
+  write.table(d_best_stats,paste0("./Data/Best_sumstat/Best_stat_",id,".csv"),sep=";")
+}
+
+library(parallel)
+mclapply(1:40,Run_function,mc.cores = 20)
 
 
 
+d=tibble()
+list_f=list.files("./Data/Best_sumstat","Best_stat_")
+for (k in list_f){
+  d=rbind(d,read.table(paste0("./Data/Best_sumstat/",k),sep=";"))
+}
+write.table(d,"./Data/Best_sumstat/Best_stats_abctools.csv",sep=";")
 
-## >> 2.3) Can we recover parameters and scale of observation in simulations ----
+
+# Computing each variable importance using variance-covariance matrix
+normalize=function(x){return((x-min(x))/(max(x)-min(x)))}
+
+
+d_sim=as.data.frame(read.table("./Data/Simulations.csv",sep=";"))%>%
+  filter(., rho_p>0.03,Pooling==1)%>%
+  dplyr::relocate(.,Pooling,.after=q)%>%
+  dplyr::sample_n(100000)%>%
+  filter(., !is.na(PL_expo),!is.na(PLR))
+
+Cov_stats=cov(d_sim[,4:14])
+Cov_stats=apply(Cov_stats,2,normalize)
+importance_stat=(rowSums(Cov_stats**2)/diag(Cov_stats))/tr(Cov_stats)
+var_stat=apply(Cov_stats,2,var)/sum(apply(Cov_stats,2,var))
+write.table(as_tibble(t(importance_stat)),"./Data/Best_sumstat/Importance_stats.csv",sep=";")
+write.table(as_tibble(t(var_stat)),"./Data/Best_sumstat/Variance_scaled.csv",sep=";")
+
+
+## >> 2.3) Testing the PLS-ABC to reduce the dimension ----
+
+dir.create("./Data/Best_sumstat",showWarnings = F)
+
+d_all=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
+  filter(., Pooling==1)%>%
+  dplyr::select(., -Pooling)
+
+rownames(d_all)=1:nrow(d_all)
+matrix_param=d_all[,1:2]
+matrix_sumstat=d_all[,3:(ncol(d_all))]
+
+N_for_cross_validation = 100
+set.seed(123)
+nrow_for_sample=sample(c(1:nrow(matrix_param)),N_for_cross_validation,replace = F)
+
+all_name=c("All")
+list_sumstat=list(c(1:ncol(matrix_sumstat)))
+
+
+for (which_sumstat in 1:length(all_name)){
+  
+  name_removal=all_name[which_sumstat]
+  
+  summary_stat_kept=list_sumstat[[which_sumstat]]
+  
+  
+  mat_cor_param=array(0,c(2,2,N_for_cross_validation)) #correlation matrix for parameters
+  
+  
+  d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
+  
+  for (n in 1:N_for_cross_validation){
+    print(n)
+    print(colnames(d_all[,2+summary_stat_kept]))
+    matrix_param=d_all[,1:2]
+    matrix_sumstat=d_all[,2+summary_stat_kept]
+    save_sumstat=matrix_sumstat
+    
+    n_cross=nrow_for_sample[n]
+    
+    for (x in 1:ncol(matrix_sumstat)) if (colnames(matrix_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
+      
+      b=boxcox(lm(matrix_sumstat[,x]+abs(min(matrix_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values, does not change the distribution
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (exp(matrix_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+      
+    }else {
+      b=boxcox(lm(matrix_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        matrix_sumstat[,x] = (matrix_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    
+    #Second we scale
+    for (x in 1:ncol(matrix_sumstat)) matrix_sumstat[,x] = (matrix_sumstat[,x]-mean(matrix_sumstat[,x],na.rm = T))/sd(matrix_sumstat[,x],na.rm = T)
+    
+    #and finally, we perform the first PLS
+    
+    pls_1=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+fmax_psd+cv_psd,
+               data=cbind(matrix_param,matrix_sumstat), scale=TRUE, validation="CV")
+    
+    n_comp_pls=4#selectNcomp(pls_1,method = "onesigma")
+    
+    if (n_comp_pls > 1){
+      mat_sumstat_pls=pls_1$scores[,1:n_comp_pls] # selecting # components
+    } else if (n_comp_pls==1){ #otherwise we take the whole components
+      mat_sumstat_pls=as.data.frame(matrix(pls_1$scores[,1:n_comp_pls],ncol=1))
+    } else {mat_sumstat_pls=pls_1$scores[,1:ncol(pls_1$scores)]}
+    
+    if (any(is.na(mat_sumstat_pls[n_cross,]))){
+      
+      which_na=which(is.na(mat_sumstat_pls[n_cross,]))
+      
+      cross_valid=abc(target = mat_sumstat_pls[which(as.numeric(rownames(mat_sumstat_pls))==n_cross),-which_na],
+                      param = matrix_param[-n_cross,][as.numeric(rownames(mat_sumstat_pls)),],sumstat = mat_sumstat_pls[-which(as.numeric(rownames(mat_sumstat_pls))==n_cross),-which_na], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat_pls[which(as.numeric(rownames(mat_sumstat_pls))==n_cross),],
+                      param = matrix_param[-n_cross,][as.numeric(rownames(mat_sumstat_pls)),],sumstat = mat_sumstat_pls[-which(as.numeric(rownames(mat_sumstat_pls))==n_cross),], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    }
+    
+    
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    
+    mat_sumstat_step1=d_all[as.numeric(rownames(cross_valid$ss)),3:(ncol(d_all))] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,d_all[n_cross,3:(ncol(d_all))])
+    
+    #again, first box cox
+    
+    for (x in 1:ncol(mat_sumstat_step1)) if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
+      
+      b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+      lambda_x=b$x[which.max(b$y)]
+      
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+      }
+    }else {
+      b=boxcox(lm(mat_sumstat_step1[,x]+.5 ~ 1),plotit = F,eps = .05)
+      lambda_x=b$x[which.max(b$y)]
+      if (lambda_x !=0){ #to avoid errors
+        mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    
+    
+    pls_2=plsr(p + q~rho_p+nb_neigh+clustering+skewness+variance+moran_I+Spectral_ratio+PLR+PL_expo+fmax_psd+cv_psd,
+               data=as.data.frame(cbind(rbind(cross_valid$unadj.values,matrix_param[n_cross,]),
+                                        mat_sumstat_step1)), scale=TRUE, validation="CV")
+    n_comp_pls=4#selectNcomp(pls_2,method = "onesigma")
+    
+    
+    if (n_comp_pls > 1){
+      mat_sumstat_pls2=pls_2$scores[,1:n_comp_pls] #pls 2 selecting # components
+    } else if (n_comp_pls==1){ #otherwise we take the whole components
+      mat_sumstat_pls2=matrix(pls_2$scores[,1:n_comp_pls],ncol=1)
+    } else {mat_sumstat_pls2=pls_2$scores[,1:ncol(pls_2$scores)]}
+    
+    
+    if (any(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))){
+      
+      which_na=which(is.na(mat_sumstat_pls2[nrow(mat_sumstat_pls2),]))
+      
+      cross_valid=abc(target = mat_sumstat_pls2[which(as.numeric(rownames(mat_sumstat_pls2))==n_cross),-which_na],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_pls2[-which(as.numeric(rownames(mat_sumstat_pls2))==n_cross),-which_na], #removing the target data
+                      tol = 100/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat_pls2[which(as.numeric(rownames(mat_sumstat_pls2))==n_cross),],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_pls2[-which(as.numeric(rownames(mat_sumstat_pls2))==n_cross),], #removing the target data
+                      tol = 100/nrow(mat_sumstat_pls2),method = "rejection",transf = rep("logit",2), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),2,2,byrow = T))
+    }
+    
+    cross_valid$ss=d_all[as.numeric(rownames(cross_valid$ss)),2+summary_stat_kept] #we keep information with the true values
+    
+    matrix_sumstat=save_sumstat
+    
+    if (names(cross_valid)[1]=="unadj.values")names(cross_valid)[1] = "adj.values"
+    
+    cross_valid$adj.values=cross_valid$adj.values
+    #Matrix of correlation between parameters & sumstats
+    mat_cor_param[,,n]=cor(cross_valid$adj.values)
+    
+    
+    if (any( is.nan(cross_valid$adj.values[,1]) | is.nan(cross_valid$adj.values[,2]))){
+      cross_valid$adj.values = cross_valid$adj.values[-which(is.nan(cross_valid$adj.values[,1])
+                                                             | is.nan(cross_valid$adj.values[,2])),]
+      
+    }
+    
+    
+    
+    #we save the mean posterior distribution for each and the true observed parameters
+    d_cross_param=rbind(d_cross_param,as_tibble(t(colMeans(cross_valid$adj.values)))%>%add_column(., Type="Sim"))
+    d_cross_param=rbind(d_cross_param,as_tibble((matrix_param[n_cross,]))%>%add_column(., Type="Obs"))
+    
+    #As we work with virtual data, we do the same for the summary stats we save the mean posterior distribution for each and the true observed parameters
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble(t(colMeans(cross_valid$ss)))%>%add_column(., Type="Sim"))
+    d_cross_sumstat=rbind(d_cross_sumstat,as_tibble((matrix_sumstat[n_cross,]))%>%add_column(., Type="Obs"))
+    
+    
+    #We compute the mean squared error (RMSE)
+    RMSE = sapply(1:ncol(cross_valid$adj.values),function(x){
+      sqrt(sum((cross_valid$adj.values[,x]-matrix_param[n_cross,x])**2)/nrow(cross_valid$adj.values) )
+    }
+    )
+    
+    #normalize it by the RMSE under the prior distribution
+    RMSE_prior=sapply(1:(ncol(matrix_param)),function(x){
+      sqrt(sum((matrix_param[,x]-matrix_param[n_cross,x])**2)/nrow(matrix_param) )
+    }
+    )
+    NRMSE = RMSE/RMSE_prior
+    
+    d_NRMSE_param=rbind(d_NRMSE_param,as_tibble(t(NRMSE)))
+    
+    
+    #We repeat the same for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+      sqrt(sum((cross_valid$ss[,x]-matrix_sumstat[n_cross,x])**2)/nrow(cross_valid$ss) )
+    }
+    )
+    
+    RMSE_prior=sapply(1:ncol(matrix_sumstat),function(x){
+      sqrt(sum((matrix_sumstat[,x]-matrix_sumstat[n_cross,x])**2)/nrow(matrix_sumstat) )
+    }
+    )
+    NRMSE = RMSE/RMSE_prior
+    
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+    
+  } #end loop Nvirtual data
+  
+  colnames(d_NRMSE_param)=colnames(d_cross_param)[-length(colnames(d_cross_param))]
+  
+  write.table(d_NRMSE_param,paste0("./Data/Best_sumstat/RMSE_selecting_sumstat_with_PLS.csv"),sep=";")
+  
+}
+
+
+
+## >> 2.4) Can we recover parameters and scale of observation in simulations ----
 
 #Validation of the ABC approach using simulations from the minimal model
 
@@ -778,6 +1148,269 @@ write.table(d_RMSE_param,"./Data/Scale_obs_indentifiability/Retrieving_parameter
 write.table(x_y_param,"./Data/Scale_obs_indentifiability/Retrieving_parameters_different_resolution_x_y.csv",sep=";")
 
 
+## >> 2.5) Influence of decreasing the spatial resolution of the empirical data ----
+# 
+# dir.create("./Data/Resolution",showWarnings = F)
+# 
+# Compute_stats_pooled_landscapes=function(id){
+#   list_mat=list.files("XXX/")
+#   change_resolution=c(1,2,3)
+#   
+#   name_mat=list_mat[id]
+#   
+#   pooled_landscapes=lapply(change_resolution,function(x){
+#     return(pooling(as.matrix(read.table(paste0("XXX/",name_mat),sep="\t")),x))
+#   })
+#   
+#   Change_in_spatial_resolution=c("No change","/2","/3")
+#   
+#   d_stat=tibble()
+#   #changing the resolution of the data and computing the spatial statistics
+#   for (spatial_res in change_resolution){
+#     d_stat=rbind(d_stat,
+#                  Get_sumstat(pooled_landscapes[[spatial_res]])%>%
+#                    add_column(., Resolution=Change_in_spatial_resolution[spatial_res])
+#                  )
+#   }
+#   
+#   write.table(d_stat%>%add_column(., ID=id),paste0("./XXXX/Stats_resolution_",id,".csv"),sep=";")
+#   
+# }
+# 
+# library(parallel)
+# mclapply(1:345,Compute_stats_pooled_landscapes,mc.cores = 20)
+# 
+# 
+# list_stats=list.files("./XXXX/","Stats_resolution")
+# d_stats=tibble()
+# 
+# for (k in list_stats){
+#   d_stats=rbind(d_stats,read.table(paste0("./XXXX/",k),sep=";"))
+# }
+# 
+# write.table(d_stats,"./Data/Resolution/Stats_resolution_landscapes.csv",sep=";")
+
+
+Run_ABC_resolution=function(spatial_res){
+  n_sim_kept=100
+  method_abc="rejection"
+  `%!in%` = Negate(`%in%`)
+  n_param=3
+  
+  d_biocom=read.table("./Data/Resolution/Stats_resolution_landscapes.csv",sep=";")%>%
+    dplyr::rename(., fmax_psd=fmax_PSD,cv_psd=CV_PSD)%>%
+    dplyr::arrange(., Resolution,ID)
+  
+  d_sim=read.table("./Data/Simulations.csv",sep=";",header=T)%>%
+    dplyr::relocate(., Pooling,.after =q )%>%
+    filter(., PL_expo>0)
+  
+  rownames(d_sim)=1:nrow(d_sim)
+  
+  
+  d_param_infer_NN=array(0,c(n_sim_kept,nrow(d_biocom)/3,3))
+  d_param_infer_rej=array(0,c(n_sim_kept,nrow(d_biocom)/3,3))
+  
+  d_NRMSE_sumstat=x_y_stat=tibble()
+  
+  
+  sumstat_kept=4:14
+  
+  range_empirical_id=((spatial_res-1)*345+1):(spatial_res*345)
+  
+  for (empirical_id in range_empirical_id){
+    print(empirical_id)    
+    target=d_biocom[empirical_id,sumstat_kept-3]
+    matrix_param=d_sim[,1:3]
+    
+    mat_sumstat=rbind(d_sim[,sumstat_kept],target)
+    
+    #1) Boxcox
+    
+    for (x in 1:ncol(mat_sumstat)){
+      if (any(is.na(target)) & x %!in% which(is.na(target))){
+        if (colnames(mat_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
+          
+          
+          
+          b=boxcox(lm(mat_sumstat[,x]+abs(min(mat_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat[,x] = (exp(mat_sumstat[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+        }else {
+          b=boxcox(lm(mat_sumstat[,x]+.5 ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat[,x] = (mat_sumstat[,x]^(lambda_x) -1)/(lambda_x)
+          }
+        }
+      }
+    }
+    
+    
+    #2) Scaling
+    
+    for (x in 1:ncol(mat_sumstat)) mat_sumstat[,x] = (mat_sumstat[,x]-mean(mat_sumstat[,x],na.rm = T))/sd(mat_sumstat[,x],na.rm = T)
+    
+    if (any(is.na(mat_sumstat[nrow(mat_sumstat),]))){
+      
+      which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
+      
+      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),-which_na],
+                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),-which_na], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat[nrow(mat_sumstat),],
+                      param = matrix_param[-nrow(mat_sumstat),],sumstat = mat_sumstat[-nrow(mat_sumstat),], #removing the target data
+                      tol = 1000/nrow(matrix_param),method = "rejection") #we keep the 1000 closest simulations for the first step
+    }
+    
+    
+    #Keeping 1000 simulations and doing the same steps again: normality, scaling and PLS
+    
+    mat_sumstat_step1=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
+    mat_sumstat_step1=rbind(mat_sumstat_step1,target)
+    
+    #again, first box cox
+    which_na=which(is.na(mat_sumstat[nrow(mat_sumstat),]))
+    
+    for (x in 1:ncol(mat_sumstat_step1)){
+      
+      if (any(which_na) & x %!in% which_na){
+        
+        if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
+          
+          b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
+          lambda_x=b$x[which.max(b$y)]
+          
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (exp(mat_sumstat_step1[,x]*(lambda_x)) -1)/(lambda_x)
+          }
+          
+        }else {
+          b=boxcox(lm(mat_sumstat_step1[,x] ~ 1),plotit = F,eps = .05)
+          lambda_x=b$x[which.max(b$y)]
+          if (lambda_x !=0){ #to avoid errors
+            mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]^(lambda_x) -1)/(lambda_x)
+          }
+        }
+      }
+    }
+    
+    #and normalization
+    for (x in 1:ncol(mat_sumstat_step1)) mat_sumstat_step1[,x] = (mat_sumstat_step1[,x]-mean(mat_sumstat_step1[,x],na.rm = T))/sd(mat_sumstat_step1[,x],na.rm = T)
+    
+    if (any(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))){
+      
+      which_na=which(is.na(mat_sumstat_step1[nrow(mat_sumstat_step1),]))
+      
+      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),-which_na],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),-which_na], #removing the target data
+                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T))
+      cross_valid$ss=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
+      
+      if (8 %in% which_na & 9 %in% which_na & 10 %in% which_na){
+        x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                         add_column(., PL_expo=NA,PLR=NA,cv_psd=NA, Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR )%>%
+                         dplyr::relocate(., cv_psd,.after =PL_expo ))
+        
+        x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                         add_column(.,PL_expo=NA,PLR=NA, cv_psd=NA,Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR )%>%
+                         dplyr::relocate(., cv_psd,.after =PL_expo ))
+        
+      } else if (8 %in% which_na & 9 %in% which_na ){
+        x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                         add_column(., PL_expo=NA,PLR=NA,Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+        x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                         add_column(.,PL_expo=NA,PLR=NA, Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+      } else if (8 %in% which_na & 9 %in% which_na ){
+        x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                         add_column(., PL_expo=NA,PLR=NA,Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+        x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                         add_column(.,PL_expo=NA,PLR=NA, Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
+                         dplyr::relocate(., PLR,.after =Spectral_ratio )%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+      } else{
+        x_y_stat=rbind(x_y_stat,target[-which_na]%>%
+                         add_column(., PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Obs")%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+        x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                         add_column(.,PL_expo=NA, Site_ID=empirical_id,Method="rejection",Type="Sim")%>%
+                         dplyr::relocate(., PL_expo,.after =PLR ))
+        
+      }
+      
+      
+      
+    }else {
+      cross_valid=abc(target = mat_sumstat_step1[nrow(mat_sumstat_step1),],
+                      param = cross_valid$unadj.values,
+                      sumstat = mat_sumstat_step1[-nrow(mat_sumstat_step1),], #removing the target data
+                      tol = n_sim_kept/nrow(mat_sumstat_step1),method = method_abc,transf = c(rep("logit",2),"none"), #as parameters are proba, we perform logit regression
+                      logit.bounds = matrix(c(0,1),3,2,byrow = T))
+      cross_valid$ss=d_sim[as.numeric(rownames(cross_valid$ss)),sumstat_kept] #we keep information with the true values
+      
+      x_y_stat=rbind(x_y_stat,target%>%
+                       add_column(., Site_ID=empirical_id,Method="rejection",Type="Obs"))
+      
+      x_y_stat=rbind(x_y_stat,as_tibble(t(colMeans(cross_valid$ss)))%>%
+                       add_column(.,Site_ID=empirical_id,Method="rejection",Type="Sim"))
+      
+    }
+    
+    
+    
+    mat_sumstat=d_sim[,sumstat_kept]
+    
+    #NRMSE for the summary statistics observed
+    RMSE = sapply(1:ncol(cross_valid$ss),function(x){
+      sqrt(sum((cross_valid$ss[,x]-target[,x])**2,na.rm = T)/nrow(cross_valid$ss) )
+    }
+    )
+    
+    RMSE_prior=sapply(1:ncol(mat_sumstat),function(x){
+      sqrt(sum((mat_sumstat[,x]-target[,x])**2,na.rm = T)/nrow(mat_sumstat) )
+    }
+    )
+    NRMSE = RMSE/RMSE_prior
+    
+    d_NRMSE_sumstat=rbind(d_NRMSE_sumstat,as_tibble(t(NRMSE)))
+    
+    d_param_infer_rej[,empirical_id,1]=cross_valid$unadj.values[,1] # we keep the whole distribution for p
+    d_param_infer_rej[,empirical_id,2]=cross_valid$unadj.values[,2] # for q
+    d_param_infer_rej[,empirical_id,3]=cross_valid$unadj.values[,3] # for the scale of observation
+  }
+  
+  write.table(d_NRMSE_sumstat,paste0("./Data_new/Eby/Resolution/NRMSE_sumstat_",spatial_res,".csv"),sep=";")
+  write.table(x_y_stat,paste0("./Data_new/Eby/Resolution/x_y_stat_",spatial_res,".csv"),sep=";")
+  write.table(d_param_infer_rej,paste0("./Data_new/Eby/Resolution/posterior_param_",spatial_res,".csv"),sep=";")
+}
+
+library(parallel)
+mclapply(1:3,Running_ABC_resolution,mc.cores = 3)
+
+
+
 # ---------------------- Step 3: Running mixed effects models ----
 ## >> 1) Without facilitation ----
 
@@ -825,7 +1458,7 @@ d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")%>%
 d=cbind(d,d2)
 
 
-d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
+d2=tibble(p=logit(d$median_p),
           q=logit(d$median_q),
           Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
           abs_dist=scale(log(d$abs_median))[,1],
@@ -850,7 +1483,7 @@ mod_predictors=gsub("\n     ","","Aridity + MF + Sand +
 d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
 d_info_model=list(global_R2=tibble(),R2_partial_res=tibble(),Vif=tibble(),Moran=tibble(),Effects=tibble())
 
-for (response_var in c("abs_dist","rela_dist")){
+for (response_var in c("abs_dist","rela_dist","q","p")){
   
   model_abs=(lmer(formula = paste(response_var," ~ ",mod_predictors), data = d2)) #fitting the model
   
@@ -979,7 +1612,7 @@ d2=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")%>%
 d=cbind(d,d2)
 
 
-d2=tibble(p=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$mean_p[x],d$sd_p[x]))}))[,1],
+d2=tibble(p=logit(d$median_p),
           q=logit(d$median_q),
           Size_tipping=scale(sapply(1:nrow(d),function(x){return(rnorm(1,d$Size_mean[x],d$Size_sd[x]))}))[,1],
           abs_dist=scale(log(d$abs_median))[,1],
@@ -1006,6 +1639,7 @@ mod_predictors=gsub("\n     ","","Aridity + MF + Sand + Facilitation +
 model_abs=(lmer(formula = paste("abs_dist ~ ",mod_predictors), data = d2)) #fitting the model
 model_rela=(lmer(formula = paste("rela_dist ~ ",mod_predictors), data = d2)) #fitting the model
 model_q=(lmer(formula = paste("q ~ ",mod_predictors), data = d2)) #fitting the model
+model_p=(lmer(formula = paste("p ~ ",mod_predictors), data = d2)) #fitting the model
 model_cover=(lmer(formula = paste("Cover ~ ",mod_predictors), data = d2)) #fitting the model
 
 d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
@@ -1044,6 +1678,39 @@ d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
                                     Response="rela_dist",
                                     Resids=resid_mod$res$visregRes))
 
+# Facilitation: q
+
+resid_mod=visreg::visreg(fit = model_q,xvar="Facilitation",plot=F) 
+boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+
+d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
+                                  tibble(Driver_name="Facilitation",
+                                         Response="q",
+                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation)),
+                                         pval=get_bootstrapped_pval(boot_AI$t[,1])))
+
+d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
+                             tibble(Driver_value=resid_mod$res$Facilitation,
+                                    Driver_name="Facilitation",
+                                    Response="q",
+                                    Resids=resid_mod$res$visregRes))
+
+# Facilitation: p
+
+resid_mod=visreg::visreg(fit = model_p,xvar="Facilitation",plot=F) 
+boot_AI = boot(data=resid_mod$res, statistic=boot_function_lm, R=1000, formula=visregRes~Facilitation)
+
+d_info_model$R2_partial_res=rbind(d_info_model$R2_partial_res,
+                                  tibble(Driver_name="Facilitation",
+                                         Response="p",
+                                         R2=rsq(lm(data=resid_mod$res,visregRes~Facilitation)),
+                                         pval=get_bootstrapped_pval(boot_AI$t[,1])))
+
+d_mod$Partial_res_data=rbind(d_mod$Partial_res_data,
+                             tibble(Driver_value=resid_mod$res$Facilitation,
+                                    Driver_name="Facilitation",
+                                    Response="p",
+                                    Resids=resid_mod$res$visregRes))
 
 saveRDS(d_mod,"./Data/Drivers_stability_metrics_data_uncertainty_with_facilitation.rds")
 saveRDS(d_info_model,"./Data/Properties_models.rds")
@@ -1321,7 +1988,7 @@ mean_trend=climatic_data%>%
   dplyr::summarise(., .groups = "keep",mean_trend=mean(trend))
 
 write.table(mean_trend,"./Data/Climatic_data/mean_aridity_trend.csv",sep=";")
-
+write.table(climatic_data,"./Data/Climatic_data/aridity_trend_all_models.csv",sep=";")
 
 
 # ---------------------- Step 7: Validation using simulations ----

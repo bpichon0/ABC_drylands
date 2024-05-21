@@ -3,7 +3,7 @@ x = c("tidyverse", "ggpubr", "latex2exp", "deSolve", "reshape2", "simecol",
       "ggquiver", "scales","boot","RColorBrewer","ggnewscale","cluster","pls",
       "MuMIn","png","car","ggtext","Hmisc","lme4","car","spdep","psych",
       "factoextra","FactoMineR","missMDA","GGally","diptest","raster","ape","abctools","viridis","rsq",
-      "gradientForest","extendedForest","rfPermute","A3","semEff","piecewiseSEM"
+      "gradientForest","extendedForest","rfPermute","A3","semEff","piecewiseSEM","ggrepel","mclust"
 )
 
 source("https://gist.githubusercontent.com/benmarwick/2a1bb0133ff568cbe28d/raw/fb53bd97121f7f9ce947837ef1a4c65a73bffb3f/geom_flat_violin.R")
@@ -25,7 +25,22 @@ the_theme=theme_classic()+theme(legend.position = "bottom",
                                 strip.text.y = element_text(size = 10, angle = -90, face = "italic"),
                                 strip.text.x = element_text(size = 10, face = "italic"),
                                 legend.text = element_text(size = 10))
-title_distance=expression(paste("Distance to the tipping point",italic(" (Dist)")))
+
+
+the_theme2 = theme_classic() + theme(
+  legend.position = "bottom",
+  panel.border = element_rect(colour = "black", fill=NA),
+  strip.background = element_rect(fill = "transparent",color="transparent"),
+  strip.text.y = element_text(size = 10, angle = -90),
+  strip.text.x = element_text(size = 10),title = element_text(size=8),
+  axis.title.y=element_text(size = 10),
+  axis.title.x=element_text(size = 10),
+  #legend.box="vertical",
+  legend.text = element_text(size = 10), text = element_text(family = "NewCenturySchoolbook")
+)
+
+
+title_distance=expression(paste("Distance to the desertification point",italic(" (Dist)")))
 
 # Useful functions ----
 my_pal=function(n){
@@ -101,7 +116,6 @@ Plot_landscape=function(landscape,txt="",col_img="black"){
   }
 }
 
-
 Plot_hist_simu_obs=function(simu, obs){
   par(mfrow=c(3,3))
   par(mar=rep(4,4))
@@ -169,6 +183,25 @@ pooling=function(mat, submatrix_size) {
   return(pooling_matrix)
 }
 
+pooling2=function(mat, submatrix_size) {
+  
+  pooling_matrix=matrix(nrow = floor(nrow(mat)/submatrix_size), 
+                        ncol = floor(ncol(mat)/submatrix_size), 
+                        dimnames = NULL)
+  
+  for (i in 1:nrow(pooling_matrix)) {
+    for (j in 1:ncol(pooling_matrix)) {
+      start_row=(i-1) * submatrix_size + 1
+      end_row=start_row + submatrix_size - 1
+      start_col=(j-1) * submatrix_size + 1
+      end_col=start_col + submatrix_size - 1
+      
+      pooling_matrix[i, j]=mean(mat[start_row:end_row, start_col:end_col])>=.5
+    }
+  }
+  return(pooling_matrix)
+}
+
 inverse_pooling=function(mat, submatrix_size) {
   n=nrow(mat)
   m=ncol(mat)
@@ -226,10 +259,6 @@ Filtering_small_patches=function(mat,cutoff=30){
   mat_clump_veg[mat_clump_veg>1]=1
   return (mat_clump_veg)
 }
-
-
-
-
 
 Boxcox_and_scale=function(d){
   
@@ -311,5 +340,15 @@ Aggregate_importance=function(importance_mod,n_models="nmod"){
   return(d)
 }
 
+Get_empirical_site=function(id){
+  d_biocom=read.table("../Data/Data_Biocom/biocom_data.csv",sep=";")
+  return(as.matrix(read.table(paste0("../Data/Data_Biocom/landscapes/",d_biocom$File_ID[id],".txt"))))
+}
 
-
+#ODE of the meanfield model
+ODE_MF = function(t,y,param){ 
+  p=param[1]
+  q=param[2]
+  dy=y * (1 - y) * p + (y**2) * (1 - y) * q - (1 - p) * y * (1-y) - (1 - q) * (y**2) 
+  return(list(c(dy)))
+}
