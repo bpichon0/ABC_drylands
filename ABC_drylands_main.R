@@ -3,6 +3,9 @@ source("./ABC_drylands_function.R")
 
 # ---------------------- Step 0: Analyzing the MF of the model ----
 
+"Mean field approach of the model. Performing the ODE simulations and saving it"
+
+
 p_q_grid=expand.grid(p=seq(0,1,length.out=200),
                      q=seq(0,1,length.out=200))
 
@@ -39,8 +42,9 @@ for (q_id in unique(d$q)[c(1,100,140)]){
 write.table(d,"./Data/Mean_field_data.csv",sep=";")
 
 # ---------------------- Step 0bis: Merging simulations ----
-#Once simulations are made (using the Sim_ABC_main.jl file),
-#please run this script to merge all simulations into a single dataframe.
+
+"Once simulations are made (using the Sim_ABC_main.jl file),
+please run this script to merge all simulations into a single dataframe."
 
 d_simu=tibble()
 n_param=2
@@ -73,6 +77,9 @@ write.table(d,"./Data/Simulations.csv",sep=";")
 # ---------------------- Step 1: Inference, running ABC ----
 ## >> 1.1) Inference parameters ----
 #Running the esimtation of parameters of all sites
+
+"ONce all simulations have been made, we perform ABC using a two step procedure explained in the paper. 
+This allows getting a posterior distribution of parameters of each image (id)."
 
 Running_ABC=function(id,n_sim_kept=100){
   method_abc="rejection"
@@ -110,7 +117,7 @@ Running_ABC=function(id,n_sim_kept=100){
       if (any(is.na(target)) & x %!in% which(is.na(target))){
         if (colnames(mat_sumstat)[x] %in% c("skewness","moran_I","fmax_psd")){
           
-          
+          "First boxcox transformation"
           
           b=boxcox(lm(mat_sumstat[,x]+abs(min(mat_sumstat[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
           lambda_x=b$x[which.max(b$y)]
@@ -161,6 +168,7 @@ Running_ABC=function(id,n_sim_kept=100){
       if (any(which_na) & x %!in% which_na){
         
         if (colnames(mat_sumstat_step1)[x] %in% c("skewness","moran_I","fmax_psd")){
+          "second boxcox transformation"
           
           b=boxcox(lm(mat_sumstat_step1[,x]+abs(min(mat_sumstat_step1[,x]))+.5 ~ 1),plotit = F,eps = .05)     #Working with positive values
           lambda_x=b$x[which.max(b$y)]
@@ -255,7 +263,8 @@ mclapply(1:8,Running_ABC,mc.cores = 8)
 
 ## >> 1.2) Selecting relevant empirical data ----
 
-#Testing for bimodality in the posterior distribution of parameters, keeping only a fraction of all sites
+"Testing for bimodality using diptest in the posterior distribution of parameters (e.g. due to different vegetation type),
+keeping only a fraction of all sites"
 library(diptest)
 post_param=read.table("./Data/posterior_param.csv",sep=";")
 
@@ -291,7 +300,7 @@ for (site in list.files("./Data/Prediction/","Dist")){
     }
     pred$ID_sim[x]=index
   }
-  p_desert=sapply(unique(pred$ID_sim),function(x){
+  p_desert=sapply(unique(pred$ID_sim),function(x){ "last parameter p at which there is vegetation "
     d_fil=filter(pred,ID_sim==x,cover>0)
     if (any(d_fil$cover>0)){
       return(d_fil$p[1])
@@ -300,17 +309,17 @@ for (site in list.files("./Data/Prediction/","Dist")){
     }
   }) 
   
-  p_infer=sapply(unique(pred$ID_sim),function(x){
+  p_infer=sapply(unique(pred$ID_sim),function(x){  "estimated parameter p "
     d_fil=filter(pred,ID_sim==x)
     return(d_fil$p[nrow(d_fil)])
   }) 
   
-  q_infer=sapply(unique(pred$ID_sim),function(x){
+  q_infer=sapply(unique(pred$ID_sim),function(x){ "estimated parameter q "
     d_fil=filter(pred,ID_sim==x)
     return(d_fil$q[nrow(d_fil)])
   }) 
   
-  size_tipping=sapply(unique(pred$ID_sim),function(x){
+  size_tipping=sapply(unique(pred$ID_sim),function(x){ 
     d_fil=filter(pred,ID_sim==x)
     if (any(d_fil$cover>0)){
       return(d_fil$cover[1])
@@ -408,6 +417,9 @@ write.table(d,"./Resilience_metrics_with_p_q.csv",sep=";")
 # ---------------------- Step 2: Methodology around inference ----
 ## >> 2.1) Influence of the number of simulation kept ----
 
+"We test the influence of the number of simulations kept on the quality of the estimation. 
+For each number of simulation kept we perform ABC"
+
 dir.create("./Data/NRMSE",showWarnings = F)
 d_all=read.table("./Data/Simulations.csv",sep=";",header = T)%>%
   filter(., Pooling==1)%>%
@@ -421,7 +433,7 @@ set.seed(123)
 nrow_for_sample=sample(c(1:nrow(d_all)),N_for_cross_validation,replace = F)
 
 
-for (NA_kept in c(50,100,150,200,250)){
+for (NA_kept in c(50,100,150,200,250)){ #number of simulations kept
   
   
   d_cross_param=d_cross_sumstat=d_NRMSE_param=d_NRMSE_sumstat=tibble()
@@ -606,7 +618,7 @@ for (NA_kept in c(50,100,150,200,250)){
 
 ## >> 2.2) Selecting the best summary statistics ----
 
-#Testing different subsets of summary statistics
+#Testing different subsets of summary statistics and performing ABC for each subset
 
 dir.create("./Data/Best_sumstat",showWarnings = F)
 
@@ -1416,7 +1428,7 @@ mclapply(1:3,Running_ABC_resolution,mc.cores = 3)
 
 #LME models without facilitation in the dataset
 
-boot_function_lm = function(formula, data, indices) {
+boot_function_lm = function(formula, data, indices) {#bootstrap function
   d = data[indices,] 
   fit = lm(formula, data=d) 
   return(summary(fit)$coefficient[2,1])
@@ -1483,6 +1495,8 @@ mod_predictors=gsub("\n     ","","Aridity + MF + Sand +
 d_mod=list(Boot_effects=tibble(),Partial_res_data=tibble())
 d_info_model=list(global_R2=tibble(),R2_partial_res=tibble(),Vif=tibble(),Moran=tibble(),Effects=tibble())
 
+
+#we run the model for each response variable
 for (response_var in c("abs_dist","rela_dist","q","p")){
   
   model_abs=(lmer(formula = paste(response_var," ~ ",mod_predictors), data = d2)) #fitting the model
@@ -1791,6 +1805,8 @@ save=d2[as.numeric(names(resid_model)),]%>% #add it to the dataframe
   add_column(., Resid_mod=resid_model)
 
 d_sem=save
+
+#merging all models into the sem 
 SEM_distance=psem(
   lm(Resid_mod ~ Cover + Moran_I, d_sem),
   lmer(Cover ~ (1|Plot_n) + Aridity  + MF, d_sem),
@@ -1800,6 +1816,7 @@ SEM_distance=psem(
 )
 summary(SEM_distance)
 
+#making some bootstrap
 SEM_distance_boot = bootEff(SEM_distance, R = 1000, seed = 13, parallel = "snow",ran.eff = "Plot_n",ncpus = 50)
 saveRDS(SEM_distance_boot,"./Data/SEM_boot_without_facilitation.rds")
 
@@ -1862,88 +1879,7 @@ Total_effects=rbind(tibble(q1=apply(effect_on_moran$Total[,-1],2,quantile,.025),
 write.table(Total_effects,"./Data/Total_effects_without_facilitation.csv",sep=";")
 write.table(Direct_effects,"./Data/Direct_effects_without_facilitation.csv",sep=";")
 
-# ---------------------- Step 5: Bootstrap AIC Moran I/Cover ----
-
-#TEsting whether cover and/or spatial autocrrelation best predict the distance to the desertification point
-
-#with data uncertainty
-d=read.table("./Data/Resilience_metrics_1_neigh.csv",sep=";")
-post_param=read.table("./Data/posterior_param.csv",sep=";")
-# summarizing information in each site
-d=d%>%
-  dplyr::group_by(., Site,MF,aridity,Sand)%>%
-  dplyr::summarise(., .groups = "keep",abs_dis50=quantile(pinfer-pcrit,na.rm = T,.5),
-                   abs_dis25=quantile(pinfer-pcrit,na.rm = T,.25),
-                   abs_dis75=quantile(pinfer-pcrit,na.rm = T,.75),
-                   relativ_dis50=quantile((pinfer-pcrit)/pinfer,na.rm = T,.5),
-                   relativ_dis25=quantile((pinfer-pcrit)/pinfer,na.rm = T,.25),
-                   relativ_dis75=quantile((pinfer-pcrit)/pinfer,na.rm = T,.75),
-                   Size_tipping50=quantile(Size_tipping,na.rm = T,.5),
-                   Size_tipping25=quantile(Size_tipping,na.rm = T,.25),
-                   Size_tipping75=quantile(Size_tipping,na.rm = T,.75),
-                   abs_sd=sd(pinfer-pcrit,na.rm = T),
-                   abs_mean=mean(pinfer-pcrit,na.rm = T),
-                   relativ_mean=mean((pinfer-pcrit)/pinfer,na.rm = T),
-                   relativ_sd=sd((pinfer-pcrit)/pinfer,na.rm = T),
-                   Size_mean=mean(Size_tipping,na.rm = T),
-                   Size_sd=sd(Size_tipping,na.rm = T)
-  )%>%
-  arrange(., Site)%>%
-  add_column(.,ID=1:nrow(.),Cover=d_biocom$Cover[.$Site],
-             Plot_n=d_biocom$Plot_n[.$Site],
-             mean_p = colMeans(post_param[,.$Site]),
-             mean_q = colMeans(post_param[,.$Site+345]),
-             sd_p = apply(post_param[,.$Site],2,sd),
-             sd_q = apply(post_param[,.$Site+345],2,sd),
-             median_p = apply(post_param[,.$Site],2,median),
-             median_q = apply(post_param[,.$Site+345],2,median),
-             q_25 = apply(post_param[,.$Site+345],2,quantile,.25),
-             q_75 = apply(post_param[,.$Site+345],2,quantile,.75))
-
-d2=tibble(p=logit(d$median_p),
-          q=logit(d$median_q),
-          moran_I=scale(d_biocom$moran_I[keep_sites])[,1],
-          abs_dist=scale(log(d$abs_dis50))[,1],
-          rela_dist=scale(log(d$relativ_dis50))[,1],
-          Site=d$Site,
-          Cover=scale(d$Cover)[,1],
-          Plot_n=d$Plot_n)
-
-#Comparing cover + spatial structure with only cover to see whether spatial structure helps to indicate distance or
-#size of tipping point
-
-n_boot=500
-d_AIC=tibble()
-for (k in 1:n_boot){
-  
-  data_sampled=d2[sample(1:nrow(d2),replace = T),]
-  
-  #models for cover
-  model_abs_cover=(data_sampled%>% lmer(formula = paste("abs_dist ~ Cover + ( 1 | Plot_n)"), data = .))
-  model_rela_cover=(data_sampled%>% lmer(formula = paste("rela_dist ~ Cover + ( 1 | Plot_n)"), data = .))
-  
-  #models for moran_I+cover
-  model_abs_both=(data_sampled%>% lmer(formula = paste("abs_dist ~ moran_I + Cover + ( 1 | Plot_n)"), data = .))
-  model_rela_both=(data_sampled%>% lmer(formula = paste("rela_dist ~ moran_I + Cover + ( 1 | Plot_n)"), data = .))
-  
-  #models for moran_I
-  model_abs_q=(data_sampled%>% lmer(formula = paste("abs_dist ~ moran_I + ( 1 | Plot_n)"), data = .))
-  model_rela_q=(data_sampled%>% lmer(formula = paste("rela_dist ~ moran_I + ( 1 | Plot_n)"), data = .))
-  
-  AIC_abs=AIC(model_abs_cover,model_abs_both,model_abs_q)
-  AIC_rela=AIC(model_rela_cover,model_rela_both,model_rela_q)
-  d_AIC=rbind(d_AIC,tibble(AIC=c(AIC_abs$AIC,AIC_rela$AIC),
-                           Stability=rep(c("Absolute distance","Relative distance"),each=3),
-                           Predictor=rep(c("Cover","Cover + Spatial \n structure","Spatial \n structure"),2),
-                           ID=k))
-  
-}
-
-write.table(d_AIC,"./Data/Cover_vs_spatial_structure_data_uncertainty.csv",sep=";")
-
-
-
-# ---------------------- Step 6: Climatic projections ----
+# ---------------------- Step 5: Climatic projections ----
 
 #climatic data downloaded from https://cds.climate.copernicus.eu/cdsapp#!/dataset/sis-biodiversity-cmip5-global?tab=form
 #Then climatic data have to be put in ./Data/Climatic_data/ folder
@@ -1991,10 +1927,11 @@ write.table(mean_trend,"./Data/Climatic_data/mean_aridity_trend.csv",sep=";")
 write.table(climatic_data,"./Data/Climatic_data/aridity_trend_all_models.csv",sep=";")
 
 
-# ---------------------- Step 7: Validation using simulations ----
+# ---------------------- Step 6: Validation using simulations ----
 ## >> 1) Kefi dryland model ----
 #First the distance predicted by the kefi model
 
+"We compare the distance estimated in the Kefi model with the one from our approach"
 
 dist_kefi=tibble()
 for (site in list.files("./Data/Model_confirmation_Kefi/Dist_kefi","Dist")){
@@ -2167,6 +2104,7 @@ saveRDS(list(d_spearman=d_spearman,
 
 
 #First the distance predicted by the guichard model
+"We compare the distance estimated in the Guichard model with the one from our approach"
 
 
 dist_guichard=tibble()

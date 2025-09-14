@@ -89,6 +89,8 @@ pmap(Run_sim_model_EWS, 1:1200) #1200*200 pairs of parameters
 
 #region, Step 2: Computing the distance to a tipping point
 
+# Code to compute the distance to the tipping point from images and estimated parameters.
+# We start from estimated parameters and decrease parameter p until desertification happens (no more vegetation cover)
 
 using Distributed
 
@@ -125,7 +127,7 @@ end
         param[1] = post_p[sample_row]
         param[2] = post_q[sample_row]
 
-        p_to_desert = push!(collect(0:step_size:param[1]),param[1])
+        p_to_desert = push!(collect(0:step_size:param[1]),param[1]) #decreasing parameter p
 
         for pcrit_id in 1:length(p_to_desert)
 
@@ -161,7 +163,7 @@ pmap(Distance_tipping, sites)
 #endregion
 #region, Step 3: Sensitivity to system size (# of pixels)
 
-
+# Testing different system size in terms of number of pixels on the spatial statistics
 
 addprocs(10, exeflags="--project=$(Base.active_project())")
 
@@ -241,6 +243,8 @@ pmap(Run_sim_model_EWS, 1:10) #randomly selected parameter sets
 
 #region, Step 4: Bifurcation diagrams with q
 
+# Same as step 2 but with varying q instead of p. We refer to step 2 for details 
+
 using Distributed
 
 addprocs(40, exeflags="--project=$(Base.active_project())")
@@ -317,6 +321,7 @@ pmap(Distance_tipping, sites)
 
 #region, Step 5: Bifurcation diagrams with q and p simultaneously
 
+# Same as step 2 but with varying q and p together instead of p alone. We refer to step 2 for details 
 
 
 using Distributed

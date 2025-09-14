@@ -294,7 +294,6 @@ Boxcox_and_scale=function(d){
 
 Get_psd=function(id){
   psd_mat=sort(spatialwarnings::patchsizes(Get_empirical_site(id)>0))
-  print(psd_mat)
   return(psd_mat)
 }
 
